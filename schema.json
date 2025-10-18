@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Generated Schema for Data",
+    "description": "Automatically generated schema from data.json",
+    "type": "object",
+    "properties": {
+        "Request": {
+            "title": "Request",
+            "type": "object",
+            "properties": {
+                "ClientInfo": {
+                    "title": "ClientInfo",
+                    "type": "object",
+                    "properties": {
+                        "INN": {
+                            "title": "INN",
+                            "type": "string"
+                        },
+                        "KPP": {
+                            "title": "KPP",
+                            "type": "string"
+                        },
+                        "OGRNIP": {
+                            "title": "OGRNIP",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "INN",
+                        "KPP",
+                        "OGRNIP"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "ClientInfo"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "required": [
+        "Request"
+    ],
+    "additionalProperties": false
+}

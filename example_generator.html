@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSON Example Generator from Schema</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: calc(100vh - 40px); }
+        h2 { margin-top: 0; }
+        .container { display: flex; flex: 1; overflow: hidden; gap: 10px; }
+        .panel { display: flex; flex-direction: column; width: 50%; }
+        textarea { width: 100%; flex: 1; font-family: monospace; font-size: 14px; box-sizing: border-box; margin-top: 10px; }
+        button { padding: 10px 15px; cursor: pointer; margin-bottom: 10px; }
+        #error-panel { display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; margin-bottom: 10px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<h2>Генератор примера JSON из JSON Schema</h2>
+<p>Вставьте вашу JSON Schema в левое поле и нажмите кнопку для генерации примера JSON.</p>
+
+<button id="generateBtn">Сгенерировать пример</button>
+<div id="error-panel"></div>
+
+<div class="container">
+    <div class="panel">
+        <label for="schema-input">Входная JSON Schema:</label>
+        <textarea id="schema-input" placeholder="Вставьте сюда JSON Schema..."></textarea>
+    </div>
+    <div class="panel">
+        <label for="json-output">Сгенерированный JSON:</label>
+        <textarea id="json-output" readonly></textarea>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+    $(function () {
+        const errorPanel = $('#error-panel');
+
+        $('#generateBtn').on('click', function() {
+            errorPanel.hide();
+            const schemaText = $('#schema-input').val();
+            if (!schemaText.trim()) {
+                alert("Пожалуйста, вставьте JSON Schema.");
+                return;
+            }
+
+            $.ajax({
+                url: '/api/generate-example',
+                type: 'POST',
+                contentType: 'application/json',
+                data: schemaText,                 // <-- Первое исправление
+                dataType: 'text',                 // <-- Добавленное улучшение
+                success: function(responseText) { // Теперь мы знаем, что это точно текст
+                    // Так как dataType: 'text', responseText - это просто строка с сервера.
+                    // Ничего не нужно преобразовывать, просто вставляем ее.
+                    $('#json-output').val(responseText);
+                },
+                error: function(xhr) {
+                    // Ошибка может быть в JSON или в тексте, пробуем оба варианта
+                    let errorMessage = xhr.responseText;
+                    try {
+                        const errorObj = JSON.parse(xhr.responseText);
+                        if (errorObj && errorObj.message) {
+                            errorMessage = errorObj.message;
+                        }
+                    } catch (e) {
+                        // Оставляем как есть, это был не JSON
+                    }
+                    errorPanel.text('Ошибка генерации примера: ' + errorMessage).show();
+                }
+            });
+        });
+
+        const exampleSchema = `{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "$ref": "#/definitions/SmartDiscountDeactivationRQ",
+    "definitions": {
+        "SmartDiscountDeactivationRQ": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "clientId": {
+                    "type": "string",
+                    "description": "Идентификатор Клиента. Берётся из сессии",
+                    "pattern": "^[0-9]+$"
+                },
+                "authId": {
+                    "type": "string",
+                    "description": "Идентификатор пользователя. Берётся из сессии",
+                    "pattern": "^[0-9]+$"
+                },
+                "account": {
+                    "type": "string",
+                    "description": "Номер расчетного счета, от которого необходимо отключить опцию \\"Умная скидка\\"",
+                    "maxLength": 20,
+                    "pattern": "^[0-9]+$"
+                },
+                "clientTransactionId": {
+                    "type": "string",
+                    "description": "Идентификатор документа в ДБО СМБ",
+                    "pattern": "^[0-9]+$"
+                },
+                "inn": {
+                    "type": "string",
+                    "description": "ИНН клиента",
+                    "pattern": "^([0-9]{10}|[0-9]{12})$"
+                }
+            },
+            "required": [
+                "clientId",
+                "authId",
+                "account",
+                "clientTransactionId",
+                "inn"
+            ],
+            "title": "SmartDiscountDeactivationRQ"
+        }
+    }
+}`;
+        $('#schema-input').val(exampleSchema);
+    });
+</script>
+
+</body>
+</html>

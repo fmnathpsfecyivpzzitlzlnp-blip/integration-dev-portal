@@ -1,0 +1,38 @@
+Timestamp: Wed Oct 08 13:33:39 MSK 2025
+Request Body:
+
+        {
+            "user": {
+                "id": "1004",
+                "name": "Bob"
+            },
+            "transactionId": "31382523-4332-497a-a960-756e01f63471"
+        }
+    
+---------------------------------
+Response Status: 200
+Response Body:
+{
+  "args": {}, 
+  "data": "\n        {\n            \"user\": {\n                \"id\": \"1004\",\n                \"name\": \"Bob\"\n            },\n            \"transactionId\": \"31382523-4332-497a-a960-756e01f63471\"\n        }\n    ", 
+  "files": {}, 
+  "form": {}, 
+  "headers": {
+    "Accept": "application/json", 
+    "Content-Length": "190", 
+    "Content-Type": "application/json", 
+    "Host": "httpbin.org", 
+    "User-Agent": "Java-http-client/17.0.11", 
+    "X-Amzn-Trace-Id": "Root=1-68e63e03-03b0b3fb0c2c6e534a1bfbc0"
+  }, 
+  "json": {
+    "transactionId": "31382523-4332-497a-a960-756e01f63471", 
+    "user": {
+      "id": "1004", 
+      "name": "Bob"
+    }
+  }, 
+  "origin": "95.165.26.118", 
+  "url": "https://httpbin.org/post"
+}
+

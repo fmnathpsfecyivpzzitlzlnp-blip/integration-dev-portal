@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Groovy JSON/XML Editor</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+    <style>
+        /* Стили немного адаптированы для встраивания в iframe */
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .panel { padding: 10px; box-sizing: border-box; }
+        #text-panel { width: 50%; display: flex; flex-direction: column; }
+        #tree-panel { width: 50%; border-left: 1px solid #ccc; overflow: auto; }
+        textarea { width: 100%; flex: 1; font-family: monospace; font-size: 14px; }
+        .controls, .db-controls, .url-controls, .converter-controls { padding: 10px; background: #f0f0f0; border-bottom: 1px solid #ccc; flex-shrink: 0; }
+        .db-controls input, .url-controls input { margin-right: 5px; }
+        .url-controls input[type=text] { width: 400px; }
+        button { margin-right: 10px; }
+        .hotkeys { font-size: 0.8em; color: #555; margin-top: 5px; }
+
+        #error-panel {
+            display: none; padding: 10px; margin-top: -1px; background-color: #ffebee;
+            color: #c62828; border: 1px solid #c62828; font-family: monospace; white-space: pre-wrap;
+        }
+        #error-panel .error-title { font-weight: bold; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <label>Формат: <select id="formatSelector"><option value="json">JSON</option><option value="xml">XML</option></select></label>
+    <button id="parseBtn">1. Разобрать (Ctrl+P)</button>
+    <button id="serializeBtn">2. Собрать (формат.) (Ctrl+S)</button>
+    <button id="minifyBtn">3. Собрать (сжато)</button>
+    <div class="hotkeys">Горячие клавиши работают, когда фокус не в текстовых полях.</div>
+</div>
+
+<div id="error-panel"></div>
+
+<div class="converter-controls">
+    <label>Конвертировать:</label>
+    <button id="toJsonBtn">XML &rarr; JSON</button>
+    <button id="toXmlBtn">JSON &rarr; XML</button>
+</div>
+
+<div class="url-controls">
+    <label>Загрузить по URL:</label>
+    <input type="text" id="urlInput" placeholder="http://.../data.json">
+    <button id="fetchBtn">Загрузить</button>
+</div>
+
+<div class="db-controls">
+    <label>Сохраненные документы:</label>
+    <select id="docSelector"></select>
+    <button id="loadBtn">Загрузить</button>
+    <button id="deleteBtn">Удалить</button>
+    <hr style="margin: 10px 0;">
+    <label>Имя для сохранения:</label>
+    <input type="text" id="docNameInput" placeholder="Введите имя...">
+    <button id="saveBtn">Сохранить на сервере</button>
+</div>
+
+<div class="container">
+    <div id="text-panel" class="panel">
+        <textarea id="text-input" placeholder="Вставьте сюда JSON или XML..."></textarea>
+    </div>
+    <div id="tree-panel" class="panel">
+        <div id="tree-view"></div>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+<script>
+    $(function () {
+        $('#tree-view').jstree({
+            "core": {
+                "check_callback": true,
+                "data": []
+            },
+            "plugins": ["contextmenu", "dnd", "state", "types", "wholerow"],
+            "contextmenu": {
+                "items": function(node) {
+                    var tree = $("#tree-view").jstree(true);
+                    var items = {
+                        "create": {
+                            "label": "Создать...",
+                            "action": false,
+                            "submenu": {
+                                "create_kv": {
+                                    "label": "Ключ/Значение",
+                                    "action": function (data) {
+                                        var inst = $.jstree.reference(data.reference);
+                                        var parentNode = inst.get_node(data.reference);
+                                        var newNodeText = "new_key: null";
+                                        inst.create_node(parentNode, { text: newNodeText, data: { type: 'null' } }, "last", function (newNode) {
+                                            setTimeout(function () { inst.edit(newNode); }, 0);
+                                        });
+                                    }
+                                },
+                                "create_object": {
+                                    "label": "Объект { }",
+                                    "action": function (data) {
+                                        var inst = $.jstree.reference(data.reference);
+                                        var parentNode = inst.get_node(data.reference);
+                                        var newNodeText = "new_object";
+                                        inst.create_node(parentNode, { text: newNodeText, data: { type: 'object' }, children: [] }, "last", function (newNode) {
+                                            setTimeout(function () { inst.edit(newNode); }, 0);
+                                        });
+                                    }
+                                },
+                                "create_array": {
+                                    "label": "Массив [ ]",
+                                    "action": function (data) {
+                                        var inst = $.jstree.reference(data.reference);
+                                        var parentNode = inst.get_node(data.reference);
+                                        var newNodeText = "new_array";
+                                        inst.create_node(parentNode, { text: newNodeText, data: { type: 'array' }, children: [] }, "last", function (newNode) {
+                                            setTimeout(function () { inst.edit(newNode); }, 0);
+                                        });
+                                    }
+                                }
+                            }
+                        },
+                        "rename": {
+                            "label": "Переименовать / Изменить",
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference);
+                                inst.edit(inst.get_node(data.reference));
+                            }
+                        },
+                        "delete": {
+                            "label": "Удалить",
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference);
+                                inst.delete_node(inst.get_selected());
+                            }
+                        },
+                        "sep1": { "separator_before": true, "label": "", "_disabled": true },
+                        "cut": {
+                            "label": "Вырезать",
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference);
+                                var obj = inst.get_node(data.reference);
+                                if(inst.is_selected(obj)) { inst.cut(inst.get_top_selected()); }
+                                else { inst.cut(obj); }
+                            }
+                        },
+                        "copy": {
+                            "label": "Копировать",
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference);
+                                var obj = inst.get_node(data.reference);
+                                if(inst.is_selected(obj)) { inst.copy(inst.get_top_selected()); }
+                                else { inst.copy(obj); }
+                            }
+                        },
+                        "paste": {
+                            "label": "Вставить",
+                            "_disabled": function (data) { return !$.jstree.reference(data.reference).can_paste(); },
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference);
+                                inst.paste(inst.get_node(data.reference));
+                            }
+                        },
+                        "sep2": { "separator_before": true, "label": "", "_disabled": true },
+                        "duplicate": {
+                            "label": "Дублировать",
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference);
+                                var obj = inst.get_node(data.reference);
+                                inst.copy(obj);
+                                inst.paste(obj, 'after');
+                            }
+                        }
+                    };
+
+                    if (node.data && (node.data.type !== 'object' && node.data.type !== 'array')) {
+                        delete items.create;
+                        delete items.paste;
+                    }
+
+                    if (node.parent === "#") {
+                        delete items.delete; delete items.cut; delete items.rename; delete items.duplicate;
+                    }
+                    return items;
+                }
+            }
+        });
+
+        $('#tree-view').on('move_node.jstree paste.jstree', function (e, data) {
+            var tree = $(this).jstree(true);
+            var reorderNodes = (nodes) => {
+                if (!nodes) return;
+                nodes.forEach(function (parentId) {
+                    var parentNode = tree.get_node(parentId);
+                    if (parentNode && parentNode.data && parentNode.data.type === 'array') {
+                        parentNode.children.forEach(function (childId, index) {
+                            var childNode = tree.get_node(childId);
+                            var newText = `[${index}]`;
+                            if (!childNode.text.startsWith(newText)) {
+                                tree.rename_node(childNode, newText);
+                            }
+                        });
+                    }
+                });
+            };
+            reorderNodes([data.parent, data.old_parent]);
+        });
+
+        $('#tree-view').on('create_node.jstree', function(e, data) {
+            var tree = $(this).jstree(true);
+            var parentNode = tree.get_node(data.parent);
+            if (parentNode && parentNode.data && parentNode.data.type === 'array') {
+                var newIndex = parentNode.children.length - 1;
+                var newText = `[${newIndex}]`;
+                tree.rename_node(data.node, newText);
+            }
+        });
+
+        const errorPanel = $('#error-panel');
+
+        function showError(title, message) {
+            errorPanel.html(`<div class="error-title">${title}</div>${message}`);
+            errorPanel.slideDown();
+        }
+
+        function hideError() {
+            if (errorPanel.is(':visible')) {
+                errorPanel.slideUp();
+            }
+        }
+
+        function convertToJsTreeFormat(data, keyName = 'root') {
+            const type = typeof data;
+            if (data === null) return { text: `${keyName}: <em>null</em>`, data: { type: 'null' } };
+            if (type === 'string') return { text: `${keyName}: "${data}"`, data: { type: 'string', value: data } };
+            if (type === 'number' || type === 'boolean') return { text: `${keyName}: ${data}`, data: { type: type, value: data } };
+
+            let node = { text: keyName, children: [], data: {} };
+            if (Array.isArray(data)) {
+                node.text = keyName;
+                node.data.type = 'array';
+                data.forEach((item, index) => {
+                    node.children.push(convertToJsTreeFormat(item, `[${index}]`));
+                });
+            } else {
+                node.text = keyName;
+                node.data.type = 'object';
+                for (let key in data) {
+                    node.children.push(convertToJsTreeFormat(data[key], key));
+                }
+            }
+            return node;
+        }
+
+        function convertFromJsTree(node) {
+            const type = node.data ? node.data.type : null;
+
+            if (!node.children || node.children.length === 0) {
+                if (type === 'null') return null;
+                if (type) return node.data.value;
+
+                const parts = node.text.split(':');
+                parts.shift();
+                const valueStr = parts.join(':').trim();
+                let value;
+                try {
+                    value = JSON.parse(valueStr);
+                } catch(e) {
+                    value = valueStr.startsWith('"') && valueStr.endsWith('"') ? valueStr.slice(1, -1) : valueStr;
+                }
+                return value;
+            }
+
+            if (type === 'array') {
+                const arr = [];
+                node.children.forEach(childId => {
+                    const childNode = $('#tree-view').jstree(true).get_node(childId);
+                    arr.push(convertFromJsTree(childNode));
+                });
+                return arr;
+            } else if (type === 'object' || node.id === '#') {
+                const obj = {};
+                node.children.forEach(childId => {
+                    const childNode = $('#tree-view').jstree(true).get_node(childId);
+                    const key = childNode.text.split(':')[0].trim();
+                    obj[key] = convertFromJsTree(childNode);
+                });
+                return obj;
+            }
+
+            const obj = {};
+            node.children.forEach(childId => {
+                const childNode = $('#tree-view').jstree(true).get_node(childId);
+                const key = childNode.text.split(':')[0].trim();
+                obj[key] = convertFromJsTree(childNode);
+            });
+            return obj;
+        }
+
+        $('#parseBtn').on('click', function() {
+            hideError();
+            $.ajax({
+                url: '/api/parse', type: 'POST', contentType: 'application/json',
+                data: JSON.stringify({ text: $('#text-input').val(), format: $('#formatSelector').val() }),
+                success: function(data) {
+                    $('#tree-view').jstree(true).settings.core.data = [convertToJsTreeFormat(data)];
+                    $('#tree-view').jstree(true).refresh();
+                },
+                error: function(xhr) {
+                    const response = xhr.responseJSON || { message: xhr.responseText };
+                    showError('Ошибка парсинга:', response.message);
+                }
+            });
+        });
+
+        function handleSerialization(pretty) {
+            return new Promise((resolve, reject) => {
+                const treeJson = $('#tree-view').jstree(true).get_json('#');
+                if (treeJson.length === 0) {
+                    reject("Дерево пустое!");
+                    return;
+                }
+                try {
+                    const dataToSerialize = convertFromJsTree(treeJson[0]);
+                    $.ajax({
+                        url: `/api/serialize?format=${$('#formatSelector').val()}&pretty=${pretty}`,
+                        type: 'POST', contentType: 'application/json', data: JSON.stringify(dataToSerialize),
+                        success: function(data) {
+                            $('#text-input').val(data);
+                            resolve(data);
+                        },
+                        error: function(xhr) { reject('Ошибка сериализации на сервере: ' + xhr.responseText); }
+                    });
+                } catch (e) {
+                    reject('Ошибка преобразования дерева: ' + e.message);
+                }
+            });
+        }
+
+        $('#serializeBtn').on('click', () => {
+            hideError();
+            handleSerialization(true).catch(errorMsg => showError('Ошибка сборки:', errorMsg));
+        });
+
+        $('#minifyBtn').on('click', () => {
+            hideError();
+            handleSerialization(false).catch(errorMsg => showError('Ошибка сборки:', errorMsg));
+        });
+
+        $('#fetchBtn').on('click', function() {
+            hideError();
+            const url = $('#urlInput').val();
+            if (!url) { alert("Пожалуйста, введите URL."); return; }
+            $('#text-input').val("Загрузка данных с " + url + "...");
+            $.ajax({
+                url: '/api/fetch-url', type: 'POST', contentType: 'application/json', data: JSON.stringify({ url: url }),
+                success: function(content) {
+                    $('#text-input').val(content);
+                    if (url.toLowerCase().endsWith('.xml')) $('#formatSelector').val('xml');
+                    else $('#formatSelector').val('json');
+                    $('#parseBtn').click();
+                },
+                error: function(xhr) {
+                    $('#text-input').val('');
+                    const response = xhr.responseJSON || { message: xhr.responseText };
+                    showError('Ошибка загрузки по URL:', response.message);
+                }
+            });
+        });
+
+        function loadDocumentList() {
+            $.get('/api/documents', function(data) {
+                const selector = $('#docSelector').empty();
+                selector.append('<option value="">-- Выберите документ --</option>');
+                data.forEach(doc => selector.append(`<option value="${doc.id}">${doc.name}</option>`));
+            });
+        }
+
+        $('#loadBtn').on('click', function() {
+            const docId = $('#docSelector').val();
+            if (!docId) return;
+            hideError();
+            $.get(`/api/documents/${docId}`, function(content) {
+                $('#text-input').val(content);
+                $('#docNameInput').val($('#docSelector option:selected').text());
+                $('#parseBtn').click();
+            });
+        });
+
+        $('#saveBtn').on('click', function() {
+            hideError();
+            const name = $('#docNameInput').val();
+            if (!name) { alert("Имя документа не может быть пустым."); return; }
+
+            handleSerialization(true)
+                .then(contentToSave => {
+                    $.ajax({
+                        url: '/api/documents', type: 'POST', contentType: 'application/json',
+                        data: JSON.stringify({ name: name, content: contentToSave }),
+                        success: function(response) {
+                            alert(`Документ "${response.name}" сохранен.`);
+                            loadDocumentList();
+                        },
+                        error: function() { showError("Ошибка сохранения:", "Не удалось сохранить документ на сервере."); }
+                    });
+                })
+                .catch(errorMsg => {
+                    const format = $('#formatSelector').val().toUpperCase();
+                    showError(`Ошибка сохранения: ${format} не валидный.`, "Не удалось собрать данные из дерева. " + errorMsg);
+                });
+        });
+
+        $('#deleteBtn').on('click', function() {
+            const docId = $('#docSelector').val();
+            if (!docId) return;
+            hideError();
+            if (confirm("Вы уверены, что хотите удалить этот документ?")) {
+                $.ajax({
+                    url: `/api/documents/${docId}`, type: 'DELETE',
+                    success: function() {
+                        alert("Документ удален.");
+                        loadDocumentList();
+                        $('#text-input').val('');
+                        $('#docNameInput').val('');
+                        $('#tree-view').jstree(true).settings.core.data = [];
+                        $('#tree-view').jstree(true).refresh();
+                    },
+                    error: function() { alert("Ошибка удаления."); }
+                });
+            }
+        });
+
+        $(document).on('keydown', function(e) {
+            if ($(e.target).is('input, textarea, select')) return;
+            if (e.ctrlKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'p': e.preventDefault(); $('#parseBtn').click(); break;
+                    case 's': e.preventDefault(); $('#serializeBtn').click(); break;
+                }
+            }
+        });
+
+        loadDocumentList();
+    });
+</script>
+
+</body>
+</html>

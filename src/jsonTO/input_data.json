@@ -1,0 +1,77 @@
+{
+    "Response": {
+        "ResultStatus": "1",
+        "IT_REQUEST_LIST": [
+            {
+                "IsIndefinitely": "1",
+                "ItStartDate": "2024-01-02",
+                "ItEndDate": "2024-01-03",
+                "ItDecisionDate": "2024-01-02",
+                "ItDecisionNum": "string",
+                "ItProduct": "string",
+                "Status": "string",
+                "StatusIdent": "string",
+                "TariffZone": "string",
+                "TariffPlan": "string",
+                "RequestId": "string",
+                "ItBranchTp": "string",
+                "IT_ITEM_LIST": [
+                    {
+                        "ServiceRate": "string",
+                        "ServiceRateRange": "string",
+                        "ServiceNumber": "string",
+                        "ServiceName": "string",
+                        "StandartRate": "string",
+                        "ItItemStatus": "string",
+                        "TariffReductFact": "14.12"
+                    }
+                ]
+            }
+        ],
+        "VP_REQUEST_LIST": [
+            {
+                "VpType": "string",
+                "Status": "string",
+                "StatusIdent": "string",
+                "VpStage": "string",
+                "VpCreateDate": "2024-01-02",
+                "VpName": "string",
+                "VpDocForm": "string",
+                "VpCloseDate": "2024-01-02",
+                "VpStartDate": "2024-01-02",
+                "VpEndDate": "2024-01-02",
+                "VpNumParticipant": "4",
+                "RequestId": "string"
+            }
+        ],
+        "DEP_REQUEST_LIST": [
+            {
+                "DepStage": "string",
+                "Status": "string",
+                "StatusIdent": "string",
+                "DepForm": "string",
+                "DepFormIdent": "string",
+                "DepSum": "14.12",
+                "DepType": "string",
+                "DepCreateDate": "2024-01-02",
+                "DepEndDate": "2024-01-02",
+                "DepPlacementDate": "2024-01-02",
+                "DepContractName": "string",
+                "DepAccountNum": "string",
+                "IsDepSigningDbo": "1",
+                "IsDepUrgently": "1",
+                "DepCurrencyIdent": "string",
+                "DepGenAgreementNum": "string",
+                "DepGenAgreementDate": "2024-01-02",
+                "RequestId": "string"
+            }
+        ]
+    },
+    "Request": {
+        "ClientInfo": {
+            "INN": "1234567890",
+            "KPP": "123456789",
+            "OGRNIP": ""
+        }
+    }
+}

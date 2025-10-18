@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>XML to Excel Structure</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: calc(100vh - 40px); }
+        h2 { margin-top: 0; }
+        textarea { width: 100%; flex-grow: 1; font-family: monospace; font-size: 14px; box-sizing: border-box; margin-top: 10px; }
+        button { padding: 10px 15px; cursor: pointer; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<h2>Экспорт структуры XML в Excel</h2>
+<p>Вставьте ваш XML в поле ниже и нажмите кнопку, чтобы скачать `.xlsx` файл со структурой данных.</p>
+
+<button id="exportBtn">Скачать структуру в Excel</button>
+<div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; margin-top: 10px;"></div>
+
+<textarea id="xml-input" placeholder="Вставьте сюда ваш XML..."></textarea>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+    $(function () {
+        const errorPanel = $('#error-panel');
+
+        $('#exportBtn').on('click', function() {
+            errorPanel.hide();
+            const xmlText = $('#xml-input').val();
+            if (!xmlText.trim()) {
+                alert("Пожалуйста, вставьте XML-данные.");
+                return;
+            }
+
+            // Создаем форму и отправляем POST-запрос для скачивания файла
+            var form = $('<form></form>').attr('action', '/api/xml-to-excel').attr('method', 'post');
+            form.append($('<input></input>').attr('type', 'hidden').attr('name', 'xml').attr('value', xmlText));
+            form.appendTo('body').submit().remove();
+        });
+
+        // Пример XML для удобства
+        const exampleXml = `<accountListResponse>
+    <ids>
+        <id>
+            <system>ETP</system>
+            <value>e6293162efd0</value>
+        </id>
+        <id>
+            <system>AFINA</system>
+            <value>e6293162efd02</value>
+        </id>
+    </ids>
+    <accounts>
+        <account>
+            <code>40702810100000127239</code>
+            <status>0</status>
+            <infotext>Счет получен1</infotext>
+        </account>
+        <account>
+            <code>40702810100000127240</code>
+            <status>1</status>
+        </account>
+    </accounts>
+</accountListResponse>`;
+        $('#xml-input').val(exampleXml);
+    });
+</script>
+
+</body>
+</html>
