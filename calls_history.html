@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>История вызовов</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .history-item { margin-bottom: 15px; border: 1px solid #e0e6ed; border-radius: 8px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+        .history-header { background-color: #f8f9fa; padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e0e6ed; }
+        .history-header:hover { background-color: #f1f3f5; }
+        .history-details { display: none; padding: 15px; border-top: 1px solid #e0e6ed; }
+        .history-details h4 { margin-top: 15px; margin-bottom: 5px; color: #34495e; }
+        .history-details h4:first-child { margin-top: 0; }
+        .group-header { padding: 12px 15px; background-color: #e9ecef; margin-top: 25px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .group-header:first-child { margin-top: 0; }
+        .group-header h3 { margin: 0; font-size: 1.1em; }
+        pre { white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; max-height: 250px; overflow-y: auto; }
+        .error-trace { color: #c7254e; background-color: #f9f2f4; }
+        .controls.search-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .search-filters input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; flex-grow: 1; min-width: 150px; }
+    </style>
+</head>
+<body>
+
+<div class="main-content">
+    <h2>История вызовов</h2>
+    <div class="controls search-filters">
+        <input type="text" class="filter-input" data-filter-key="csName" placeholder="Имя сценария (CS)...">
+        <input type="text" class="filter-input" data-filter-key="bsName" placeholder="Имя системы (BS)...">
+        <input type="text" class="filter-input" data-filter-key="interfaceName" placeholder="Интерфейс...">
+        <input type="text" class="filter-input" data-filter-key="url" placeholder="URL сервиса...">
+        <input type="text" class="filter-input" data-filter-key="content" placeholder="Содержимое (req, res, trace)...">
+    </div>
+    <div id="history-container">
+        <p>Загрузка истории...</p>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+    $(function() {
+        let allHistory = [];
+
+        function renderHistory(history) {
+            const container = $('#history-container').empty();
+            if (!history || !history.length) {
+                container.html('<div class="empty-state"><p>История вызовов пуста или по вашему запросу ничего не найдено.</p></div>');
+                return;
+            }
+
+            const grouped = history.reduce((acc, item) => {
+                const groupName = item.cs_name || 'Без сценария';
+                (acc[groupName] = acc[groupName] || []).push(item);
+                return acc;
+            }, {});
+
+            const sortedGroupKeys = Object.keys(grouped).sort((a, b) => {
+                const maxIdA = Math.max(...grouped[a].map(i => i.id));
+                const maxIdB = Math.max(...grouped[b].map(i => i.id));
+                return maxIdB - maxIdA;
+            });
+
+            for (const csName of sortedGroupKeys) {
+                let groupHtml = `<div class="history-group">
+                    <div class="group-header">
+                        <h3>Группа: ${escapeHtml(csName)}</h3>
+                        <button class="send-group-btn" data-cs-name="${escapeHtml(csName)}">Отправить группу</button>
+                    </div>`;
+
+                const sortedItems = grouped[csName].sort((a,b) => b.id - a.id);
+
+                sortedItems.forEach(item => {
+                    const callDate = item.call_date ? new Date(item.call_date).toLocaleString('ru-RU') : 'N/A';
+                    groupHtml += `
+                    <div class="history-item" data-id="${item.id}">
+                        <div class="history-header">
+                            <span><b>${callDate}</b> &mdash; ${escapeHtml(item.bs_name) || ''} / ${escapeHtml(item.interface_o) || 'Без интерфейса'}</span>
+                            <span style="color: #555; font-size: 0.9em;">${escapeHtml(item.service_url)}</span>
+                        </div>
+                        <div class="history-details">
+                            <h4>Request Headers</h4><pre>${prettyPrintJson(item.request_headers)}</pre>
+                            <h4>Request Body</h4><pre>${escapeHtml(item.request)}</pre>
+                            <hr>
+                            <h4>Response Headers</h4><pre>${prettyPrintJson(item.response_headers)}</pre>
+                            <h4>Response Body</h4><pre>${prettyPrintJson(item.response)}</pre>
+                            ${item.stack_trace ? `<h4>Stack Trace</h4><pre class="error-trace">${escapeHtml(item.stack_trace)}</pre>` : ''}
+                        </div>
+                    </div>`;
+                });
+                groupHtml += `</div>`;
+                container.append(groupHtml);
+            }
+        }
+
+        function performSearch() {
+            let params = {}; let hasQuery = false;
+            $('.filter-input').each(function() {
+                const key = $(this).data('filter-key'); const value = $(this).val();
+                if (value && value.trim()) { params[key] = value; hasQuery = true; }
+            });
+            if (hasQuery) {
+                $.get('/api/history/search', params, renderHistory).fail(() => $('#history-container').text('Ошибка при выполнении поиска.'));
+            } else {
+                renderHistory(allHistory);
+            }
+        }
+
+        $('.filter-input').on('keyup', debounce(performSearch, 400));
+        $('#history-container').on('click', '.history-header', function() { $(this).siblings('.history-details').slideToggle(200); });
+
+        $('#history-container').on('click', '.send-group-btn', function() {
+            const csName = $(this).data('cs-name');
+            const targetUrl = prompt('Введите URL сервиса, на который нужно отправить данные группы:', 'http://localhost:8081/api/receive-data');
+            if (!targetUrl) return;
+            $.get(`/api/history/group?csName=${encodeURIComponent(csName)}`, function(groupData) {
+                $.ajax({
+                    url: targetUrl, type: 'POST', contentType: 'application/json', data: JSON.stringify(groupData),
+                    success: function() { alert('Данные группы "' + csName + '" успешно отправлены!'); },
+                    error: function(xhr) { alert('Ошибка при отправке данных группы "' + csName + '": ' + xhr.responseText); }
+                });
+            }).fail(() => alert("Не удалось получить данные группы с сервера."));
+        });
+
+        function escapeHtml(text) { return $('<div>').text(text || '').html(); }
+        function prettyPrintJson(text) { try { return escapeHtml(JSON.stringify(JSON.parse(text), null, 2)); } catch(e) { return escapeHtml(text); } }
+        function debounce(func, delay) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); }; }
+
+        $.get('/api/history/all', function(data) {
+            allHistory = data;
+            renderHistory(allHistory);
+        }).fail(() => $('#history-container').text('Не удалось загрузить историю вызовов с сервера.'));
+    });
+</script>
+
+</body>
+</html>

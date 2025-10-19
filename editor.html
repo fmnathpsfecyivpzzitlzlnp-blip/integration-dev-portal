@@ -1,449 +1,353 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Groovy JSON/XML Editor</title>
+    <title>Редактор XML/JSON</title>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
+    <link rel="stylesheet" href="style.css">
     <style>
-        /* Стили немного адаптированы для встраивания в iframe */
-        html, body { height: 100%; margin: 0; overflow: hidden; }
-        body { font-family: sans-serif; display: flex; flex-direction: column; }
-        .container { display: flex; flex: 1; overflow: hidden; }
-        .panel { padding: 10px; box-sizing: border-box; }
-        #text-panel { width: 50%; display: flex; flex-direction: column; }
-        #tree-panel { width: 50%; border-left: 1px solid #ccc; overflow: auto; }
-        textarea { width: 100%; flex: 1; font-family: monospace; font-size: 14px; }
-        .controls, .db-controls, .url-controls, .converter-controls { padding: 10px; background: #f0f0f0; border-bottom: 1px solid #ccc; flex-shrink: 0; }
-        .db-controls input, .url-controls input { margin-right: 5px; }
-        .url-controls input[type=text] { width: 400px; }
-        button { margin-right: 10px; }
-        .hotkeys { font-size: 0.8em; color: #555; margin-top: 5px; }
-
-        #error-panel {
-            display: none; padding: 10px; margin-top: -1px; background-color: #ffebee;
-            color: #c62828; border: 1px solid #c62828; font-family: monospace; white-space: pre-wrap;
-        }
-        #error-panel .error-title { font-weight: bold; margin-bottom: 5px; }
+        .editor-container { display: flex; height: calc(100vh - 230px); gap: 10px; margin-top: 10px; }
+        #json-editor { width: 40%; height: 100%; font-family: monospace; font-size: 14px; box-sizing: border-box; }
+        #tree-viewer { width: 60%; height: 100%; overflow: auto; border: 1px solid #ccc; background-color: #fff; box-sizing: border-box; }
+        .controls-top { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .controls-top button, .controls-top select { padding: 8px 12px; }
+        .controls-top input { flex-grow: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;}
+        .editor-header-bar { background-color: #f7f7f7; padding: 8px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
+        .vakata-context { z-index: 10000; }
     </style>
 </head>
 <body>
 
-<div class="controls">
-    <label>Формат: <select id="formatSelector"><option value="json">JSON</option><option value="xml">XML</option></select></label>
-    <button id="parseBtn">1. Разобрать (Ctrl+P)</button>
-    <button id="serializeBtn">2. Собрать (формат.) (Ctrl+S)</button>
-    <button id="minifyBtn">3. Собрать (сжато)</button>
-    <div class="hotkeys">Горячие клавиши работают, когда фокус не в текстовых полях.</div>
-</div>
-
-<div id="error-panel"></div>
-
-<div class="converter-controls">
-    <label>Конвертировать:</label>
-    <button id="toJsonBtn">XML &rarr; JSON</button>
-    <button id="toXmlBtn">JSON &rarr; XML</button>
-</div>
-
-<div class="url-controls">
-    <label>Загрузить по URL:</label>
-    <input type="text" id="urlInput" placeholder="http://.../data.json">
-    <button id="fetchBtn">Загрузить</button>
-</div>
-
-<div class="db-controls">
-    <label>Сохраненные документы:</label>
-    <select id="docSelector"></select>
-    <button id="loadBtn">Загрузить</button>
-    <button id="deleteBtn">Удалить</button>
-    <hr style="margin: 10px 0;">
-    <label>Имя для сохранения:</label>
-    <input type="text" id="docNameInput" placeholder="Введите имя...">
-    <button id="saveBtn">Сохранить на сервере</button>
-</div>
-
-<div class="container">
-    <div id="text-panel" class="panel">
-        <textarea id="text-input" placeholder="Вставьте сюда JSON или XML..."></textarea>
+<div class="main-content">
+    <div class="editor-header-bar">
+        <span><b>Формат:</b>
+            <select id="format-select">
+                <option value="json">JSON</option>
+                <option value="xml">XML</option>
+            </select>
+        </span>
+        <div>
+            <button id="btn-beautify">1. Разобрать</button>
+            <button id="btn-to-text">3. Собрать</button>
+        </div>
     </div>
-    <div id="tree-panel" class="panel">
-        <div id="tree-view"></div>
+
+    <div class="controls-top">
+        <label for="convert-select">Конвертировать:</label>
+        <select id="convert-select">
+            <option value="xml-json">XML -> JSON</option>
+            <option value="json-xml">JSON -> XML</option>
+        </select>
+        <button id="btn-convert">Выполнить</button>
+    </div>
+
+    <div class="controls-top">
+        <label for="url-input">Загрузить по URL:</label>
+        <input type="text" id="url-input" placeholder="http://.../data.json">
+        <button id="btn-fetch-url">Загрузить</button>
+    </div>
+
+    <div class="controls-top">
+        <label for="doc-select">Сохраненные документы:</label>
+        <select id="doc-select"></select>
+        <button id="btn-load-doc">Загрузить</button>
+        <button id="btn-delete-doc">Удалить</button>
+    </div>
+
+    <div class="controls-top">
+        <label for="save-name-input">Имя для сохранения:</label>
+        <input type="text" id="save-name-input" placeholder="my_document1">
+        <button id="btn-save-doc">Сохранить на сервере</button>
+    </div>
+
+    <div class="editor-container">
+        <textarea id="json-editor"></textarea>
+        <div id="tree-viewer"></div>
     </div>
 </div>
+
+<div id="notification" class="notification"></div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
 <script>
-    $(function () {
-        $('#tree-view').jstree({
-            "core": {
-                "check_callback": true,
-                "data": []
-            },
-            "plugins": ["contextmenu", "dnd", "state", "types", "wholerow"],
-            "contextmenu": {
-                "items": function(node) {
-                    var tree = $("#tree-view").jstree(true);
-                    var items = {
-                        "create": {
-                            "label": "Создать...",
-                            "action": false,
-                            "submenu": {
-                                "create_kv": {
-                                    "label": "Ключ/Значение",
-                                    "action": function (data) {
-                                        var inst = $.jstree.reference(data.reference);
-                                        var parentNode = inst.get_node(data.reference);
-                                        var newNodeText = "new_key: null";
-                                        inst.create_node(parentNode, { text: newNodeText, data: { type: 'null' } }, "last", function (newNode) {
-                                            setTimeout(function () { inst.edit(newNode); }, 0);
-                                        });
-                                    }
-                                },
-                                "create_object": {
-                                    "label": "Объект { }",
-                                    "action": function (data) {
-                                        var inst = $.jstree.reference(data.reference);
-                                        var parentNode = inst.get_node(data.reference);
-                                        var newNodeText = "new_object";
-                                        inst.create_node(parentNode, { text: newNodeText, data: { type: 'object' }, children: [] }, "last", function (newNode) {
-                                            setTimeout(function () { inst.edit(newNode); }, 0);
-                                        });
-                                    }
-                                },
-                                "create_array": {
-                                    "label": "Массив [ ]",
-                                    "action": function (data) {
-                                        var inst = $.jstree.reference(data.reference);
-                                        var parentNode = inst.get_node(data.reference);
-                                        var newNodeText = "new_array";
-                                        inst.create_node(parentNode, { text: newNodeText, data: { type: 'array' }, children: [] }, "last", function (newNode) {
-                                            setTimeout(function () { inst.edit(newNode); }, 0);
-                                        });
-                                    }
-                                }
-                            }
-                        },
-                        "rename": {
-                            "label": "Переименовать / Изменить",
-                            "action": function (data) {
-                                var inst = $.jstree.reference(data.reference);
-                                inst.edit(inst.get_node(data.reference));
-                            }
-                        },
-                        "delete": {
-                            "label": "Удалить",
-                            "action": function (data) {
-                                var inst = $.jstree.reference(data.reference);
-                                inst.delete_node(inst.get_selected());
-                            }
-                        },
-                        "sep1": { "separator_before": true, "label": "", "_disabled": true },
-                        "cut": {
-                            "label": "Вырезать",
-                            "action": function (data) {
-                                var inst = $.jstree.reference(data.reference);
-                                var obj = inst.get_node(data.reference);
-                                if(inst.is_selected(obj)) { inst.cut(inst.get_top_selected()); }
-                                else { inst.cut(obj); }
-                            }
-                        },
-                        "copy": {
-                            "label": "Копировать",
-                            "action": function (data) {
-                                var inst = $.jstree.reference(data.reference);
-                                var obj = inst.get_node(data.reference);
-                                if(inst.is_selected(obj)) { inst.copy(inst.get_top_selected()); }
-                                else { inst.copy(obj); }
-                            }
-                        },
-                        "paste": {
-                            "label": "Вставить",
-                            "_disabled": function (data) { return !$.jstree.reference(data.reference).can_paste(); },
-                            "action": function (data) {
-                                var inst = $.jstree.reference(data.reference);
-                                inst.paste(inst.get_node(data.reference));
-                            }
-                        },
-                        "sep2": { "separator_before": true, "label": "", "_disabled": true },
-                        "duplicate": {
-                            "label": "Дублировать",
-                            "action": function (data) {
-                                var inst = $.jstree.reference(data.reference);
-                                var obj = inst.get_node(data.reference);
-                                inst.copy(obj);
-                                inst.paste(obj, 'after');
-                            }
-                        }
-                    };
+    $(function() {
+        $('#tree-viewer').jstree({
+            'core': { 'check_callback': true, 'data': [], 'themes': { 'stripes': true }, 'force_text': true },
+            'plugins': ['contextmenu', 'dnd', 'types'],
+            'types' : { 'object':{'icon':'jstree-folder'}, 'array':{'icon':'jstree-folder'}, 'value':{'icon':'jstree-file'} },
+            'contextmenu': { 'items': customMenu }
+        }).on('rename_node.jstree', onNodeChange).on('copy_node.jstree', onNodeCopy)
+            .on('create_node.jstree', (e, data) => data.instance.edit(data.node));
 
-                    if (node.data && (node.data.type !== 'object' && node.data.type !== 'array')) {
-                        delete items.create;
-                        delete items.paste;
-                    }
-
-                    if (node.parent === "#") {
-                        delete items.delete; delete items.cut; delete items.rename; delete items.duplicate;
-                    }
-                    return items;
-                }
-            }
-        });
-
-        $('#tree-view').on('move_node.jstree paste.jstree', function (e, data) {
-            var tree = $(this).jstree(true);
-            var reorderNodes = (nodes) => {
-                if (!nodes) return;
-                nodes.forEach(function (parentId) {
-                    var parentNode = tree.get_node(parentId);
-                    if (parentNode && parentNode.data && parentNode.data.type === 'array') {
-                        parentNode.children.forEach(function (childId, index) {
-                            var childNode = tree.get_node(childId);
-                            var newText = `[${index}]`;
-                            if (!childNode.text.startsWith(newText)) {
-                                tree.rename_node(childNode, newText);
-                            }
-                        });
-                    }
-                });
+        function customMenu(node) {
+            const tree = $('#tree-viewer').jstree(true);
+            let items = {
+                create: { label: 'Создать...', submenu: {
+                        create_value: { 'label': 'Значение', 'action': () => createChildNode(node, 'value') },
+                        create_object: { 'label': 'Объект', 'action': () => createChildNode(node, 'object') },
+                        create_array: { 'label': 'Массив', 'action': () => createChildNode(node, 'array') }
+                    }},
+                rename: { 'label': 'Переименовать / Изменить', 'action': () => tree.edit(node) },
+                delete: { 'label': 'Удалить', 'action': () => tree.delete_node(node) },
+                sep1: { 'separator': true },
+                cut: { 'label': 'Вырезать', 'action': (data) => $.jstree.reference(data.reference).cut($.jstree.reference(data.reference).get_node(data.reference)) },
+                copy: { 'label': 'Копировать', 'action': (data) => $.jstree.reference(data.reference).copy($.jstree.reference(data.reference).get_node(data.reference)) },
+                paste: { 'label': 'Вставить', 'action': (data) => $.jstree.reference(data.reference).paste($.jstree.reference(data.reference).get_node(data.reference)) }
             };
-            reorderNodes([data.parent, data.old_parent]);
-        });
 
-        $('#tree-view').on('create_node.jstree', function(e, data) {
-            var tree = $(this).jstree(true);
-            var parentNode = tree.get_node(data.parent);
-            if (parentNode && parentNode.data && parentNode.data.type === 'array') {
-                var newIndex = parentNode.children.length - 1;
-                var newText = `[${newIndex}]`;
-                tree.rename_node(data.node, newText);
-            }
-        });
+            if (!tree.can_paste()) { delete items.paste; }
+            if (node.type !== 'object' && node.type !== 'array' && node.id !== 'root') { delete items.create; }
+            if (node.id === 'root') { delete items.rename; delete items.delete; delete items.sep1; delete items.cut; delete items.copy; }
+            const parentNode = tree.get_node(node.parent);
+            if (parentNode && parentNode.type === 'array') { delete items.rename; }
 
-        const errorPanel = $('#error-panel');
-
-        function showError(title, message) {
-            errorPanel.html(`<div class="error-title">${title}</div>${message}`);
-            errorPanel.slideDown();
+            return items;
         }
 
-        function hideError() {
-            if (errorPanel.is(':visible')) {
-                errorPanel.slideUp();
-            }
+        let notificationTimeout;
+        function showNotification(message, isError = false) {
+            const notification = $('#notification');
+            notification.text(message).removeClass('error').show();
+            if(isError) notification.addClass('error');
+            clearTimeout(notificationTimeout);
+            notificationTimeout = setTimeout(() => notification.fadeOut(), 4000);
         }
+        const textValue = (val) => JSON.stringify(val);
+        let nodeIdCounter = 0;
 
-        function convertToJsTreeFormat(data, keyName = 'root') {
-            const type = typeof data;
-            if (data === null) return { text: `${keyName}: <em>null</em>`, data: { type: 'null' } };
-            if (type === 'string') return { text: `${keyName}: "${data}"`, data: { type: 'string', value: data } };
-            if (type === 'number' || type === 'boolean') return { text: `${keyName}: ${data}`, data: { type: type, value: data } };
-
-            let node = { text: keyName, children: [], data: {} };
-            if (Array.isArray(data)) {
-                node.text = keyName;
-                node.data.type = 'array';
-                data.forEach((item, index) => {
-                    node.children.push(convertToJsTreeFormat(item, `[${index}]`));
-                });
+        function jsonToTreeData(obj, key = 'root') {
+            const node = { id: key === 'root' ? 'root' : `node_${nodeIdCounter++}`, text: String(key), data: { key: key } };
+            if (Array.isArray(obj)) {
+                node.type = 'array';
+                node.children = obj.map((item, index) => jsonToTreeData(item, index));
+            } else if (typeof obj === 'object' && obj !== null) {
+                node.type = 'object';
+                node.children = Object.keys(obj).map(k => jsonToTreeData(obj[k], k));
             } else {
-                node.text = keyName;
-                node.data.type = 'object';
-                for (let key in data) {
-                    node.children.push(convertToJsTreeFormat(data[key], key));
-                }
+                node.type = 'value';
+                node.data.value = obj;
+                node.text = `${key}: ${textValue(obj)}`;
             }
             return node;
         }
 
-        function convertFromJsTree(node) {
-            const type = node.data ? node.data.type : null;
+        function treeDataToJson(startNodeId = '#') {
+            const tree = $('#tree-viewer').jstree(true);
+            const rootContainerNode = tree.get_node(startNodeId);
 
-            if (!node.children || node.children.length === 0) {
-                if (type === 'null') return null;
-                if (type) return node.data.value;
-
-                const parts = node.text.split(':');
-                parts.shift();
-                const valueStr = parts.join(':').trim();
-                let value;
-                try {
-                    value = JSON.parse(valueStr);
-                } catch(e) {
-                    value = valueStr.startsWith('"') && valueStr.endsWith('"') ? valueStr.slice(1, -1) : valueStr;
-                }
-                return value;
+            if (!rootContainerNode || !rootContainerNode.children || rootContainerNode.children.length === 0) {
+                throw new Error("Дерево пустое или не было разобрано. Нечего собирать.");
             }
 
-            if (type === 'array') {
-                const arr = [];
-                node.children.forEach(childId => {
-                    const childNode = $('#tree-view').jstree(true).get_node(childId);
-                    arr.push(convertFromJsTree(childNode));
-                });
-                return arr;
-            } else if (type === 'object' || node.id === '#') {
-                const obj = {};
-                node.children.forEach(childId => {
-                    const childNode = $('#tree-view').jstree(true).get_node(childId);
-                    const key = childNode.text.split(':')[0].trim();
-                    obj[key] = convertFromJsTree(childNode);
-                });
-                return obj;
+            const rootNodeId = rootContainerNode.children[0];
+
+            function build(currentId) {
+                const node = tree.get_node(currentId);
+                if (!node) {
+                    throw new Error(`Структура дерева нарушена: узел '${currentId}' не найден.`);
+                }
+
+                if (!node.data) {
+                    throw new Error(`Узел с текстом "${node.text}" не имеет метаданных. Возможно, он был создан, но не переименован.`);
+                }
+
+                if (node.type === 'array') {
+                    return node.children.map(childId => build(childId));
+                }
+                if (node.type === 'object') {
+                    const obj = {};
+                    const keys = new Set();
+                    for (const childId of node.children) {
+                        const childNode = tree.get_node(childId);
+                        if (!childNode || !childNode.data) { continue; }
+                        const key = childNode.data.key;
+                        if (key === undefined || key === null) {
+                            throw new Error(`Узел с текстом "${childNode.text}" имеет неопределенный ключ.`);
+                        }
+                        if (keys.has(key)) {
+                            throw new Error(`Обнаружен дубликат ключа "${key}" в объекте "${node.data.key || 'root'}"`);
+                        }
+                        keys.add(key);
+                        obj[key] = build(childId);
+                    }
+                    return obj;
+                }
+                return node.data.value;
             }
-
-            const obj = {};
-            node.children.forEach(childId => {
-                const childNode = $('#tree-view').jstree(true).get_node(childId);
-                const key = childNode.text.split(':')[0].trim();
-                obj[key] = convertFromJsTree(childNode);
-            });
-            return obj;
+            return build(rootNodeId);
         }
 
-        $('#parseBtn').on('click', function() {
-            hideError();
-            $.ajax({
-                url: '/api/parse', type: 'POST', contentType: 'application/json',
-                data: JSON.stringify({ text: $('#text-input').val(), format: $('#formatSelector').val() }),
-                success: function(data) {
-                    $('#tree-view').jstree(true).settings.core.data = [convertToJsTreeFormat(data)];
-                    $('#tree-view').jstree(true).refresh();
-                },
-                error: function(xhr) {
-                    const response = xhr.responseJSON || { message: xhr.responseText };
-                    showError('Ошибка парсинга:', response.message);
-                }
-            });
-        });
+        function createChildNode(parentNode, type) {
+            const tree = $('#tree-viewer').jstree(true);
+            let newNode;
+            if (type === 'value') { newNode = { type: 'value', text: 'newKey: "новое значение"', data: { key: 'newKey', value: "новое значение" } }; }
+            else if (type === 'object') { newNode = { type: 'object', text: 'newObject', data: { key: 'newObject' }, children: [{ type: 'value', text: 'новоеСвойство: "значение"', data: { key: 'новоеСвойство', value: "значение" } }]}; }
+            else if (type === 'array') { newNode = { type: 'array', text: 'newArray', data: { key: 'newArray' }, children: [{ type: 'value', text: '0: "элемент1"', data: { key: 0, value: "элемент1" } }, { type: 'value', text: '1: "элемент2"', data: { key: 1, value: "элемент2" } }]}; }
+            tree.create_node(parentNode, newNode, 'last');
+        }
 
-        function handleSerialization(pretty) {
-            return new Promise((resolve, reject) => {
-                const treeJson = $('#tree-view').jstree(true).get_json('#');
-                if (treeJson.length === 0) {
-                    reject("Дерево пустое!");
-                    return;
-                }
+        function onNodeChange(e, data) {
+            const node = data.node;
+            const text = data.text;
+            if(!node.data) node.data = {};
+            if (node.type === 'value') {
+                const parts = text.split(/:(.*)/s);
+                const newKey = parts[0].trim();
+                const newValueStr = (parts.length > 1 ? parts[1] : '').trim();
                 try {
-                    const dataToSerialize = convertFromJsTree(treeJson[0]);
-                    $.ajax({
-                        url: `/api/serialize?format=${$('#formatSelector').val()}&pretty=${pretty}`,
-                        type: 'POST', contentType: 'application/json', data: JSON.stringify(dataToSerialize),
-                        success: function(data) {
-                            $('#text-input').val(data);
-                            resolve(data);
-                        },
-                        error: function(xhr) { reject('Ошибка сериализации на сервере: ' + xhr.responseText); }
-                    });
-                } catch (e) {
-                    reject('Ошибка преобразования дерева: ' + e.message);
+                    node.data.key = newKey;
+                    node.data.value = JSON.parse(newValueStr);
+                } catch (err) {
+                    node.data.key = newKey;
+                    node.data.value = newValueStr;
                 }
-            });
+                data.instance.set_text(node, `${node.data.key}: ${textValue(node.data.value)}`);
+            } else {
+                node.data.key = text;
+            }
+            updateArrayIndices(data.instance, node.parent);
         }
 
-        $('#serializeBtn').on('click', () => {
-            hideError();
-            handleSerialization(true).catch(errorMsg => showError('Ошибка сборки:', errorMsg));
-        });
+        function onNodeCopy(e, data) {}
 
-        $('#minifyBtn').on('click', () => {
-            hideError();
-            handleSerialization(false).catch(errorMsg => showError('Ошибка сборки:', errorMsg));
-        });
-
-        $('#fetchBtn').on('click', function() {
-            hideError();
-            const url = $('#urlInput').val();
-            if (!url) { alert("Пожалуйста, введите URL."); return; }
-            $('#text-input').val("Загрузка данных с " + url + "...");
-            $.ajax({
-                url: '/api/fetch-url', type: 'POST', contentType: 'application/json', data: JSON.stringify({ url: url }),
-                success: function(content) {
-                    $('#text-input').val(content);
-                    if (url.toLowerCase().endsWith('.xml')) $('#formatSelector').val('xml');
-                    else $('#formatSelector').val('json');
-                    $('#parseBtn').click();
-                },
-                error: function(xhr) {
-                    $('#text-input').val('');
-                    const response = xhr.responseJSON || { message: xhr.responseText };
-                    showError('Ошибка загрузки по URL:', response.message);
-                }
-            });
-        });
-
-        function loadDocumentList() {
-            $.get('/api/documents', function(data) {
-                const selector = $('#docSelector').empty();
-                selector.append('<option value="">-- Выберите документ --</option>');
-                data.forEach(doc => selector.append(`<option value="${doc.id}">${doc.name}</option>`));
-            });
-        }
-
-        $('#loadBtn').on('click', function() {
-            const docId = $('#docSelector').val();
-            if (!docId) return;
-            hideError();
-            $.get(`/api/documents/${docId}`, function(content) {
-                $('#text-input').val(content);
-                $('#docNameInput').val($('#docSelector option:selected').text());
-                $('#parseBtn').click();
-            });
-        });
-
-        $('#saveBtn').on('click', function() {
-            hideError();
-            const name = $('#docNameInput').val();
-            if (!name) { alert("Имя документа не может быть пустым."); return; }
-
-            handleSerialization(true)
-                .then(contentToSave => {
-                    $.ajax({
-                        url: '/api/documents', type: 'POST', contentType: 'application/json',
-                        data: JSON.stringify({ name: name, content: contentToSave }),
-                        success: function(response) {
-                            alert(`Документ "${response.name}" сохранен.`);
-                            loadDocumentList();
-                        },
-                        error: function() { showError("Ошибка сохранения:", "Не удалось сохранить документ на сервере."); }
-                    });
-                })
-                .catch(errorMsg => {
-                    const format = $('#formatSelector').val().toUpperCase();
-                    showError(`Ошибка сохранения: ${format} не валидный.`, "Не удалось собрать данные из дерева. " + errorMsg);
+        function updateArrayIndices(tree, parentId){
+            const parentNode = tree.get_node(parentId);
+            if (parentNode && parentNode.type === 'array') {
+                parentNode.children.forEach((childId, index) => {
+                    const childNode = tree.get_node(childId);
+                    if(childNode && childNode.data) {
+                        childNode.data.key = index;
+                        const newText = (childNode.type === 'value') ? `${index}: ${textValue(childNode.data.value)}` : `${index}`;
+                        tree.set_text(childId, newText);
+                    }
                 });
+            }
+        }
+
+        $('#btn-beautify').on('click', function() {
+            const text = $('#json-editor').val(); const format = $('#format-select').val();
+            if (!text.trim()) { return; }
+            $.ajax({
+                url: "/api/parse",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ text: text, format: format }),
+                success: (jsonData) => {
+                    nodeIdCounter = 0;
+                    let treeData;
+                    if (typeof jsonData === 'object' && jsonData !== null) {
+                        treeData = jsonToTreeData(jsonData, 'root');
+                    } else {
+                        // Обработка случая, если пришел не объект (например, просто число или строка)
+                        treeData = { id: 'root', text: 'root', type: 'object', children: [ jsonToTreeData(jsonData, 'value') ]};
+                    }
+                    $('#tree-viewer').jstree(true).settings.core.data = [treeData];
+                    $('#tree-viewer').jstree(true).refresh(true);
+                    showNotification("Данные разобраны в дерево.");
+                },
+                error: (xhr) => showNotification(`Ошибка разбора: ${JSON.parse(xhr.responseText).message}`, true)
+            });
         });
 
-        $('#deleteBtn').on('click', function() {
-            const docId = $('#docSelector').val();
-            if (!docId) return;
-            hideError();
-            if (confirm("Вы уверены, что хотите удалить этот документ?")) {
+        const combinedButtonHandler = function(e){
+            const btnId = e.currentTarget.id;
+            try {
+                const jsonData = treeDataToJson();
                 $.ajax({
-                    url: `/api/documents/${docId}`, type: 'DELETE',
-                    success: function() {
-                        alert("Документ удален.");
-                        loadDocumentList();
-                        $('#text-input').val('');
-                        $('#docNameInput').val('');
-                        $('#tree-view').jstree(true).settings.core.data = [];
-                        $('#tree-view').jstree(true).refresh();
+                    url: `/api/serialize?format=json&pretty=true`,
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(jsonData),
+                    success: (content) => {
+                        if (btnId === 'btn-to-text') {
+                            $('#json-editor').val(content);
+                            showNotification("Дерево собрано в текст.");
+                        } else if (btnId === 'btn-save-doc') {
+                            const name = $('#save-name-input').val().trim();
+                            if (!name) { showNotification("Введите имя для сохранения.", true); return; }
+                            $.ajax({
+                                url: "/api/documents", type: 'POST',
+                                contentType: 'application/json', data: JSON.stringify({ name: name, content: content }),
+                                success: () => { showNotification("Документ сохранен."); loadDocList(); },
+                                error: () => showNotification("Ошибка сохранения на сервере.", true)
+                            });
+                        } else if (btnId === 'btn-convert') {
+                            const conversion = $('#convert-select').val();
+                            const from = $('#format-select').val(); const to = conversion.split('-')[1];
+                            $.ajax({
+                                url: '/api/convert', type: 'POST',
+                                contentType: 'application/json', data: JSON.stringify({ text: content, from: from, to: to }),
+                                success: (convertedText) => {
+                                    $('#json-editor').val(convertedText);
+                                    $('#format-select').val(to);
+                                    $('#btn-beautify').trigger('click');
+                                    showNotification(`Конвертировано в ${to.toUpperCase()}`);
+                                },
+                                error: (xhr) => showNotification(`Ошибка конвертации: ${JSON.parse(xhr.responseText).message}`, true)
+                            });
+                        }
                     },
-                    error: function() { alert("Ошибка удаления."); }
+                    error: (xhr) => showNotification(`Ошибка сериализации: ${xhr.responseText}`, true)
                 });
+            } catch(err) {
+                console.error("Детальная ошибка сборки:", err);
+                showNotification(err.message, true);
+            }
+        }
+
+        $('#btn-to-text, #btn-save-doc, #btn-convert').on('click', combinedButtonHandler);
+
+        $('#btn-fetch-url').on('click', function() {
+            const url = $('#url-input').val(); if (!url) return;
+            $.ajax({
+                url: "/api/fetch-url",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({ url: url }),
+                success: (data) => {
+                    $('#json-editor').val(data);
+                    $('#format-select').val(data.trim().startsWith('<') ? 'xml' : 'json');
+                    $('#btn-beautify').trigger('click');
+                },
+                error: (xhr) => showNotification(`Ошибка загрузки: ${JSON.parse(xhr.responseText).message}`, true)
+            });
+        });
+
+        function loadDocList() {
+            $.get("/api/documents", (docs) => {
+                const select = $("#doc-select").empty();
+                select.append($('<option>', { value: '', text: 'Выберите документ...' }));
+                docs.forEach(doc => select.append($('<option>', { value: doc.id, text: doc.name })));
+            });
+        }
+
+        $('#btn-load-doc').on('click', function() {
+            const docId = $("#doc-select").val(); if (!docId) return;
+            const docName = $("#doc-select option:selected").text();
+            $.get(`/api/documents/${docId}`, (content) => {
+                $('#json-editor').val(content);
+                $('#save-name-input').val(docName);
+                $('#format-select').val(content.trim().startsWith('<') ? 'xml' : 'json');
+                $('#btn-beautify').trigger('click');
+            });
+        });
+
+        $('#btn-delete-doc').on('click', function() {
+            const docId = $("#doc-select").val(); if (!docId) return;
+            if (confirm("Вы уверены, что хотите удалить этот документ?")) {
+                $.ajax({ url: `/api/documents/${docId}`, type: 'DELETE', success: () => { showNotification("Документ удален."); loadDocList(); } });
             }
         });
 
-        $(document).on('keydown', function(e) {
-            if ($(e.target).is('input, textarea, select')) return;
-            if (e.ctrlKey) {
-                switch (e.key.toLowerCase()) {
-                    case 'p': e.preventDefault(); $('#parseBtn').click(); break;
-                    case 's': e.preventDefault(); $('#serializeBtn').click(); break;
-                }
-            }
-        });
+        $('#json-editor').val(`{
+    "userId": { "type": "increment", "start": 1001, "step": 1 },
+    "userName": { "type": "random", "values": [ "Alice", "Bob", "Charlie", "Елена" ] },
+    "описание": "Пример с кириллицей"
+}`);
+        $('#url-input').val('https://api.coindesk.com/v1/bpi/currentprice.json');
 
-        loadDocumentList();
+        loadDocList();
     });
 </script>
 

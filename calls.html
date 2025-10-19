@@ -1,273 +1,221 @@
-<!-- НАЧАЛО ФАЙЛА calls.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <title>Выполнение HTTP вызовов</title>
     <meta charset="UTF-8">
-    <title>Отправка множественных запросов</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            padding: 20px;
-            background-color: #f4f7f9;
-            color: #333;
-            display: flex;
-            height: calc(100vh - 40px);
-            margin: 0;
-        }
-        .container {
-            display: flex;
-            width: 100%;
-            gap: 20px;
-        }
-        .config-panel, .log-panel {
-            flex: 1;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        h1, h2 {
-            margin-top: 0;
-            color: #2c3e50;
-            border-bottom: 2px solid #e0e0e0;
-            padding-bottom: 10px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"], input[type="password"], input[type="number"], select, textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-            font-family: "Courier New", Courier, monospace;
-        }
-        .btn {
-            padding: 12px 20px;
-            background-color: #1abc9c;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-            width: 100%;
-        }
-        .btn:hover {
-            background-color: #16a085;
-        }
-        .btn:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
-        }
-        #log-output {
-            flex-grow: 1;
-            background-color: #2c3e50;
-            color: #ecf0f1;
-            padding: 15px;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            overflow-y: auto;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 14px;
-        }
+        .container { display: flex; flex-direction: column; gap: 20px; }
+        .row { display: flex; gap: 20px; }
+        .column { width: 50%; display: flex; flex-direction: column; gap: 20px;}
+        .form-section { border: 1px solid #ccc; padding: 15px; border-radius: 5px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .form-row { display: flex; align-items: center; margin-bottom: 10px; }
+        .form-row:last-child { margin-bottom: 0; }
+        .form-row label { width: 160px; flex-shrink: 0; color: #555; }
+        .form-row input, .form-row select, .form-row textarea { flex-grow: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+        textarea { min-height: 100px; resize: vertical; font-family: monospace; }
+        #log-output { min-height: 300px; background: #2c3e50; color: #ecf0f1; border: none; padding: 15px; font-family: monospace; white-space: pre-wrap; overflow-y: auto; border-radius: 5px; }
+        .main-action-btn { width: 100%; padding: 15px; font-size: 1.2em; cursor: pointer; background-color: #27ae60; color: white; border: none; border-radius: 5px; transition: background-color 0.2s; }
+        .main-action-btn:hover { background-color: #2ecc71; }
+        .main-action-btn:disabled { background-color: #95a5a6; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="config-panel" style="overflow-y: auto;">
-        <h1>Настройка вызовов</h1>
+<div class="main-content">
+    <h2>Выполнение множественных HTTP вызовов</h2>
 
-        <div class="form-group">
-            <label for="config-selector">Выберите готовую конфигурацию:</label>
-            <select id="config-selector">
-                <option value="rest">REST/JSON (httpbin.org)</option>
-                <option value="soap">SOAP/XML (NumberConversion)</option>
-            </select>
+    <div class="container">
+        <div class="form-section">
+            <div class="form-row">
+                <label for="config-select">Выберите готовую конфигурацию:</label>
+                <select id="config-select">
+                    <option value="custom">-- Пользовательская --</option>
+                    <option value="rest">REST/JSON (httpbin.org)</option>
+                    <option value="soap">SOAP/XML (NumberConversion)</option>
+                </select>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label for="url">URL</label>
-            <input type="text" id="url">
+        <div class="row">
+            <div class="column">
+                <div class="form-section">
+                    <div class="form-row">
+                        <label for="url">URL сервиса:</label>
+                        <input type="text" id="url">
+                    </div>
+                    <div class="form-row">
+                        <label for="method">HTTP Метод:</label>
+                        <select id="method">
+                            <option value="POST">POST</option>
+                            <option value="GET">GET</option>
+                            <option value="PUT">PUT</option>
+                            <option value="PATCH">PATCH</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="numRequests">Кол-во запросов:</label>
+                        <input type="number" id="numRequests" value="1" min="1">
+                    </div>
+                    <div class="form-row">
+                        <label for="csName">Имя сценария (CS):</label>
+                        <input type="text" id="csName" placeholder="Для группировки в истории">
+                    </div>
+                    <div class="form-row">
+                        <label for="bsName">Имя системы (BS):</label>
+                        <input type="text" id="bsName" placeholder="Для информации в истории">
+                    </div>
+                    <div class="form-row">
+                        <label for="interfaceName">Интерфейс:</label>
+                        <input type="text" id="interfaceName" placeholder="Для информации в истории">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>Управление учетными данными (Basic Auth)</h2>
+                    <div class="form-row">
+                        <label for="credentials-select">Выбрать сохраненные:</label>
+                        <select id="credentials-select"> <option value="">-- Новые учетные данные --</option> </select>
+                        <button id="delete-credential-btn" style="margin-left: 10px;" disabled>Удалить</button>
+                    </div>
+                    <div class="form-row">
+                        <label for="credential-name">Имя для сохранения:</label>
+                        <input type="text" id="credential-name" placeholder="Например, 'Тестовый стенд'"/>
+                        <button id="save-credential-btn" style="margin-left: 10px;">Сохранить</button>
+                    </div>
+                    <div class="form-row">
+                        <label for="login">Логин:</label>
+                        <input type="text" id="login">
+                    </div>
+                    <div class="form-row">
+                        <label for="password">Пароль:</label>
+                        <input type="password" id="password">
+                    </div>
+                </div>
+            </div>
+
+            <div class="column">
+                <div class="form-section">
+                    <h2>Заголовки (Headers)</h2>
+                    <textarea id="headers" placeholder="{ &quot;Content-Type&quot;: &quot;application/json&quot; }"></textarea>
+                </div>
+                <div class="form-section" style="flex-grow: 1; display: flex; flex-direction: column;">
+                    <label for="template" style="margin-bottom: 5px;"><h2>Шаблон тела запроса (Template)</h2></label>
+                    <textarea id="template" style="flex-grow: 1;"></textarea>
+                </div>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label for="requests-number">Количество запросов</label>
-            <input type="number" id="requests-number" value="5" min="1">
+        <div class="form-section">
+            <h2>Правила генерации данных</h2>
+            <textarea id="dataRules"></textarea>
         </div>
-
-        <div class="form-group">
-            <label for="method-selector">Метод</label>
-            <select id="method-selector">
-                <option value="POST">POST</option>
-                <option value="GET">GET</option>
-                <option value="PUT">PUT</option>
-                <option value="DELETE">DELETE</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="headers">Заголовки (JSON)</label>
-            <textarea id="headers"></textarea>
-        </div>
-
-        <!-- НОВЫЕ ПОЛЯ ДЛЯ BASIC АВТОРИЗАЦИИ -->
-        <div class="form-group">
-            <label for="login">Логин (для Basic Auth, необязательно)</label>
-            <input type="text" id="login" placeholder="Оставьте пустым, если не используется">
-        </div>
-        <div class="form-group">
-            <label for="password">Пароль (для Basic Auth)</label>
-            <input type="password" id="password">
-        </div>
-        <!-- КОНЕЦ НОВЫХ ПОЛЕЙ -->
-
-        <div class="form-group">
-            <label for="template">Шаблон тела запроса</label>
-            <textarea id="template"></textarea>
-        </div>
-
-        <div class="form-group">
-            <label for="data-rules">Правила генерации данных (JSON)</label>
-            <textarea id="data-rules"></textarea>
-        </div>
-
-        <div class="form-group">
-            <input type="checkbox" id="log-stack-trace" checked>
-            <label for="log-stack-trace" style="display: inline-block; font-weight: normal;">Логировать Stack Trace при ошибках</label>
-        </div>
-
-        <button id="execute-btn" class="btn">Выполнить</button>
     </div>
 
-    <div class="log-panel">
-        <h2>Логи выполнения</h2>
-        <div id="log-output">
-            Здесь будут отображаться результаты выполнения скрипта...
-        </div>
-    </div>
+    <button id="execute-btn" class="main-action-btn" style="margin-top: 20px;">Выполнить вызовы</button>
+
+    <h3 style="margin-top: 20px;">Логи выполнения:</h3>
+    <pre id="log-output">Здесь будут отображаться логи...</pre>
 </div>
 
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const configs = {
-            rest: {
-                url: 'https://httpbin.org/post',
-                method: 'POST',
-                numberOfRequests: 5,
-                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-                template: '{\n    "user": {\n        "id": "##userId##",\n        "name": "##userName##"\n    },\n    "transactionId": "##transactionId##"\n}',
-                dataRules: {userId: {type: 'increment', start: 1001, step: 1}, userName: {type: 'random', values: ['Alice', 'Bob', 'Charlie']}, transactionId: {type: 'uuid'}}
-            },
-            soap: {
-                url: 'https://www.dataaccess.com/webservicesserver/NumberConversion.wso',
-                method: 'POST',
-                numberOfRequests: 3,
-                headers: {'Content-Type': 'text/xml; charset=utf-8', 'SOAPAction': 'http://www.dataaccess.com/webservicesserver/NumberToWords'},
-                template: '<?xml version="1.0" encoding="utf-8"?>\n<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">\n  <soap:Body>\n    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">\n      <ubiNum>##number##</ubiNum>\n    </NumberToWords>\n  </soap:Body>\n</soap:Envelope>',
-                dataRules: {number: {type: 'random_number', min: 1, max: 1000}}
-            }
+    $(function() {
+        const presets = {
+            rest: { url: 'https://httpbin.org/post', method: 'POST', numRequests: 5, headers: JSON.stringify({ "Content-Type": "application/json", "Accept": "application/json" }, null, 4), template: JSON.stringify({ user: { id: "##userId##", name: "##userName##" }, transactionId: "##transactionId##" }, null, 4), dataRules: JSON.stringify({ userId: { type: "increment", start: 1001, step: 1 }, userName: { type: "random", values: ["Alice", "Bob", "Charlie"] }, transactionId: { type: "uuid" } }, null, 4)},
+            soap: { url: 'https://www.dataaccess.com/webservicesserver/NumberConversion.wso', method: 'POST', numRequests: 3, headers: JSON.stringify({ "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://www.dataaccess.com/webservicesserver/NumberToWords" }, null, 4), template: `<?xml version="1.0" encoding="utf-8"?>\n<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">\n  <soap:Body>\n    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">\n      <ubiNum>##number##</ubiNum>\n    </NumberToWords>\n  </soap:Body>\n</soap:Envelope>`, dataRules: JSON.stringify({ number: { type: "random_number", min: 1, max: 1000 } }, null, 4)}
         };
 
-        // UI Элементы
-        const selector = document.getElementById('config-selector');
-        const urlInput = document.getElementById('url');
-        const numberInput = document.getElementById('requests-number');
-        const methodSelector = document.getElementById('method-selector');
-        const headersText = document.getElementById('headers');
-        const loginInput = document.getElementById('login'); // Новое поле
-        const passwordInput = document.getElementById('password'); // Новое поле
-        const templateText = document.getElementById('template');
-        const dataRulesText = document.getElementById('data-rules');
-        const logStackTraceCheckbox = document.getElementById('log-stack-trace');
-        const executeBtn = document.getElementById('execute-btn');
-        const logOutput = document.getElementById('log-output');
-
-        function loadConfig(configName) {
-            const config = configs[configName];
-            if (!config) return;
-
-            urlInput.value = config.url;
-            numberInput.value = config.numberOfRequests;
-            methodSelector.value = config.method;
-            headersText.value = JSON.stringify(config.headers, null, 2);
-            templateText.value = config.template;
-            dataRulesText.value = JSON.stringify(config.dataRules, null, 2);
-            loginInput.value = ''; // Очищаем поля авторизации при смене конфига
-            passwordInput.value = '';
+        function applyPreset(name) {
+            const preset = presets[name];
+            if (!preset) return;
+            $('#url').val(preset.url); $('#method').val(preset.method); $('#numRequests').val(preset.numRequests);
+            $('#headers').val(preset.headers); $('#template').val(preset.template); $('#dataRules').val(preset.dataRules);
         }
 
-        selector.addEventListener('change', () => loadConfig(selector.value));
+        $('#config-select').on('change', function() { applyPreset($(this).val()); });
 
-        executeBtn.addEventListener('click', () => {
-            executeBtn.disabled = true;
-            executeBtn.textContent = 'Выполнение...';
-            logOutput.textContent = 'Отправка данных на сервер...';
-
-            let currentConfig;
+        $('#execute-btn').on('click', function() {
+            const button = $(this); const logOutput = $('#log-output');
+            logOutput.text('Подготовка к выполнению...'); button.prop('disabled', true).text('Выполнение...');
             try {
-                currentConfig = {
-                    url: urlInput.value,
-                    method: methodSelector.value,
-                    numberOfRequests: parseInt(numberInput.value, 10),
-                    headers: JSON.parse(headersText.value),
-                    login: loginInput.value, // Добавляем логин
-                    password: passwordInput.value, // Добавляем пароль
-                    template: templateText.value,
-                    dataRules: JSON.parse(dataRulesText.value),
-                    logSettings: {
-                        logStackTrace: logStackTraceCheckbox.checked
-                    }
+                const config = {
+                    url: $('#url').val().trim(), method: $('#method').val(),
+                    numberOfRequests: parseInt($('#numRequests').val(), 10) || 1,
+                    csName: $('#csName').val().trim(), bsName: $('#bsName').val().trim(), interfaceName: $('#interfaceName').val().trim(),
+                    login: $('#login').val(), password: $('#password').val(),
+                    headers: JSON.parse($('#headers').val() || '{}'), template: $('#template').val(),
+                    dataRules: JSON.parse($('#dataRules').val() || '{}')
                 };
-            } catch (e) {
-                logOutput.textContent = 'Ошибка! Неверный формат JSON в поле "Заголовки" или "Правила генерации данных".\n\n' + e;
-                executeBtn.disabled = false;
-                executeBtn.textContent = 'Выполнить';
-                return;
-            }
-
-            // РЕАЛЬНЫЙ ВЫЗОВ НА СЕРВЕР
-            fetch('/api/execute-calls', { // Убедитесь, что URL верный
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(currentConfig)
-            })
-                .then(response => {
-                    return response.text().then(text => {
-                        if (!response.ok) {
-                            throw new Error(`Ошибка сервера (статус ${response.status}):\n${text}`);
-                        }
-                        return text;
-                    });
-                })
-                .then(logResult => {
-                    logOutput.textContent = logResult;
-                })
-                .catch(error => {
-                    logOutput.textContent = 'Не удалось выполнить запрос:\n' + error.message;
-                })
-                .finally(() => {
-                    executeBtn.disabled = false;
-                    executeBtn.textContent = 'Выполнить';
+                if(!config.url) { throw new Error("URL сервиса не может быть пустым."); }
+                $.ajax({ url: '/api/execute-calls', type: 'POST', contentType: 'application/json', data: JSON.stringify(config),
+                    success: (response) => { logOutput.text(response); },
+                    error: (xhr) => { logOutput.text(`Ошибка на сервере:\n${xhr.responseText}`); },
+                    complete: () => { button.prop('disabled', false).text('Выполнить вызовы'); }
                 });
+            } catch (e) {
+                logOutput.text(`Ошибка в конфигурации: \n${e.message}`);
+                button.prop('disabled', false).text('Выполнить вызовы');
+            }
         });
 
-        loadConfig(selector.value);
+        function loadCredentials() {
+            $.get('/api/credentials/all', function(creds) {
+                const select = $('#credentials-select'); const currentVal = select.val();
+                select.empty().append('<option value="">-- Новые учетные данные --</option>');
+                creds.forEach(c => select.append(`<option value="${c.id}">${c.name}</option>`));
+                select.val(currentVal);
+            }).fail(function(){ alert("Не удалось загрузить учетные данные.") });
+        }
+
+        $('#credentials-select').on('change', function() {
+            const id = $(this).val();
+            $('#delete-credential-btn').prop('disabled', !id);
+            if (id) {
+                $.get(`/api/credentials/get?id=${id}`, function(cred) {
+                    $('#credential-name').val(cred.name); $('#login').val(cred.login); $('#password').val(cred.password);
+                });
+            } else {
+                $('#credential-name, #login, #password').val('');
+            }
+        });
+
+        $('#save-credential-btn').on('click', function() {
+            const selectedId = $('#credentials-select').val();
+            const data = {
+                id: selectedId ? parseInt(selectedId) : null, name: $('#credential-name').val().trim(),
+                login: $('#login').val(), password: $('#password').val()
+            };
+            if (!data.name) { alert('Пожалуйста, введите имя для сохранения учетных данных.'); return; }
+            $.ajax({
+                url: '/api/credentials/save', type: 'POST', contentType: 'application/json', data: JSON.stringify(data),
+                success: function() {
+                    alert('Учетные данные сохранены!');
+                    loadCredentials();
+                },
+                error: function() { alert('Ошибка сохранения. Возможно, имя уже используется.'); }
+            });
+        });
+
+        $('#delete-credential-btn').on('click', function() {
+            const selectedId = $('#credentials-select').val();
+            if (!selectedId || !confirm('Удалить эти учетные данные?')) return;
+            $.ajax({
+                url: '/api/credentials/delete', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({id: parseInt(selectedId)}),
+                success: function() {
+                    alert('Удалено!');
+                    loadCredentials();
+                    $('#credential-name, #login, #password').val(''); $('#delete-credential-btn').prop('disabled', true);
+                },
+                error: function() { alert('Ошибка удаления.'); }
+            });
+        });
+
+        loadCredentials();
+        applyPreset('rest');
+        $('#config-select').val('rest');
     });
 </script>
 
