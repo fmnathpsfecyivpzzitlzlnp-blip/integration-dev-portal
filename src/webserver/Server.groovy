@@ -36,15 +36,28 @@ import java.util.Base64
 class Server {
 
     static class MyJsonOutput {
-        static String toJson(data) { if (data == null) return "null"; if (data instanceof Boolean || data instanceof Number) return data.toString(); if (data instanceof String) return '"' + escape(data.toString()) + '"'; if (data instanceof List) { return "[" + data.collect { toJson(it) }.join(",") + "]" }; if (data instanceof Map) { return "{" + data.collect { k, v -> toJson(k) + ":" + toJson(v) }.join(",") + "}" }; return '"' + escape(data.toString()) + '"' }
-        static String prettyPrint(String json) { try { def obj = new JsonSlurper().parseText(json); return new groovy.json.JsonBuilder(obj).toPrettyString() } catch (Exception e) { return json } }
-        private static String escape(String s) { return s.replace('\\', '\\\\').replace('"', '\\"').replace('/', '\\/').replace('\b', '\\b').replace('\f', '\\f').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') }
+        static String toJson(data) {
+            return groovy.json.JsonOutput.toJson(data)
+        }
+        static String prettyPrint(String json) {
+            try {
+                return groovy.json.JsonOutput.prettyPrint(json)
+            } catch (Exception e) {
+                return json
+            }
+        }
     }
 
     static class DataConverter {
         def parse(String text, String format) { if (!text || text.trim().isEmpty()) throw new IllegalArgumentException("Входной текст не может быть пустым."); if (format == 'json') return new JsonSlurper().parseText(text); if (format == 'xml') return normalizeXmlNode(new XmlParser().parseText(text)); throw new IllegalArgumentException("Неподдерживаемый формат: ${format}") }
         private def normalizeXmlNode(node) { if (node instanceof String) return node; def children = node.children().findAll { !(it instanceof String && it.trim().isEmpty()) }; if (children.isEmpty() && !node.text().isEmpty()) return node.text(); def map = [:]; children.each { child -> if (child.respondsTo('name')) { def name = child.name(); def value = normalizeXmlNode(child); if (map.containsKey(name)) { if (!(map[name] instanceof List)) map[name] = [map[name]]; map[name].add(value) } else { map[name] = value } } }; if (node.attributes()) node.attributes().each { k, v -> map["@${k}"] = v }; if (map.isEmpty() && !node.text().isEmpty()) return node.text(); return map }
-        def serialize(data, String format, boolean pretty) { if (format == 'json') { def jsonString = MyJsonOutput.toJson(data); return pretty ? MyJsonOutput.prettyPrint(jsonString) : jsonString } else if (format == 'xml') { def writer = new StringWriter(); def builder = new MarkupBuilder(writer); builder.root { buildXml(builder, data) }; return writer.toString() }; return "Неподдерживаемый формат" }
+        def serialize(data, String format, boolean pretty) {
+            if (format == 'json') {
+                def jsonString = groovy.json.JsonOutput.toJson(data)
+                return pretty ? groovy.json.JsonOutput.prettyPrint(jsonString) : jsonString
+            } else if (format == 'xml') {
+            def writer = new StringWriter(); def builder = new MarkupBuilder(writer); builder.root { buildXml(builder, data) };
+            return writer.toString() }; return "Неподдерживаемый формат" }
         private void buildXml(MarkupBuilder builder, data) { if (data instanceof Map) { data.each { key, value -> if (key.startsWith('@')) return; if (value instanceof List) { value.each { item -> builder."$key" { buildXml(builder, item) } } } else { def attrs = (value instanceof Map) ? value.findAll { it.key.startsWith('@') }.collectEntries { k, v -> [k.substring(1), v] } : [:]; def children = (value instanceof Map) ? value.findAll { !it.key.startsWith('@') } : value; builder."$key"(attrs) { buildXml(builder, children) } } } } else if (data != null && !(data instanceof List)) { builder.mkp.yield(data.toString()) } }
         def generateJsonSchema(jsonData) { def rootSchemaContent = determineSchema(jsonData, "Root"); return ["\$schema": "http://json-schema.org/draft-07/schema#", title: "Generated Schema", description: "Automatically generated schema"] + rootSchemaContent }
         private def determineSchema(value, String propertyName = "") { def baseSchema = [:]; if (propertyName) baseSchema.title = propertyName.capitalize(); if (value == null) return baseSchema + [type: ["string", "number", "boolean", "array", "object", "null"]]; if (value instanceof String) return baseSchema + [type: "string"]; if (value instanceof Number) return baseSchema + [type: "number"]; if (value instanceof Boolean) return baseSchema + [type: "boolean"]; if (value instanceof List) { def firstNonNull = value ? value.find {it != null} : null; def itemsSchema = determineSchema(firstNonNull, propertyName ? "${propertyName} Item" : "Array Item"); return baseSchema + [type: "array", items: itemsSchema] }; if (value instanceof Map) { def propertiesMap = value.collectEntries { k, v -> [k, determineSchema(v, k)] }; return baseSchema + [type: "object", properties: propertiesMap, required: value.keySet() as List, additionalProperties: false] }; return baseSchema + [type: ["string", "number", "boolean", "array", "object", "null"]] }
@@ -242,7 +255,7 @@ class Server {
         server.createContext("/", staticContentHandler)
 
         // --- ВСЕ API ENDPOINTS ---
-        server.createContext("/api/parse"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,MyJsonOutput.toJson(converter.parse(d.text,d.format)),"application/json")}}
+        server.createContext("/api/parse"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,groovy.json.JsonOutput.toJson(converter.parse(d.text,d.format)),"application/json")}}
         server.createContext("/api/serialize"){e->handleRequest(e,"POST"){def s=new JsonSlurper().parse(e.requestBody);def p=e.requestURI.query?.split('&').collectEntries{[(it.split('=')[0]):URLDecoder.decode(it.split('=')[1],"UTF-8")]};sendResponse(e,converter.serialize(s,p.format?:'json',p.pretty?p.pretty=='true':true),"text/plain")}}
         server.createContext("/api/fetch-url"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,new URL(d.url).text,"text/plain")}}
         server.createContext("/api/convert"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);if(!d.text||!d.from||!d.to)throw new IllegalArgumentException("Args missing");sendResponse(e,converter.serialize(converter.parse(d.text,d.from),d.to,true),"text/plain")}}
