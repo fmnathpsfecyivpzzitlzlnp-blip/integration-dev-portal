@@ -11,27 +11,50 @@
   <h2>Управление текстовыми метками</h2>
 
   <div class="controls">
-    <input type="text" id="search-input" placeholder="Поиск по меткам (en/ru)...">
-    <select id="category-filter">
-      <option value="">Все категории</option>
-    </select>
+    <input type="text" id="search-input" placeholder="Поиск по названию или тексту метки...">
+    <select id="category-filter"><option value="">Все категории</option></select>
     <button id="add-category-btn">Добавить категорию</button>
   </div>
 
-  <div id="labels-container">
-    <!-- Сюда будут загружаться категории и метки -->
+  <div id="labels-container"></div>
+</div>
+
+<!-- Модальное окно для добавления/редактирования метки -->
+<div id="label-modal" class="modal">
+  <div class="modal-content">
+    <span class="modal-close">&times;</span>
+    <h2 id="modal-title">Новая метка</h2>
+    <input type="hidden" id="modal-label-id">
+    <input type="hidden" id="modal-category-id">
+    <label for="modal-label-title">Название метки</label>
+    <input type="text" id="modal-label-title" placeholder="Краткое описание, например, 'SOAP-запрос для сервиса X'" style="margin-top: 5px;">
+    <label for="modal-label-content" style="margin-top: 15px;">Текст метки (сохраняет форматирование)</label>
+    <textarea id="modal-label-content" style="min-height: 200px; font-family: monospace; margin-top: 5px;"></textarea>
+    <button id="save-label-btn" style="margin-top: 15px;">Сохранить</button>
+  </div>
+</div>
+
+<!-- Модальное окно для просмотра метки -->
+<div id="view-modal" class="modal">
+  <div class="modal-content">
+    <span class="modal-close">&times;</span>
+    <h2 id="view-modal-title"></h2>
+    <pre id="view-modal-content" style="white-space: pre-wrap; background: #f4f4f4; padding: 10px; border: 1px solid #ddd; max-height: 60vh; overflow-y: auto;"></pre>
+    <button id="view-modal-copy-btn" style="margin-top: 15px;">Копировать текст</button>
   </div>
 </div>
 
 <div id="notification" class="notification"></div>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
   $(function () {
     let allCategories = [];
     let allLabels = [];
 
-    // --- Основная функция загрузки всех данных с сервера ---
+    const labelModal = $('#label-modal');
+    const viewModal = $('#view-modal');
+
     function loadAllDataAndRender() {
       $.get('/api/labels/all', function(data) {
         allCategories = data.categories || [];
@@ -39,64 +62,48 @@
         renderCategories(allCategories);
         renderLabels(allLabels);
         updateCategoryFilter(allCategories);
-      }).fail(function() {
-        showNotification("Ошибка загрузки данных с сервера.", true);
-      });
+      }).fail(() => showNotification("Ошибка загрузки данных.", true));
     }
 
-    // --- Функции рендеринга ---
-
-    // Рендерит только "скелет" категорий
     function renderCategories(categories) {
       const container = $('#labels-container').empty();
-
       if (categories.length === 0) {
-        container.html('<div class="empty-state"><p>У вас еще нет ни одной категории. Начните с создания новой, используя кнопку "Добавить категорию" вверху.</p></div>');
+        container.html('<div class="empty-state" style="text-align: center; padding: 40px; background-color: #fff; border-radius: 8px; color: #7f8c8d;"><p>Нет категорий. Начните с создания новой.</p></div>');
         return;
       }
-
       categories.forEach(cat => {
-        const categoryHtml = `
-                    <div class="category-block" data-category-id="${cat.id}">
-                        <div class="category-header">
-                            <h3>${escapeHtml(cat.name)}</h3>
-                            <div class="category-actions">
-                                <button class="add-label-btn">Добавить метку</button>
-                                <button class="copy-group-btn">Копировать группу</button>
-                                <button class="delete-category-btn">Удалить</button>
-                            </div>
-                        </div>
-                        <div class="labels-list">
-                           <!-- Метки будут вставлены сюда функцией renderLabels -->
-                        </div>
-                    </div>
-                `;
-        container.append(categoryHtml);
+        container.append(`
+          <div class="category-block" data-category-id="${cat.id}">
+            <div class="category-header">
+                <h3>${escapeHtml(cat.name)}</h3>
+                <div class="category-actions">
+                    <button class="add-label-btn">Добавить метку</button>
+                    <button class="delete-category-btn danger">Удалить категорию</button>
+                </div>
+            </div>
+            <div class="labels-list"></div>
+          </div>`);
       });
     }
 
-    // Рендерит (перерисовывает) только метки внутри уже существующих категорий
     function renderLabels(labels) {
-      $('.labels-list').empty(); // Очищаем все списки меток перед новой отрисовкой
-
+      $('.labels-list').empty();
       labels.forEach(label => {
         const labelHtml = `
-                    <div class="label-item" data-label-id="${label.id}">
-                        <pre class="label-content">${escapeHtml(label.content)}</pre>
-                        <div class="label-actions">
-                             <span class="usage-counter" title="Скопировано раз">${label.usage_count || 0}</span>
-                            <button class="copy-label-btn" title="Копировать">📋</button>
-                            <button class="delete-label-btn" title="Удалить">🗑️</button>
-                        </div>
-                    </div>
-                `;
+          <div class="label-item" data-label-id="${label.id}">
+              <span class="label-title">${escapeHtml(label.title)}</span>
+              <div class="label-actions">
+                  <span class="usage-counter" title="Скопировано раз">${label.usage_count || 0}</span>
+                  <button class="view-label-btn" title="Просмотр">👁️</button>
+                  <button class="copy-label-btn" title="Копировать">📋</button>
+                  <button class="delete-label-btn danger" title="Удалить">🗑️</button>
+              </div>
+          </div>`;
         $(`.category-block[data-category-id="${label.category_id}"] .labels-list`).append(labelHtml);
       });
-
-      // После рендеринга меток, проверяем, какие категории остались пустыми
       $('.category-block').each(function() {
         if ($(this).find('.label-item').length === 0) {
-          $(this).find('.labels-list').html('<p class="empty-category-message">Нет меток, соответствующих запросу.</p>');
+          $(this).find('.labels-list').html('<p style="font-style: italic; color: #95a5a6; padding: 15px 0; text-align: center;">Нет меток, соответствующих запросу.</p>');
         }
       });
     }
@@ -105,42 +112,26 @@
       const filter = $('#category-filter');
       const currentVal = filter.val();
       filter.find('option:not(:first)').remove();
-      categories.forEach(cat => {
-        filter.append(`<option value="${cat.id}">${escapeHtml(cat.name)}</option>`);
-      });
+      categories.forEach(cat => filter.append(`<option value="${cat.id}">${escapeHtml(cat.name)}</option>`));
       filter.val(currentVal);
     }
 
-    // --- Поиск и фильтрация ---
     function performSearch() {
       const query = $('#search-input').val();
       const categoryId = $('#category-filter').val();
-
-      // Если оба поля пустые, просто отображаем все метки из кеша
-      if (!query && !categoryId) {
-        renderLabels(allLabels);
-        return;
-      }
-
-      $.get('/api/labels/search', { q: query, categoryId: categoryId }, function(filteredLabels) {
-        renderLabels(filteredLabels);
-      }).fail(function(){
-        showNotification("Ошибка при выполнении поиска.", true);
-      });
+      $.get('/api/labels/search', { q: query, categoryId: categoryId }, renderLabels)
+              .fail(() => showNotification("Ошибка при выполнении поиска.", true));
     }
 
     $('#search-input').on('keyup', debounce(performSearch, 300));
     $('#category-filter').on('change', performSearch);
 
-
-    // --- Обработчики событий (делегирование) ---
     $('#add-category-btn').on('click', function() {
       const name = prompt("Введите название новой категории:");
       if (name && name.trim()) {
         $.ajax({ url: '/api/labels/category', type: 'POST', contentType: 'application/json', data: JSON.stringify({ name: name.trim() }), success: loadAllDataAndRender });
       }
     });
-
     $('#labels-container').on('click', '.delete-category-btn', function() {
       if (!confirm("Вы уверены, что хотите удалить эту категорию и ВСЕ метки в ней?")) return;
       const categoryId = $(this).closest('.category-block').data('category-id');
@@ -148,85 +139,72 @@
     });
 
     $('#labels-container').on('click', '.add-label-btn', function() {
-      const content = prompt("Введите текст новой метки:");
-      if (content && content.trim()) {
-        const categoryId = $(this).closest('.category-block').data('category-id');
-        $.ajax({ url: '/api/labels/label', type: 'POST', contentType: 'application/json', data: JSON.stringify({ content: content.trim(), category_id: categoryId }), success: loadAllDataAndRender });
+      const categoryId = $(this).closest('.category-block').data('category-id');
+      $('#modal-title').text('Новая метка');
+      $('#modal-label-id').val('');
+      $('#modal-category-id').val(categoryId);
+      $('#modal-label-title').val('');
+      $('#modal-label-content').val('');
+      labelModal.show();
+    });
+
+    $('#save-label-btn').on('click', function() {
+      const labelData = {
+        id: $('#modal-label-id').val() ? parseInt($('#modal-label-id').val()) : null,
+        category_id: parseInt($('#modal-category-id').val()),
+        title: $('#modal-label-title').val().trim(),
+        content: $('#modal-label-content').val()
+      };
+      if (!labelData.title) { alert('Название метки не может быть пустым.'); return; }
+      $.ajax({
+        url: '/api/labels/label', type: 'POST', contentType: 'application/json',
+        data: JSON.stringify(labelData),
+        success: () => { labelModal.hide(); loadAllDataAndRender(); },
+        error: () => showNotification("Ошибка сохранения метки.", true)
+      });
+    });
+
+    $('.modal-close').on('click', () => $('.modal').hide());
+
+    $('#labels-container').on('click', '.view-label-btn, .label-title', function() {
+      const labelId = $(this).closest('.label-item').data('label-id');
+      const label = allLabels.find(l => l.id === labelId);
+      if (label) {
+        $('#view-modal-title').text(label.title);
+        $('#view-modal-content').text(label.content);
+        viewModal.show();
+      }
+    });
+
+    $('#view-modal-copy-btn').on('click', function() {
+      copyToClipboard($('#view-modal-content').text(), "Текст метки скопирован!");
+    });
+
+    $('#labels-container').on('click', '.copy-label-btn', function() {
+      const labelId = $(this).closest('.label-item').data('label-id');
+      const label = allLabels.find(l => l.id === labelId);
+      if (label) {
+        copyToClipboard(label.content, "Текст метки скопирован!").then(() => {
+          $.ajax({ url: '/api/labels/increment_usage', type: 'POST', contentType: 'application/json', data: JSON.stringify({ id: labelId }), success: loadAllDataAndRender });
+        });
       }
     });
 
     $('#labels-container').on('click', '.delete-label-btn', function() {
-      if (!confirm("Удалить эту метку?")) return;
+      if (!confirm("Удалить метку?")) return;
       const labelId = $(this).closest('.label-item').data('label-id');
       $.ajax({ url: '/api/labels/label', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id: labelId }), success: loadAllDataAndRender });
     });
 
-    $('#labels-container').on('click', '.copy-label-btn', function() {
-      const labelItem = $(this).closest('.label-item');
-      const textToCopy = labelItem.find('.label-content').text();
-      const labelId = labelItem.data('label-id');
-
-      copyToClipboard(textToCopy, "Метка скопирована!").then(() => {
-        $.ajax({
-          url: '/api/labels/increment_usage', type: 'POST', contentType: 'application/json',
-          data: JSON.stringify({ id: labelId }),
-          success: function() {
-            loadAllDataAndRender();
-          }
-        });
-      });
-    });
-
-    $('#labels-container').on('click', '.copy-group-btn', function() {
-      const labels = $(this).closest('.category-block').find('.label-content');
-      if (labels.length === 0) {
-        showNotification("В этой группе нет меток для копирования.", true);
-        return;
-      }
-      const textToCopy = $.map(labels, (el) => $(el).text()).join('\n\n---\n\n');
-      copyToClipboard(textToCopy, "Все метки из группы скопированы!");
-    });
-
-
-    // --- Вспомогательные функции ---
-    function copyToClipboard(text, message) {
-      return navigator.clipboard.writeText(text).then(function() {
-        showNotification(message);
-      }, function(err) {
-        showNotification('Ошибка копирования: ' + err, true);
-      });
-    }
-
+    function copyToClipboard(text, message) { return navigator.clipboard.writeText(text).then(() => showNotification(message), (err) => showNotification('Ошибка копирования: ' + err, true)); }
     let notificationTimeout;
-    function showNotification(message, isError = false) {
-      const notification = $('#notification');
-      notification.text(message).removeClass('error').show();
-      if (isError) { notification.addClass('error'); }
-      clearTimeout(notificationTimeout);
-      notificationTimeout = setTimeout(() => notification.fadeOut(), 2500);
-    }
+    function showNotification(message, isError = false) { const n = $('#notification'); n.text(message).removeClass('error').show(); if (isError) n.addClass('error'); clearTimeout(notificationTimeout); notificationTimeout = setTimeout(() => n.fadeOut(), 2500); }
+    function escapeHtml(text) { return $('<div>').text(text || '').html(); }
+    function debounce(func, delay) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => func.apply(this, a), delay); }; }
 
-    function escapeHtml(text) {
-      if (typeof text !== 'string') return '';
-      return $('<div>').text(text).html();
-    }
-
-    function debounce(func, delay) {
-      let timeout;
-      return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); };
-    }
-
-    // --- Начальная загрузка ---
     loadAllDataAndRender();
   });
 </script>
-
-<style>
-  /* Стили для улучшения отображения */
-  .empty-state { text-align: center; padding: 40px; background-color: #fff; border-radius: 8px; color: #7f8c8d; }
-  .empty-category-message { font-style: italic; color: #95a5a6; padding: 15px 0; text-align: center; }
-  .usage-counter { font-size: 12px; font-weight: bold; color: #7f8c8d; margin-right: 5px; background-color: #ecf0f1; padding: 2px 6px; border-radius: 5px; }
-</style>
 
 </body>
 </html>

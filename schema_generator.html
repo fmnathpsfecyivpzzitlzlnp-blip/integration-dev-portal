@@ -3,80 +3,52 @@
 <head>
     <title>JSON Schema Generator</title>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; height: calc(100vh - 20px); }
-        h2 { margin-top: 0; }
-        .container { display: flex; flex: 1; overflow: hidden; gap: 10px; }
-        .panel { display: flex; flex-direction: column; width: 50%; }
-        textarea { width: 100%; flex: 1; font-family: monospace; font-size: 14px; box-sizing: border-box; }
-        button { padding: 10px 15px; cursor: pointer; margin-bottom: 10px; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<h2>Генератор JSON Schema</h2>
-
-<button id="generateBtn">Сгенерировать схему</button>
-
-<div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; margin-bottom: 10px;"></div>
-
-<div class="container">
-    <div class="panel">
-        <label for="json-input">Входной JSON:</label>
-        <textarea id="json-input" placeholder="Вставьте сюда ваш JSON..."></textarea>
+<div class="main-content generator-page-container">
+    <h2 style="flex-shrink: 0;">Генератор JSON Schema</h2>
+    <div class="generator-controls">
+        <button id="generateBtn" style="padding: 10px 15px;">Сгенерировать схему</button>
     </div>
-    <div class="panel">
-        <label for="schema-output">Сгенерированная JSON Schema:</label>
-        <textarea id="schema-output" readonly></textarea>
+    <div id="error-panel" style="display:none; padding:10px; background:#ffebee; color:#c62828; border:1px solid #c62828; margin-bottom:10px;"></div>
+
+    <div class="generator-columns-container">
+        <div class="generator-panel">
+            <label for="json-input">Входной JSON:</label>
+            <textarea id="json-input" placeholder="Вставьте сюда ваш JSON..."></textarea>
+        </div>
+        <div class="generator-panel">
+            <label for="schema-output">Сгенерированная JSON Schema:</label>
+            <textarea id="schema-output" readonly></textarea>
+        </div>
     </div>
 </div>
-
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
     $(function () {
         const errorPanel = $('#error-panel');
-
         $('#generateBtn').on('click', function() {
             errorPanel.hide();
             const jsonText = $('#json-input').val();
-            if (!jsonText.trim()) {
-                alert("Пожалуйста, вставьте JSON-данные.");
-                return;
-            }
+            if (!jsonText.trim()) return alert("Пожалуйста, вставьте JSON.");
+
+            try { JSON.parse(jsonText); } catch (e) { return alert("Ошибка: невалидный JSON."); }
 
             $.ajax({
-                url: '/api/generate-schema',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ json: jsonText }),
-                success: function(schemaObject) { // Переименовал для ясности
-                    // Преобразуем объект в отформатированную строку JSON
-                    const formattedSchema = JSON.stringify(schemaObject, null, 4); // 4 пробела для отступов
-                    $('#schema-output').val(formattedSchema);
-                },
-                error: function(xhr) {
-                    const response = xhr.responseJSON || { message: xhr.responseText };
-                    errorPanel.text('Ошибка генерации схемы: ' + response.message).show();
-                }
+                url: '/api/generate-schema', type: 'POST',
+                contentType: 'application/json', data: jsonText,
+                success: schema => $('#schema-output').val(JSON.stringify(schema, null, 4)),
+                error: xhr => errorPanel.text('Ошибка: ' + (xhr.responseJSON?.message || xhr.responseText)).show()
             });
         });
 
-        // Пример JSON для удобства
         const exampleJson = `{
   "Request": {
     "ClientInfo": {
-      "INN": "1234567890",
-      "KPP": "123456789",
-      "OGRNIP": null,
-      "contactEmails": ["john.doe@example.com", "info@example.com"],
-      "preferences": {
-        "newsletter": true,
-        "language": "en"
-      }
-    },
-    "TransactionDetails": {
-        "amount": 100.50,
-        "currency": "USD"
+      "INN": "1234567890", "KPP": "123456789", "OGRNIP": null,
+      "contactEmails": ["john.doe@example.com"],
+      "preferences": { "newsletter": true }
     }
   }
 }`;

@@ -3,417 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <title>Ведение задач</title>
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <link rel="stylesheet" href="style.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f7f9; color: #333; }
-        .container { display: flex; flex-direction: column; height: 100vh; padding: 20px; box-sizing: border-box; }
-
-        .form-section, .settings-section, .tasks-section { background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-
-        h2 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
-
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
-        .form-grid > div { display: flex; flex-direction: column; }
-
-        .form-grid-full-width { grid-column: 1 / -1; } /* Для растягивания на всю ширину */
-
-        label { margin-bottom: 5px; font-weight: 600; font-size: 14px; }
-        input[type="text"], input[type="url"], input[type="password"], input[type="date"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; transition: border-color 0.2s; }
-        input:focus, select:focus, textarea:focus { border-color: #3498db; outline: none; }
-
-        .button-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
-        button { background-color: #3498db; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background-color 0.2s; }
-        button:hover { background-color: #2980b9; }
-        button.secondary { background-color: #95a5a6; }
-        button.secondary:hover { background-color: #7f8c8d; }
-        button.danger { background-color: #e74c3c; }
-        button.danger:hover { background-color: #c0392b; }
-
-        .tasks-section { flex-grow: 1; overflow-y: auto; }
-        .task-table { width: 100%; border-collapse: collapse; }
-        .task-table th, .task-table td { padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: left; font-size: 14px; }
-        .task-table th { background-color: #f2f2f2; font-weight: 600; }
-        .task-table tr:hover { background-color: #ecf0f1; }
-        .task-table td a { color: #3498db; text-decoration: none; }
-        .task-table td a:hover { text-decoration: underline; }
-
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
-        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 800px; border-radius: 8px; }
-        .modal-close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .modal-close:hover { color: black; }
-
-        .status-info-list dl { margin: 0; }
-        .status-info-list dt { font-weight: bold; color: #2c3e50; margin-top: 10px; }
-        .status-info-list dd { margin-left: 20px; font-style: italic; color: #555; }
-
-        .response-popup { position: fixed; bottom: 20px; right: 20px; background-color: #2c3e50; color: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 2000; display: none; }
+        .CodeMirror { border: 1px solid #ccc; border-radius: 4px; height: auto; min-height: 200px; font-size: 14px; }
+        .comment-area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .comment-indicator { cursor: help; font-size: 1.2em; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <!-- Секция настроек -->
+<div class="main-content">
     <div class="settings-section">
         <h2>Настройки отправки</h2>
         <div class="form-grid">
-            <div>
-                <label for="target-url">URL сервиса для отправки POST-запроса</label>
-                <input type="url" id="target-url" placeholder="https://example.com/api/tasks">
-            </div>
-            <div>
-                <label for="target-user">Пользователь (Basic Auth)</label>
-                <input type="text" id="target-user" placeholder="Логин">
-            </div>
-            <div>
-                <label for="target-password">Пароль (Basic Auth)</label>
-                <input type="password" id="target-password" placeholder="Пароль">
-            </div>
+            <div><label for="target-url">URL сервиса</label><input type="url" id="target-url"></div>
+            <div><label for="target-user">Пользователь</label><input type="text" id="target-user"></div>
+            <div><label for="target-password">Пароль</label><input type="password" id="target-password"></div>
         </div>
-        <div class="button-bar">
-            <button onclick="saveSettings()">Сохранить настройки</button>
-            <button class="secondary" onclick="sendTasks()">Отправить все задачи</button>
-        </div>
+        <div class="button-bar"><button onclick="saveSettings()">Сохранить настройки</button><button class="secondary" onclick="sendTasks()">Отправить все задачи</button></div>
     </div>
 
-    <!-- Секция формы -->
     <div class="form-section">
         <h2>Форма задачи</h2>
         <input type="hidden" id="task-id">
         <div class="form-grid">
-            <div>
-                <label for="user">Пользователь</label>
-                <input type="text" id="user" required>
-            </div>
-            <div>
-                <label for="task-url">URL на задачу</label>
-                <input type="url" id="task-url">
-            </div>
-            <div>
-                <label for="task-number">Номер задачи</label>
-                <input type="text" id="task-number" required>
-            </div>
-            <div>
-                <label for="stage">Этап</label>
-                <select id="stage" onchange="updateStatusDropdown()"></select>
-            </div>
-            <div>
-                <label for="status">Статус</label>
-                <select id="status"></select>
-            </div>
-            <!-- НОВОЕ ПОЛЕ ДАТЫ -->
-            <div>
-                <label for="deployment-date">Когда ставить на прод</label>
-                <input type="date" id="deployment-date">
-            </div>
-            <!-- НОВОЕ ПОЛЕ КОММЕНТАРИЯ -->
+            <div><label for="user">Пользователь</label><input type="text" id="user" required></div>
+            <div><label for="task-url">URL на задачу</label><input type="url" id="task-url"></div>
+            <div><label for="task-number">Номер задачи</label><input type="text" id="task-number" required></div>
+            <div><label for="stage">Этап</label><select id="stage" onchange="updateStatusDropdown()"></select></div>
+            <div><label for="status">Статус</label><select id="status"></select></div>
+            <div><label for="deployment-date">Когда ставить на прод</label><input type="date" id="deployment-date"></div>
+            <div><label for="spec-url">Ссылка на спецификацию</label><input type="url" id="spec-url"></div>
+            <div><label for="contact-person">Ответственный от смежной системы</label><input type="text" id="contact-person"></div>
             <div class="form-grid-full-width">
-                <label for="additional-comment">Дополнительный комментарий</label>
-                <textarea id="additional-comment" rows="3"></textarea>
+                <div class="comment-area-header">
+                    <label for="additional-comment">Дополнительный комментарий</label>
+                    <div style="display:flex;align-items:center;">
+                        <label for="syntax-select" style="font-weight:normal;margin-right:5px;">Синтаксис:</label>
+                        <select id="syntax-select" style="width:auto;"><option value="text/x-java">Java</option><option value="javascript">JavaScript</option><option value="text/plain">Простой текст</option></select>
+                        <button id="theme-toggle-btn" class="secondary" style="margin-left:10px;"></button>
+                    </div>
+                </div>
+                <textarea id="additional-comment"></textarea>
             </div>
         </div>
         <div class="button-bar">
-            <div>
-                <button onclick="saveTask()">Сохранить задачу</button>
-                <button class="secondary" onclick="clearForm()">Очистить форму</button>
-            </div>
-            <div>
-                <a href="/api/tasks/export" download="tasks_export.xlsx">
-                    <button type="button" class="secondary">Выгрузить в Excel</button>
-                </a>
-                <button class="secondary" onclick="showInfoModal()">Информация по статусам</button>
-            </div>
+            <div><button onclick="saveTask()">Сохранить задачу</button><button class="secondary" onclick="clearForm()">Очистить форму</button></div>
+            <div><a href="/api/tasks/export" download="tasks_export.xlsx"><button type="button" class="secondary">Выгрузить в Excel</button></a><button class="secondary" onclick="showInfoModal()">Инфо по статусам</button></div>
         </div>
     </div>
 
-    <!-- Секция списка задач -->
     <div class="tasks-section">
         <h2>Список задач</h2>
+        <div style="margin-bottom:20px;"><input type="text" id="task-search-input" placeholder="Поиск по всем полям..."></div>
         <table class="task-table">
             <thead>
             <tr>
-                <th>Пользователь</th>
-                <th>Номер задачи</th>
-                <th>Этап</th>
-                <th>Статус</th>
-                <th>Дата установки (PROD)</th>
-                <th>Комментарий</th>
-                <th>Действия</th>
+                <th data-sort="user">Пользователь</th><th data-sort="task_number">Номер задачи</th><th data-sort="stage">Этап</th><th data-sort="status">Статус</th><th title="Комментарий">Км</th><th data-sort="contact_person">Ответственный</th><th data-sort="spec_url">Спецификация</th><th data-sort="last_updated">Посл. изменение</th><th>Действия</th>
             </tr>
             </thead>
-            <tbody id="task-list">
-            <!-- Задачи будут загружены сюда -->
-            </tbody>
+            <tbody id="task-list"></tbody>
         </table>
     </div>
 </div>
-
-<!-- Модальное окно с информацией -->
-<div id="infoModal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="closeInfoModal()">&times;</span>
-        <h2>Описание статусов</h2>
-        <div class="status-info-list" id="status-info-content"></div>
-    </div>
-</div>
-
-<!-- Всплывающее окно для ответа -->
-<div id="responsePopup" class="response-popup"></div>
-
+<div id="infoModal" class="modal"><div class="modal-content"><span class="modal-close" onclick="closeInfoModal()">&times;</span><h2>Описание статусов</h2><div class="status-info-list" id="status-info-content"></div></div></div>
+<div id="responsePopup" class="notification"></div>
+<script src="libs/jquery-3.6.0.min.js"></script><script src="libs/codemirror.min.js"></script><script src="libs/clike.min.js"></script><script src="libs/javascript.min.js"></script>
 <script>
-    const statusConfig = {
-        "Этап 1: Очередь (Бэклог)": {
-            "Новая": "Задача создана, но еще не взята в работу. Ожидает приоритезации и назначения."
-        },
-        "Этап 2: Аналитика и проектирование": {
-            "Анализ": "Идет изучение бизнес-требований, анализ систем, исследование API.",
-            "Проектирование / ТЗ": "Идет написание технического задания, проектирование маппингов, описание логики интеграции.",
-            "Согласование": "Техническое решение или ТЗ отправлено на утверждение заказчику или архитектору. Работа по задаче приостановлена до получения ответа."
-        },
-        "Этап 3: Разработка": {
-            "В разработке": "Идет написание кода интеграции, настройка коннекторов, разработка маппингов.",
-            "Ревью кода / Peer Review": "Код написан и передан на проверку другому разработчику."
-        },
-        "Этап 4: Тестирование": {
-            "Тестирование (DEV)": "Разработчик проводит первичное тестирование на среде разработки (дымовые тесты, отладка).",
-            "Готово к развертыванию (TEST)": "Разработка и первичное тестирование завершены. Задача готова для переноса на тестовую среду.",
-            "Тестирование (TEST)": "Задача развернута на тестовой среде, идет функциональное и интеграционное тестирование.",
-            "Приемка (UAT)": "Тестирование QA завершено. Задача ожидает проверки и подтверждения от бизнес-пользователя или заказчика."
-        },
-        "Этап 5: Внедрение": {
-            "Готово к внедрению (PROD)": "Все тесты и приемка пройдены. Задача полностью готова к установке на продуктивную среду.",
-            "Внедрение": "Идет процесс установки на PROD."
-        },
-        "Этап 6: Завершение": {
-            "Мониторинг / Поддержка": "Решение внедрено, идет наблюдение за его работой в первые часы/дни.",
-            "Закрыто": "Задача полностью выполнена, стабильно работает, все работы завершены."
-        },
-        "Специальные статусы": {
-            "Приостановлено (On Hold)": "Работа по задаче временно остановлена по внутренним причинам (например, изменение приоритетов).",
-            "Заблокировано (Blocked)": "Работа невозможна из-за внешних факторов (ожидание доступа, ответа от другой команды).",
-            "К уточнению (Needs Info)": "Требуется дополнительная информация от аналитика или заказчика, чтобы продолжить работу."
-        }
-    };
-
-    const stageSelect = document.getElementById('stage');
-    const statusSelect = document.getElementById('status');
-
-    function populateStageDropdown() {
-        stageSelect.innerHTML = '';
-        Object.keys(statusConfig).forEach(stage => {
-            const option = document.createElement('option');
-            option.value = stage;
-            option.textContent = stage;
-            stageSelect.appendChild(option);
-        });
+    const statusConfig = { "Этап 1: Очередь (Бэклог)": {"Новая": "Задача создана."}, "Этап 2: Аналитика и проектирование": {"Анализ": "Изучение требований.", "Проектирование / ТЗ": "Написание ТЗ.", "Согласование": "ТЗ на утверждении."}, "Этап 3: Разработка": {"В разработке": "Написание кода.", "Ревью кода / Peer Review": "Код на проверке."}, "Этап 4: Тестирование": {"Тестирование (DEV)": "Первичное тестирование.", "Готово к развертыванию (TEST)": "Готово к тесту.", "Тестирование (TEST)": "Идет тестирование.", "Приемка (UAT)": "На приемке."}, "Этап 5: Внедрение": {"Готово к внедрению (PROD)": "Готово к ПРОД.", "Внедрение": "Установка на ПРОД."}, "Этап 6: Завершение": {"Мониторинг / Поддержка": "Идет наблюдение.", "Закрыто": "Задача выполнена."}, "Специальные статусы": {"Приостановлено (On Hold)": "Приостановлена.", "Заблокировано (Blocked)": "Заблокирована.", "К уточнению (Needs Info)": "Требуется информация."}};
+    let allTasks = [], currentSort = { key: 'last_updated', order: 'desc' }, commentEditor;
+    $(function(){
+        const savedTheme = localStorage.getItem('codeMirrorTheme') || 'dracula';
+        commentEditor = CodeMirror.fromTextArea(document.getElementById('additional-comment'),{lineNumbers:true,mode:"text/x-java",theme:savedTheme,indentUnit:4,matchBrackets:true,lineWrapping:true});
+        commentEditor.setSize(null, "200px");
+        const themeBtn=$('#theme-toggle-btn');
+        function updateThemeBtn(theme){ themeBtn.text(theme==='dracula'?'Светлая тема':'Темная тема');}
+        updateThemeBtn(savedTheme);
+        themeBtn.on('click',()=>{const newTheme=commentEditor.getOption("theme")==='dracula'?'default':'dracula';commentEditor.setOption("theme",newTheme);updateThemeBtn(newTheme);localStorage.setItem('codeMirrorTheme',newTheme);});
+        $('#syntax-select').on('change',function(){commentEditor.setOption("mode",$(this).val());});
+        populateStageDropdown();updateStatusDropdown();loadTasks();loadSettings();
+        $('#task-search-input').on('input',e=>{const q=e.target.value.toLowerCase(),f=allTasks.filter(t=>Object.values(t).some(v=>String(v).toLowerCase().includes(q)));renderTasks(f);});
+        $('.task-table th[data-sort]').on('click',function(){const sortKey=$(this).data('sort'),header=$(this).text().replace(/ [▲▼]/,'');$('.task-table th[data-sort]').each(function(){$(this).text($(this).text().replace(/ [▲▼]/,''));});currentSort={key:sortKey,order:currentSort.key===sortKey&&currentSort.order==='asc'?'desc':'asc'};$(this).text(header+(currentSort.order==='asc'?' ▲':' ▼'));$('#task-search-input').trigger('input');});
+    });
+    function renderTasks(tasks){
+        const list=$('#task-list').empty();if(!tasks)return;
+        tasks.sort((a,b)=>{let vA=a[currentSort.key]||'',vB=b[currentSort.key]||'';if(currentSort.key==='last_updated')return currentSort.order==='asc'?new Date(vA)-new Date(vB):new Date(vB)-new Date(vA);if(vA<vB)return currentSort.order==='asc'?-1:1;if(vA>vB)return currentSort.order==='asc'?1:-1;return 0;});
+        tasks.forEach(t=>{const upd=new Date(t.last_updated).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),spec=t.spec_url?`<a href="${t.spec_url}" target="_blank">Ссылка</a>`:'',comm=t.additional_comment&&t.additional_comment.trim()!==''?`<span class="comment-indicator" title="${t.additional_comment.substring(0,150).replace(/"/g,'&quot;')}">💬</span>`:'';const row=`<tr><td>${t.user||''}</td><td><a href="${t.task_url||'#'}" target="_blank">${t.task_number||''}</a></td><td>${t.stage||''}</td><td>${t.status||''}</td><td>${comm}</td><td>${t.contact_person||''}</td><td>${spec}</td><td>${upd}</td><td><button onclick='editTask(${JSON.stringify(t)})' title="Редактировать">✏️</button><button class="danger" onclick='deleteTask(${t.id})' title="Удалить">🗑️</button></td></tr>`;list.append(row);});
     }
-
-    function updateStatusDropdown() {
-        const selectedStage = stageSelect.value;
-        statusSelect.innerHTML = '';
-        if (selectedStage && statusConfig[selectedStage]) {
-            Object.keys(statusConfig[selectedStage]).forEach(status => {
-                const option = document.createElement('option');
-                option.value = status;
-                option.textContent = status;
-                statusSelect.appendChild(option);
-            });
-        }
-    }
-
-    function clearForm() {
-        document.getElementById('task-id').value = '';
-        document.getElementById('user').value = '';
-        document.getElementById('task-url').value = '';
-        document.getElementById('task-number').value = '';
-        document.getElementById('deployment-date').value = '';
-        document.getElementById('additional-comment').value = '';
-        stageSelect.selectedIndex = 0;
-        updateStatusDropdown();
-    }
-
-    async function loadTasks() {
-        try {
-            const response = await fetch('/api/tasks');
-            if (!response.ok) throw new Error('Ошибка загрузки задач');
-            const tasks = await response.json();
-            const taskList = document.getElementById('task-list');
-            taskList.innerHTML = '';
-            tasks.forEach(task => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                <td>${task.user || ''}</td>
-                <td><a href="${task.task_url || '#'}" target="_blank">${task.task_number || ''}</a></td>
-                <td>${task.stage || ''}</td>
-                <td>${task.status || ''}</td>
-                <td>${task.deployment_date || ''}</td>
-                <td>${task.additional_comment || ''}</td>
-                <td>
-                    <button onclick='editTask(${JSON.stringify(task)})'>✏️</button>
-                    <button class="danger" onclick='deleteTask(${task.id})'>🗑️</button>
-                </td>
-            `;
-                taskList.appendChild(row);
-            });
-        } catch (error) {
-            console.error(error);
-            showPopup(`Ошибка: ${error.message}`);
-        }
-    }
-
-    function editTask(task) {
-        document.getElementById('task-id').value = task.id;
-        document.getElementById('user').value = task.user;
-        document.getElementById('task-url').value = task.task_url;
-        document.getElementById('task-number').value = task.task_number;
-        document.getElementById('deployment-date').value = task.deployment_date || '';
-        document.getElementById('additional-comment').value = task.additional_comment || '';
-        stageSelect.value = task.stage;
-        updateStatusDropdown();
-        statusSelect.value = task.status;
-        window.scrollTo(0, 0);
-    }
-
-    async function saveTask() {
-        const task = {
-            id: document.getElementById('task-id').value || null,
-            user: document.getElementById('user').value,
-            task_url: document.getElementById('task-url').value,
-            task_number: document.getElementById('task-number').value,
-            stage: document.getElementById('stage').value,
-            status: document.getElementById('status').value,
-            deployment_date: document.getElementById('deployment-date').value,
-            additional_comment: document.getElementById('additional-comment').value,
-        };
-
-        if (!task.user || !task.task_number) {
-            alert('Поля "Пользователь" и "Номер задачи" обязательны для заполнения.');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(task)
-            });
-            if (!response.ok) throw new Error('Ошибка сохранения задачи');
-            showPopup('Задача успешно сохранена!');
-            clearForm();
-            loadTasks();
-        } catch (error) {
-            console.error(error);
-            showPopup(`Ошибка: ${error.message}`);
-        }
-    }
-
-    async function deleteTask(id) {
-        if (!confirm('Вы уверены, что хотите удалить эту задачу?')) return;
-        try {
-            const response = await fetch('/api/tasks', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
-            });
-            if (!response.ok) throw new Error('Ошибка удаления');
-            showPopup('Задача удалена.');
-            loadTasks();
-        } catch (error) {
-            console.error(error);
-            showPopup(`Ошибка: ${error.message}`);
-        }
-    }
-
-    // --- Функции для настроек ---
-    async function loadSettings() {
-        try {
-            const response = await fetch('/api/tasks/settings');
-            if (!response.ok) throw new Error('Ошибка загрузки настроек');
-            const settings = await response.json();
-            document.getElementById('target-url').value = settings.target_url || '';
-            document.getElementById('target-user').value = settings.target_user || '';
-            document.getElementById('target-password').value = settings.target_password || '';
-        } catch (error) {
-            console.error(error);
-            showPopup(`Ошибка: ${error.message}`);
-        }
-    }
-
-    async function saveSettings() {
-        const settings = {
-            target_url: document.getElementById('target-url').value,
-            target_user: document.getElementById('target-user').value,
-            target_password: document.getElementById('target-password').value,
-        };
-        try {
-            const response = await fetch('/api/tasks/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(settings)
-            });
-            if (!response.ok) throw new Error('Ошибка сохранения настроек');
-            showPopup('Настройки успешно сохранены!');
-        } catch (error) {
-            console.error(error);
-            showPopup(`Ошибка: ${error.message}`);
-        }
-    }
-
-    async function sendTasks() {
-        if (!confirm('Отправить все задачи на указанный URL?')) return;
-        try {
-            const response = await fetch('/api/tasks/send', { method: 'POST' });
-            const result = await response.json();
-            if (response.ok) {
-                showPopup(`Задачи отправлены. Статус ответа: ${result.statusCode}`);
-            } else {
-                throw new Error(result.message || 'Неизвестная ошибка');
-            }
-            console.log('Ответ сервера:', result);
-        } catch (error) {
-            console.error(error);
-            showPopup(`Ошибка отправки: ${error.message}`);
-        }
-    }
-
-
-    // --- Функции модального окна ---
-    function showInfoModal() {
-        const content = document.getElementById('status-info-content');
-        content.innerHTML = '';
-        let html = '';
-        for (const stage in statusConfig) {
-            html += `<h3>${stage}</h3><dl>`;
-            for (const status in statusConfig[stage]) {
-                html += `<dt>${status}</dt><dd>${statusConfig[stage][status]}</dd>`;
-            }
-            html += `</dl>`;
-        }
-        content.innerHTML = html;
-        document.getElementById('infoModal').style.display = 'block';
-    }
-
-    function closeInfoModal() {
-        document.getElementById('infoModal').style.display = 'none';
-    }
-
-    // --- Всплывающее окно ---
-    function showPopup(message) {
-        const popup = document.getElementById('responsePopup');
-        popup.textContent = message;
-        popup.style.display = 'block';
-        setTimeout(() => {
-            popup.style.display = 'none';
-        }, 3000);
-    }
-
-
-    // Инициализация при загрузке
-    window.onload = () => {
-        populateStageDropdown();
-        updateStatusDropdown();
-        loadTasks();
-        loadSettings();
-    };
+    function populateStageDropdown(){Object.keys(statusConfig).forEach(s=>$('#stage').append($('<option>',{value:s,text:s})));}
+    function updateStatusDropdown(){const sS=$('#status').empty(),sel=$('#stage').val();if(sel&&statusConfig[sel])Object.keys(statusConfig[sel]).forEach(s=>sS.append($('<option>',{value:s,text:s})));}
+    function clearForm(){$('#task-id,#user,#task-url,#task-number,#deployment-date,#spec-url,#contact-person').val('');commentEditor.setValue('');$('#stage').prop('selectedIndex',0);updateStatusDropdown();}
+    async function loadTasks(){try{const r=await fetch('/api/tasks');if(!r.ok)throw new Error('Ошибка загрузки');allTasks=await r.json();renderTasks(allTasks);}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
+    function editTask(t){$('#task-id').val(t.id);$('#user').val(t.user);$('#task-url').val(t.task_url);$('#task-number').val(t.task_number);$('#deployment-date').val(t.deployment_date||'');commentEditor.setValue(t.additional_comment||'');$('#spec-url').val(t.spec_url||'');$('#contact-person').val(t.contact_person||'');$('#stage').val(t.stage);updateStatusDropdown();$('#status').val(t.status);window.scrollTo(0,0);}
+    async function saveTask(){const t={id:$('#task-id').val()||null,user:$('#user').val(),task_url:$('#task-url').val(),task_number:$('#task-number').val(),stage:$('#stage').val(),status:$('#status').val(),deployment_date:$('#deployment-date').val(),additional_comment:commentEditor.getValue(),spec_url:$('#spec-url').val(),contact_person:$('#contact-person').val()};if(!t.user||!t.task_number)return alert('Поля "Пользователь" и "Номер задачи" обязательны.');try{const r=await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)});if(!r.ok)throw new Error('Ошибка сохранения');showPopup('Задача сохранена!');clearForm();loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
+    async function deleteTask(id){if(!confirm('Удалить?'))return;try{const r=await fetch('/api/tasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error('Ошибка удаления');showPopup('Удалено.');loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
+    async function loadSettings(){try{const r=await fetch('/api/tasks/settings');const s=await r.json();$('#target-url').val(s.target_url);$('#target-user').val(s.target_user);$('#target-password').val(s.target_password);}catch(e){}}
+    async function saveSettings(){const s={target_url:$('#target-url').val(),target_user:$('#target-user').val(),target_password:$('#target-password').val()};try{await fetch('/api/tasks/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});showPopup('Настройки сохранены!');}catch(e){showPopup('Ошибка сохранения',true);}}
+    async function sendTasks(){if(!confirm('Отправить все задачи?'))return;try{const r=await fetch('/api/tasks/send',{method:'POST'});const res=await r.json();if(r.ok)showPopup(`Отправлено. Статус: ${res.statusCode}`);else throw new Error(res.message);}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
+    function showInfoModal(){const c=$('#status-info-content').empty();Object.keys(statusConfig).forEach(stage=>{const dl=$('<dl>').append($('<h3>').text(stage));Object.keys(statusConfig[stage]).forEach(status=>{dl.append($('<dt>').text(status)).append($('<dd>').text(statusConfig[stage][status]));});c.append(dl);});$('#infoModal').show();}
+    function closeInfoModal(){$('#infoModal').hide();}
+    let pT;function showPopup(msg,isErr=false){clearTimeout(pT);const p=$('#responsePopup').text(msg).show().removeClass('error');if(isErr)p.addClass('error');pT=setTimeout(()=>p.fadeOut(),3000);}
 </script>
-
 </body>
 </html>
