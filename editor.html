@@ -33,15 +33,6 @@
     </div>
 
     <div class="controls-top">
-        <label for="convert-select">Конвертировать:</label>
-        <select id="convert-select">
-            <option value="xml-json">XML -> JSON</option>
-            <option value="json-xml">JSON -> XML</option>
-        </select>
-        <button id="btn-convert">Выполнить</button>
-    </div>
-
-    <div class="controls-top">
         <label for="url-input">Загрузить по URL:</label>
         <input type="text" id="url-input" placeholder="http://.../data.json">
         <button id="btn-fetch-url">Загрузить</button>
@@ -272,20 +263,6 @@
                                 success: () => { showNotification("Документ сохранен."); loadDocList(); },
                                 error: () => showNotification("Ошибка сохранения на сервере.", true)
                             });
-                        } else if (btnId === 'btn-convert') {
-                            const conversion = $('#convert-select').val();
-                            const from = $('#format-select').val(); const to = conversion.split('-')[1];
-                            $.ajax({
-                                url: '/api/convert', type: 'POST',
-                                contentType: 'application/json', data: JSON.stringify({ text: content, from: from, to: to }),
-                                success: (convertedText) => {
-                                    $('#json-editor').val(convertedText);
-                                    $('#format-select').val(to);
-                                    $('#btn-beautify').trigger('click');
-                                    showNotification(`Конвертировано в ${to.toUpperCase()}`);
-                                },
-                                error: (xhr) => showNotification(`Ошибка конвертации: ${JSON.parse(xhr.responseText).message}`, true)
-                            });
                         }
                     },
                     error: (xhr) => showNotification(`Ошибка сериализации: ${xhr.responseText}`, true)
@@ -296,7 +273,7 @@
             }
         }
 
-        $('#btn-to-text, #btn-save-doc, #btn-convert').on('click', combinedButtonHandler);
+        $('#btn-to-text, #btn-save-doc').on('click', combinedButtonHandler);
 
         $('#btn-fetch-url').on('click', function() {
             const url = $('#url-input').val(); if (!url) return;

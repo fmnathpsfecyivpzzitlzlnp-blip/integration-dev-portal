@@ -4,177 +4,350 @@
     <title>История вызовов</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="style.css">
-    <!-- ВОЗВРАЩЕН НА МЕСТО НЕДОСТАЮЩИЙ БЛОК СТИЛЕЙ -->
     <style>
-        .history-item { margin-bottom: 15px; border: 1px solid #e0e6ed; border-radius: 8px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-        .history-header { background-color: #f8f9fa; padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e0e6ed; }
-        .history-header:hover { background-color: #f1f3f5; }
-        .history-details {
-            display: none; /* ЭТА СТРОЧКА ИСПРАВЛЯЕТ ПРОБЛЕМУ */
-            padding: 15px;
-            border-top: 1px solid #e0e6ed;
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: end;
         }
-        .history-details h4 { margin-top: 15px; margin-bottom: 5px; color: #34495e; }
-        .history-details h4:first-child { margin-top: 0; }
-        .group-header { padding: 12px 15px; background-color: #e9ecef; margin-top: 25px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
-        .group-header:first-child { margin-top: 0; }
-        .group-header h3 { margin: 0; font-size: 1.1em; }
-        pre { white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; max-height: 250px; overflow-y: auto; }
-        .error-trace { color: #c7254e; background-color: #f9f2f4; }
-        .controls.search-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-        .search-filters input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; flex-grow: 1; min-width: 150px; }
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-item label {
+            margin-bottom: 4px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .history-group {
+            margin-bottom: 20px;
+        }
+        .group-header {
+            cursor: pointer;
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .group-body {
+            display: none;
+            padding-left: 20px;
+            border-left: 2px solid #e0e0e0;
+            margin-left: 10px;
+        }
+        .call-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .call-summary:hover {
+            background-color: #f8f9fa;
+        }
+        .call-details {
+            display: none;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        .status-success { border-left: 4px solid #28a745; }
+        .status-error { border-left: 4px solid #dc3545; }
+        .status-auth-error { border-left: 4px solid #ffc107; }
+        .status-unknown { border-left: 4px solid #6c757d; }
+        pre {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow: auto;
+            font-size: 0.9em;
+        }
+        .button-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .repeat-call-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .delete-item-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .danger { background: #dc3545; }
     </style>
 </head>
 <body>
-
 <div class="main-content">
     <h2>История вызовов</h2>
-    <div class="controls search-filters">
-        <input type="text" class="filter-input" data-filter-key="csName" placeholder="Имя сценария (CS)...">
-        <input type="text" class="filter-input" data-filter-key="bsName" placeholder="Имя системы (BS)...">
-        <input type="text" class="filter-input" data-filter-key="interfaceName" placeholder="Интерфейс...">
-        <input type="text" class="filter-input" data-filter-key="url" placeholder="URL сервиса...">
-        <input type="text" class="filter-input" data-filter-key="content" placeholder="Содержимое (req, res, trace)...">
+
+    <div class="filter-grid">
+        <div class="filter-item"><label for="csName-filter">Сценарий (CS)</label><input type="text" id="csName-filter" class="filter-input" data-filter-key="csName"></div>
+        <div class="filter-item"><label for="bsName-filter">Система (BS)</label><input type="text" id="bsName-filter" class="filter-input" data-filter-key="bsName"></div>
+        <div class="filter-item"><label for="interface-filter">Интерфейс</label><input type="text" id="interface-filter" class="filter-input" data-filter-key="interfaceName"></div>
+        <div class="filter-item"><label for="url-filter">URL</label><input type="text" id="url-filter" class="filter-input" data-filter-key="url"></div>
+        <div class="filter-item"><label for="dateFrom-filter">Дата от</label><input type="date" id="dateFrom-filter" class="filter-input" data-filter-key="dateFrom"></div>
+        <div class="filter-item"><label for="dateTo-filter">Дата до</label><input type="date" id="dateTo-filter" class="filter-input" data-filter-key="dateTo"></div>
+        <div class="filter-item" style="grid-column: 1 / -1;"><label for="content-filter">Содержимое (включая заголовки и правила)</label><input type="text" id="content-filter" class="filter-input" data-filter-key="content"></div>
     </div>
-    <div id="history-container">
-        <p>Загрузка истории...</p>
-    </div>
+
+    <div id="history-container"><p>Загрузка истории...</p></div>
 </div>
 
 <script src="libs/jquery-3.6.0.min.js"></script>
 <script>
     $(function() {
-        let allHistory = [];
+        let allHistoryData = [];
+
+        function getStatus(item) {
+            if (item.stack_trace) return 500;
+            if (!item.response_headers) return null;
+            try {
+                const headers = JSON.parse(item.response_headers);
+                const statusLine = headers[':status'] || (headers[''] && headers[''][0]);
+                return status ? parseInt(status, 10) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function getStatusClass(statusCode) {
+            if (statusCode >= 200 && statusCode < 300) return 'status-success';
+            if (statusCode === 401 || statusCode === 403) return 'status-auth-error';
+            if (statusCode >= 400) return 'status-error';
+            return 'status-unknown';
+        }
+
+        function getEnvironmentInfo(url) {
+            if (!url) return 'URL не указан';
+            try {
+                const host = new URL(url).hostname;
+                if (host.includes('-dev') || host.includes('.dev.')) return `<span style="font-weight:bold; color:#17a2b8;">DEV:</span> ${host}`;
+                if (host.includes('-test') || host.includes('.test.')) return `<span style="font-weight:bold; color:#ffc107;">TEST:</span> ${host}`;
+                return `<span style="font-weight:bold; color:#28a745;">PROD:</span> ${host}`;
+            } catch (e) {
+                return url;
+            }
+        }
+
+        function escapeHtml(text) {
+            return $('<div>').text(text || '').html();
+        }
+
+        function prettyPrintJson(jsonStr) {
+            if (!jsonStr) return '';
+            try {
+                return JSON.stringify(JSON.parse(jsonStr), null, 2);
+            } catch (e) {
+                return jsonStr;
+            }
+        }
 
         function renderHistory(history) {
             const container = $('#history-container').empty();
-            if (!history || !history.length) {
-                container.html('<div class="empty-state"><p>История вызовов пуста или по вашему запросу ничего не найдено.</p></div>');
+            if (!history || history.length === 0) {
+                container.html('<p>История пуста или по вашему запросу ничего не найдено.</p>');
                 return;
             }
-            const grouped = history.reduce((acc, item) => {
-                const groupName = item.cs_name || 'Без сценария';
-                (acc[groupName] = acc[groupName] || []).push(item);
+
+            const groupedByCS = history.reduce((acc, item) => {
+                const key = item.cs_name || 'Без сценария';
+                (acc[key] = acc[key] || []).push(item);
                 return acc;
             }, {});
-            const sortedGroupKeys = Object.keys(grouped).sort((a, b) => {
-                const maxIdA = Math.max(...grouped[a].map(i => i.id));
-                const maxIdB = Math.max(...grouped[b].map(i => i.id));
-                return maxIdB - maxIdA;
-            });
 
-            for (const csName of sortedGroupKeys) {
-                let groupHtml = `<div class="history-group" data-cs-name="${escapeHtml(csName)}">
+            const sortedCSKeys = Object.keys(groupedByCS).sort((a, b) => b.localeCompare(a, 'ru', { sensitivity: 'base' }));
+
+            for (const csName of sortedCSKeys) {
+                const groupItems = groupedByCS[csName];
+
+                const groupedByInterface = groupItems.reduce((acc, item) => {
+                    const key = `${item.bs_name || '—'}/${item.interface_o || '—'}`;
+                    (acc[key] = acc[key] || []).push(item);
+                    return acc;
+                }, {});
+
+                const groupContainer = $(`<div class="history-group"></div>`).appendTo(container);
+                const groupHeader = $(`
                     <div class="group-header">
-                        <h3>Группа: ${escapeHtml(csName)}</h3>
-                        <div>
-                           <button class="send-group-btn" data-cs-name="${escapeHtml(csName)}">Отправить группу</button>
-                           <button class="delete-group-btn danger" data-cs-name="${escapeHtml(csName)}">Удалить группу</button>
+                        <h3>Группа: ${escapeHtml(csName)} (${groupItems.length} вызовов)</h3>
+                        <span style="font-size: 1.2em;">▼</span>
+                    </div>
+                `).appendTo(groupContainer);
+                const groupBody = $(`<div class="group-body"></div>`).appendTo(groupContainer);
+
+                Object.keys(groupedByInterface).sort().forEach(interfaceKey => {
+                    const items = groupedByInterface[interfaceKey].sort((a, b) => b.id - a.id);
+                    const lastItemStatus = getStatus(items[0]);
+                    const statusClass = getStatusClass(lastItemStatus);
+
+                    const callSummary = $(`
+                        <div class="call-summary ${statusClass}">
+                            <span><strong>${escapeHtml(interfaceKey)}</strong></span>
+                            <span style="color:#6c757d; font-size:0.9em;">Последний: ${new Date(items[0].call_date).toLocaleString('ru-RU')}</span>
                         </div>
-                    </div>`;
-                const sortedItems = grouped[csName].sort((a,b) => b.id - a.id);
-                sortedItems.forEach(item => {
-                    const callDate = item.call_date ? new Date(item.call_date).toLocaleString('ru-RU') : 'N/A';
-                    groupHtml += `
-                    <div class="history-item" data-id="${item.id}">
-                        <div class="history-header">
-                            <div>
-                                <span><b>${callDate}</b> &mdash; ${escapeHtml(item.bs_name) || ''} / ${escapeHtml(item.interface_o) || 'Без интерфейса'}</span>
-                                <br>
-                                <span style="color: #555; font-size: 0.9em;">${escapeHtml(item.service_url)}</span>
+                    `).appendTo(groupBody);
+
+                    const detailsContainer = $(`<div class="call-details-container" style="display:none; padding-left: 20px;"></div>`).appendTo(groupBody);
+
+                    items.forEach(item => {
+                        const statusCode = getStatus(item);
+                        const detailStatusClass = getStatusClass(statusCode);
+
+                        const detailHeader = $(`
+                            <div class="call-summary ${detailStatusClass}" style="background-color: #fdfdfd; font-size: 0.95em;">
+                                <span>${getEnvironmentInfo(item.service_url)}</span>
+                                <span>${statusCode || '—'} — ${new Date(item.call_date).toLocaleTimeString('ru-RU')}</span>
                             </div>
-                            <button class="delete-item-btn danger" title="Удалить запись">🗑️</button>
-                        </div>
-                        <div class="history-details">
-                            <h4>Request Headers</h4><pre>${prettyPrintJson(item.request_headers)}</pre>
-                            <h4>Request Body</h4><pre>${escapeHtml(item.request)}</pre>
-                            <hr>
-                            <h4>Response Headers</h4><pre>${prettyPrintJson(item.response_headers)}</pre>
-                            <h4>Response Body</h4><pre>${prettyPrintJson(item.response)}</pre>
-                            ${item.stack_trace ? `<h4>Stack Trace</h4><pre class="error-trace">${escapeHtml(item.stack_trace)}</pre>` : ''}
-                        </div>
-                    </div>`;
+                        `).appendTo(detailsContainer);
+
+                        const detailBody = $(`
+                            <div class="call-details">
+                                <div class="button-bar">
+                                    <button class="repeat-call-btn">Повторить вызов</button>
+                                    <button class="delete-item-btn danger">Удалить</button>
+                                </div>
+                                <h4>Request Headers</h4>
+                                <pre>${prettyPrintJson(item.request_headers)}</pre>
+                                <h4>Request Body</h4>
+                                <pre>${escapeHtml(item.request)}</pre>
+                                <hr>
+                                <h4>Response Headers</h4>
+                                <pre>${prettyPrintJson(item.response_headers)}</pre>
+                                <h4>Response Body</h4>
+                                <pre>${prettyPrintJson(item.response)}</pre>
+                                ${item.stack_trace ? `<h4>Ошибка / Stack Trace</h4><pre style="color: #c7254e; background-color: #f9f2f4;">${escapeHtml(item.stack_trace)}</pre>` : ''}
+                                ${item.data_rules && item.data_rules.trim() !== '{}' && item.data_rules.trim() !== '' ? `<h4>Правила генерации данных</h4><pre style="background:#e8f5e8;">${prettyPrintJson(item.data_rules)}</pre>` : ''}
+                            </div>
+                        `).data('history-item', item).appendTo(detailsContainer);
+
+                        detailHeader.on('click', () => detailBody.slideToggle(200));
+                    });
                 });
-                groupHtml += `</div>`;
-                container.append(groupHtml);
             }
         }
 
         function loadAllHistory() {
-            $.get('/api/history/all', function(data) {
-                allHistory = data;
-                renderHistory(allHistory);
-            }).fail(() => $('#history-container').text('Не удалось загрузить историю вызовов.'));
+            $.get('/api/history/all')
+                .done(data => {
+                    allHistoryData = data;
+                    renderHistory(allHistoryData);
+                })
+                .fail(() => $('#history-container').html('<p style="color:red;">Ошибка загрузки истории.</p>'));
         }
 
         function performSearch() {
-            let params = {}; let hasQuery = false;
+            const params = {};
             $('.filter-input').each(function() {
-                const key = $(this).data('filter-key'); const value = $(this).val();
-                if (value && value.trim()) { params[key] = value; hasQuery = true; }
+                const k = $(this).data('filter-key');
+                const v = $(this).val().trim();
+                if (v) params[k] = v;
             });
-            if (hasQuery) {
-                $.get('/api/history/search', params, renderHistory).fail(() => $('#history-container').text('Ошибка поиска.'));
-            } else {
-                renderHistory(allHistory);
-            }
+            $.get('/api/history/search', params).done(renderHistory);
         }
 
-        // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
-        $('.filter-input').on('keyup', debounce(performSearch, 400));
-        $('#history-container').on('click', '.history-header', function(e) {
-            // Не раскрывать, если кликнули по кнопке
-            if ($(e.target).is('button') || $(e.target).parent().is('button')) return;
-            $(this).siblings('.history-details').slideToggle(200);
-        });
+        // Главная магия: повтор вызова с правильной обработкой dataRules
+        $('#history-container').on('click', '.repeat-call-btn', function() {
+            const item = $(this).closest('.call-details').data('history-item');
+            if (!item) return;
 
-        $('#history-container').on('click', '.send-group-btn', function() {
-            const csName = $(this).data('cs-name');
-            const targetUrl = prompt('Введите URL для отправки:', 'http://localhost:8081/api/receive-data');
-            if (!targetUrl) return;
-            $.get(`/api/history/group?csName=${encodeURIComponent(csName)}`, function(groupData) {
-                $.ajax({
-                    url: targetUrl, type: 'POST', contentType: 'application/json', data: JSON.stringify(groupData),
-                    success: () => alert('Данные группы "' + csName + '" успешно отправлены!'),
-                    error: (xhr) => alert('Ошибка при отправке: ' + xhr.responseText)
-                });
-            }).fail(() => alert("Не удалось получить данные группы."));
-        });
+            // Основные поля — всегда
+            const fieldMap = {
+                '#url': item.service_url || '',
+                '#template': item.request || '',
+                '#headers': item.request_headers || '{}',
+                '#bsName': item.bs_name || '',
+                '#csName': item.cs_name || '',
+                '#interfaceName': item.interface_o || ''
+            };
 
-        $('#history-container').on('click', '.delete-group-btn', function() {
-            const csName = $(this).data('cs-name');
-            if (!confirm(`Вы уверены, что хотите удалить ВСЕ записи из группы "${csName}"?`)) return;
-            $.ajax({
-                url: '/api/history/group', type: 'DELETE', contentType: 'application/json',
-                data: JSON.stringify({ csName: csName }),
-                success: () => {
-                    $(`.history-group[data-cs-name="${csName}"]`).fadeOut(300, function() { $(this).remove(); });
-                },
-                error: () => alert('Ошибка удаления группы.')
+            Object.entries(fieldMap).forEach(([selector, value]) => {
+                window.parent.localStorage.setItem(`calls_${selector}`, value);
             });
+
+            // Очищаем логин/пароль
+            window.parent.localStorage.setItem('calls_#login', '');
+            window.parent.localStorage.setItem('calls_#password', '');
+
+            // КЛЮЧЕВАЯ ЛОГИКА: правила генерации
+            try {
+                const savedRules = item.data_rules;
+                if (savedRules && savedRules.trim() !== '' && savedRules !== 'null' && savedRules !== '{}') {
+                    const parsed = JSON.parse(savedRules);
+                    if (Object.keys(parsed).length > 0) {
+                        window.parent.localStorage.setItem('calls_#dataRules', savedRules);
+                    } else {
+                        window.parent.localStorage.removeItem('calls_#dataRules');
+                    }
+                } else {
+                    window.parent.localStorage.removeItem('calls_#dataRules');
+                }
+            } catch (e) {
+                console.warn('Ошибка парсинга data_rules:', e);
+                window.parent.localStorage.removeItem('calls_#dataRules');
+            }
+
+            // Переход на вкладку вызовов
+            const callsTab = window.parent.document.querySelector('a[href="calls.html"], a[onclick*="calls.html"]');
+            if (callsTab) {
+                callsTab.click();
+            } else {
+                window.parent.location.href = 'calls.html';
+            }
         });
 
         $('#history-container').on('click', '.delete-item-btn', function() {
-            const itemElement = $(this).closest('.history-item');
-            const itemId = itemElement.data('id');
-            if (!confirm(`Удалить запись ID ${itemId}?`)) return;
+            const details = $(this).closest('.call-details');
+            const item = details.data('history-item');
+            if (!item || !confirm(`Удалить вызов #${item.id} от ${new Date(item.call_date).toLocaleString('ru-RU')}?`)) return;
+
             $.ajax({
-                url: `/api/history/item/${itemId}`, type: 'DELETE',
-                success: () => {
-                    itemElement.fadeOut(300, function() { $(this).remove(); });
-                },
-                error: () => alert('Ошибка удаления записи.')
+                url: `/api/history/item/${item.id}`,
+                type: 'DELETE'
+            }).done(() => {
+                details.prev('.call-summary').addBack().fadeOut(300, function() { $(this).remove(); });
             });
         });
 
-        // --- Вспомогательные функции ---
-        function escapeHtml(text) { return $('<div>').text(text || '').html(); }
-        function prettyPrintJson(text) { try { return escapeHtml(JSON.stringify(JSON.parse(text), null, 2)); } catch(e) { return escapeHtml(text); } }
-        function debounce(func, delay) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); }; }
+        $('#history-container').on('click', '.group-header', function() {
+            $(this).next('.group-body').slideToggle(200);
+            $(this).find('span:last').text($(this).next('.group-body').is(':visible') ? '▲' : '▼');
+        });
+
+        $('#history-container').on('click', '.call-summary', function(e) {
+            if ($(e.target).is('button')) return;
+            $(this).next('.call-details-container').slideToggle(200);
+        });
+
+        $('.filter-input').on('keyup change', debounce(performSearch, 400));
+
+        function debounce(func, delay) {
+            let timer;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
 
         loadAllHistory();
     });
 </script>
-
 </body>
 </html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <title>Конвертер JSON в XML</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="main-content generator-page-container">
+  <h2 style="flex-shrink: 0;">Конвертер JSON в XML</h2>
+  <div class="generator-controls">
+    <button id="btn-convert" style="padding: 10px 15px;">Конвертировать</button>
+  </div>
+  <div id="error-panel" style="display:none; padding:10px; background:#ffebee; color:#c62828; border:1px solid #c62828; margin-bottom:10px;"></div>
+
+  <div class="generator-columns-container">
+    <div class="generator-panel">
+      <label for="input-area">Входной JSON:</label>
+      <textarea id="input-area" placeholder="Вставьте сюда ваш JSON..."></textarea>
+    </div>
+    <div class="generator-panel">
+      <label for="output-area">Результат в XML:</label>
+      <textarea id="output-area" readonly></textarea>
+    </div>
+  </div>
+</div>
+<script src="libs/jquery-3.6.0.min.js"></script>
+<script>
+  $(function () {
+    $('#btn-convert').on('click', function() {
+      const inputText = $('#input-area').val();
+      if (!inputText.trim()) return;
+
+      $.ajax({
+        url: '/api/convert',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ text: inputText, from: 'json', to: 'xml' }),
+        success: (convertedText) => {
+          $('#output-area').val(convertedText);
+        },
+        error: (xhr) => {
+          const msg = xhr.responseJSON ? xhr.responseJSON.message : xhr.responseText;
+          $('#error-panel').text('Ошибка конвертации: ' + msg).show();
+        }
+      });
+    });
+  });
+</script>
+</body>
+</html>

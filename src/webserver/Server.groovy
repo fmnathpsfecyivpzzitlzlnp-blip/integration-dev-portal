@@ -1,5 +1,6 @@
 /*
- * Server.groovy - Финальная версия с полем BS_NAME и раздельным поиском по истории
+ * Server.groovy - Финальная версия
+ * Включены: обход SSL, все улучшения для задач, меток, истории и новый API для XSD конструктора.
  */
 import com.sun.net.httpserver.HttpServer
 import com.sun.net.httpserver.HttpExchange
@@ -20,6 +21,11 @@ import java.nio.charset.StandardCharsets
 import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.io.PrintWriter
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 
 import com.github.javafaker.Faker
 import java.util.Locale
@@ -31,6 +37,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 import java.util.Base64
+import java.text.SimpleDateFormat
 
 
 class Server {
@@ -53,11 +60,31 @@ class Server {
         private def normalizeXmlNode(node) { if (node instanceof String) return node; def children = node.children().findAll { !(it instanceof String && it.trim().isEmpty()) }; if (children.isEmpty() && !node.text().isEmpty()) return node.text(); def map = [:]; children.each { child -> if (child.respondsTo('name')) { def name = child.name(); def value = normalizeXmlNode(child); if (map.containsKey(name)) { if (!(map[name] instanceof List)) map[name] = [map[name]]; map[name].add(value) } else { map[name] = value } } }; if (node.attributes()) node.attributes().each { k, v -> map["@${k}"] = v }; if (map.isEmpty() && !node.text().isEmpty()) return node.text(); return map }
         def serialize(data, String format, boolean pretty) {
             if (format == 'json') {
+                // Стандартный JsonOutput — но с отключением экранирования через кастомный writer
                 def jsonString = groovy.json.JsonOutput.toJson(data)
-                return pretty ? groovy.json.JsonOutput.prettyPrint(jsonString) : jsonString
-            } else if (format == 'xml') {
-                def writer = new StringWriter(); def builder = new MarkupBuilder(writer); builder.root { buildXml(builder, data) };
-                return writer.toString() }; return "Неподдерживаемый формат" }
+
+                if (pretty) {
+                    jsonString = groovy.json.JsonOutput.prettyPrint(jsonString)
+                }
+
+
+                jsonString = jsonString.replaceAll(~'\\\\u([0-9a-fA-F]{4})') { fullMatch, hexCode ->
+                    char c = (char) Integer.parseInt(hexCode, 16)
+                    return "${c}"
+                }
+
+                return jsonString
+            }
+            else if (format == 'xml') {
+                def writer = new StringWriter()
+                def builder = new MarkupBuilder(writer)
+                builder.root { buildXml(builder, data) }
+                return writer.toString()
+            }
+
+            return "Неподдерживаемый формат"
+        }
+
         private void buildXml(MarkupBuilder builder, data) { if (data instanceof Map) { data.each { key, value -> if (key.startsWith('@')) return; if (value instanceof List) { value.each { item -> builder."$key" { buildXml(builder, item) } } } else { def attrs = (value instanceof Map) ? value.findAll { it.key.startsWith('@') }.collectEntries { k, v -> [k.substring(1), v] } : [:]; def children = (value instanceof Map) ? value.findAll { !it.key.startsWith('@') } : value; builder."$key"(attrs) { buildXml(builder, children) } } } } else if (data != null && !(data instanceof List)) { builder.mkp.yield(data.toString()) } }
         def generateJsonSchema(jsonData) { def rootSchemaContent = determineSchema(jsonData, "Root"); return ["\$schema": "http://json-schema.org/draft-07/schema#", title: "Generated Schema", description: "Automatically generated schema"] + rootSchemaContent }
         private def determineSchema(value, String propertyName = "") { def baseSchema = [:]; if (propertyName) baseSchema.title = propertyName.capitalize(); if (value == null) return baseSchema + [type: ["string", "number", "boolean", "array", "object", "null"]]; if (value instanceof String) return baseSchema + [type: "string"]; if (value instanceof Number) return baseSchema + [type: "number"]; if (value instanceof Boolean) return baseSchema + [type: "boolean"]; if (value instanceof List) { def firstNonNull = value ? value.find {it != null} : null; def itemsSchema = determineSchema(firstNonNull, propertyName ? "${propertyName} Item" : "Array Item"); return baseSchema + [type: "array", items: itemsSchema] }; if (value instanceof Map) { def propertiesMap = value.collectEntries { k, v -> [k, determineSchema(v, k)] }; return baseSchema + [type: "object", properties: propertiesMap, required: value.keySet() as List, additionalProperties: false] }; return baseSchema + [type: ["string", "number", "boolean", "array", "object", "null"]] }
@@ -91,7 +118,20 @@ class Server {
         MultiRequestExecutor(CallHistoryManager historyManager) { this.historyManager = historyManager }
 
         def executeAndGetLogs(config) {
-            def client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build()
+            def trustAllCerts = [new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { null }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+            }] as TrustManager[]
+            def sc = SSLContext.getInstance("SSL")
+            sc.init(null, trustAllCerts, new SecureRandom())
+            def sslParams = sc.getDefaultSSLParameters()
+            sslParams.setEndpointIdentificationAlgorithm("")
+
+            def client = HttpClient.newBuilder()
+                    .version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10))
+                    .sslContext(sc).sslParameters(sslParams).build()
+
             def mainLog = new StringBuilder()
             def numRequests = config.numberOfRequests ?: 1
             mainLog.append("Начинаю выполнение ${numRequests} запросов к ${config.url}...\n\n")
@@ -104,28 +144,12 @@ class Server {
 
             (1..numRequests).each { i ->
                 def requestBody = generateRequestBody(config.template, config.dataRules, i)
-                def logEntry = [:]
-                def historyEntry = [
-                        cs_name: config.csName,
-                        bs_name: config.bsName,
-                        interface_o: config.interfaceName,
-                        service_url: config.url,
-                        request: requestBody,
-                        request_headers: MyJsonOutput.toJson(finalHeaders)
-                ]
-
-                try {
-                    historyEntry.domain_url = new URI(config.url).getHost()
-                } catch (e) {
-                    historyEntry.domain_url = "invalid url"
-                }
-
+                def logEntry = [:]; def historyEntry = [cs_name: config.csName, bs_name: config.bsName, interface_o: config.interfaceName, service_url: config.url, request: requestBody, request_headers: MyJsonOutput.toJson(finalHeaders)]
+                try { historyEntry.domain_url = new URI(config.url).getHost() } catch (e) { historyEntry.domain_url = "invalid url" }
                 try {
                     def requestBuilder = HttpRequest.newBuilder().uri(URI.create(config.url)).timeout(Duration.ofSeconds(20))
                     finalHeaders.each { key, value -> requestBuilder.header(key, value.toString()) }
-
-                    def method = config.method?.toUpperCase() ?: 'POST'
-                    switch (method) {
+                    switch (config.method?.toUpperCase() ?: 'POST') {
                         case 'POST': requestBuilder.POST(HttpRequest.BodyPublishers.ofString(requestBody)); break
                         case 'GET': requestBuilder.GET(); break
                         case 'PUT': requestBuilder.PUT(HttpRequest.BodyPublishers.ofString(requestBody)); break
@@ -133,32 +157,22 @@ class Server {
                         case 'DELETE': requestBuilder.DELETE(); break
                         default: requestBuilder.POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     }
-
                     def response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString())
-                    logEntry.responseStatus = response.statusCode()
-                    logEntry.responseBody = response.body()
-                    historyEntry.response = response.body()
-                    historyEntry.response_headers = MyJsonOutput.toJson(response.headers().map())
-
+                    logEntry.responseStatus = response.statusCode(); logEntry.responseBody = response.body()
+                    historyEntry.response = response.body(); historyEntry.response_headers = MyJsonOutput.toJson(response.headers().map())
                 } catch (Exception e) {
-                    def sw = new StringWriter()
-                    e.printStackTrace(new PrintWriter(sw))
-                    def stackTrace = sw.toString()
-                    logEntry.error = e.getMessage()
-                    logEntry.stackTrace = stackTrace
+                    def sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); def stackTrace = sw.toString()
+                    logEntry.error = e.getMessage(); logEntry.stackTrace = stackTrace
                     historyEntry.stack_trace = stackTrace
                 }
-
                 historyManager.saveCall(historyEntry)
-                def logString = formatLogEntry(logEntry, requestBody)
-                mainLog.append("--- Запрос ${i}/${numRequests} ---\n")
-                mainLog.append(logString + "\n" + "=".repeat(50) + "\n\n")
+                mainLog.append("--- Запрос ${i}/${numRequests} ---\n").append(formatLogEntry(logEntry, requestBody) + "\n" + "=".repeat(50) + "\n\n")
             }
             mainLog.append("Работа завершена.")
             return mainLog.toString()
         }
         private String generateRequestBody(String template, Map rules, int iteration) { def body = template; rules?.each { key, rule -> def placeholder = "##${key}##"; def value; switch (rule.type) { case 'increment': value = (rule.start + (rule.step * (iteration - 1))); break; case 'random': value = rule.values[new Random().nextInt(rule.values.size())]; break; case 'uuid': value = UUID.randomUUID().toString(); break; case 'current_timestamp': value = new Date().format(rule.format ?: 'yyyy-MM-dd HH:mm:ss'); break; case 'random_number': def min = rule.min ?: 0; def max = rule.max ?: 100; value = new Random().nextInt((max - min) + 1) + min; break; case 'from_list': value = rule.values[(iteration - 1) % rule.values.size()]; break }; if (value != null) { body = body.replace(placeholder, value.toString()) } }; return body }
-        private String formatLogEntry(Map entry, String requestBody) { def builder = new StringBuilder(); builder.append("Request Body:\n${requestBody}\n"); builder.append("---------------------------------\n"); builder.append("Response Status: ${entry.responseStatus ?: 'N/A'}\n"); builder.append("Response Body:\n${entry.responseBody ?: 'N/A'}\n"); if (entry.error) { builder.append("Error: ${entry.error}\n") }; if (entry.stackTrace) { builder.append("Stack Trace:\n${entry.stackTrace}\n") }; return builder.toString() }
+        private String formatLogEntry(Map entry, String requestBody) { def builder = new StringBuilder(); builder.append("Request Body:\n${requestBody}\n").append("---------------------------------\n").append("Response Status: ${entry.responseStatus ?: 'N/A'}\n").append("Response Body:\n${entry.responseBody ?: 'N/A'}\n"); if (entry.error) { builder.append("Error: ${entry.error}\n") }; if (entry.stackTrace) { builder.append("Stack Trace:\n${entry.stackTrace}\n") }; return builder.toString() }
     }
 
     static class XsdToWsdlConverter {
@@ -170,35 +184,17 @@ class Server {
         LabelsManager(Sql sql) { this.sql = sql }
         def getAll() { def categories = sql.rows("SELECT * FROM labels_categories ORDER BY display_order ASC, name ASC"); def labels = sql.rows("SELECT * FROM labels ORDER BY usage_count DESC, date_created DESC"); return [categories: categories, labels: labels] }
         def search(String query, Integer categoryId) {
-            def labelsFromDb;
-            if (categoryId != null) {
-                labelsFromDb = sql.rows("SELECT * FROM labels WHERE category_id = ?", [categoryId])
-            } else {
-                labelsFromDb = sql.rows("SELECT * FROM labels")
-            };
-            def filteredLabels = labelsFromDb;
+            def labelsFromDb = categoryId != null ? sql.rows("SELECT * FROM labels WHERE category_id = ?", [categoryId]) : sql.rows("SELECT * FROM labels")
+            def filteredLabels = labelsFromDb
             if (query && !query.trim().isEmpty()) {
-                def normalizedQuery = query.trim().toLowerCase();
-                // ИЗМЕНЕНО: Поиск по названию (title) и содержимому (content)
-                filteredLabels = labelsFromDb.findAll { label ->
-                    return (label.title && label.title.toLowerCase().contains(normalizedQuery)) ||
-                            (label.content && label.content.toLowerCase().contains(normalizedQuery))
-                }
-            };
-            def sortedLabels = filteredLabels.sort { a, b -> (b.usage_count <=> a.usage_count) ?: (b.date_created <=> a.date_created) };
-            return sortedLabels
+                def normalizedQuery = query.trim().toLowerCase()
+                filteredLabels = labelsFromDb.findAll { label -> (label.title?.toLowerCase()?.contains(normalizedQuery)) || (label.content?.toLowerCase()?.contains(normalizedQuery)) }
+            }
+            return filteredLabels.sort { a, b -> (b.usage_count <=> a.usage_count) ?: (b.date_created <=> a.date_created) }
         }
-        def saveCategory(Map data) { if (data.id) { sql.execute("UPDATE labels_categories SET name=?, display_order=? WHERE id=?", [data.name, data.display_order ?: 99, data.id]) } else { sql.execute("INSERT INTO labels_categories (name, display_order) VALUES (?, ?)", [data.name, data.display_order ?: 99]) }; return [status: 'OK'] }
+        def saveCategory(Map data) { if (data.id) sql.execute("UPDATE labels_categories SET name=?, display_order=? WHERE id=?", [data.name, data.display_order ?: 99, data.id]) else sql.execute("INSERT INTO labels_categories (name, display_order) VALUES (?, ?)", [data.name, data.display_order ?: 99]); return [status: 'OK'] }
         def deleteCategory(int id) { sql.execute("DELETE FROM labels WHERE category_id=?", [id]); sql.execute("DELETE FROM labels_categories WHERE id=?", [id]); return [status: 'OK'] }
-        def saveLabel(Map data) {
-            // ИЗМЕНЕНО: Добавлена работа с полем title
-            if (data.id) {
-                sql.execute("UPDATE labels SET title=?, content=?, category_id=? WHERE id=?", [data.title, data.content, data.category_id, data.id])
-            } else {
-                sql.execute("INSERT INTO labels (title, content, category_id) VALUES (?, ?, ?)", [data.title, data.content, data.category_id])
-            };
-            return [status: 'OK']
-        }
+        def saveLabel(Map data) { if (data.id) sql.execute("UPDATE labels SET title=?, content=?, category_id=? WHERE id=?", [data.title, data.content, data.category_id, data.id]) else sql.execute("INSERT INTO labels (title, content, category_id) VALUES (?, ?, ?)", [data.title, data.content, data.category_id]); return [status: 'OK'] }
         def deleteLabel(int id) { sql.execute("DELETE FROM labels WHERE id=?", [id]); return [status: 'OK'] }
         def incrementUsage(int id) { sql.execute("UPDATE labels SET usage_count = usage_count + 1 WHERE id=?", [id]); return [status: 'OK'] }
     }
@@ -206,160 +202,88 @@ class Server {
     static class CallHistoryManager {
         private Sql sql
         CallHistoryManager(Sql sql) { this.sql = sql }
+        def saveCall(Map data) {
+            def dbFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            def formattedDate = dbFormatter.format(new Date())
+            sql.execute("INSERT INTO call_history (cs_name, bs_name, interface_o, request, response, service_url, domain_url, request_headers, response_headers, stack_trace, call_date) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [data.cs_name, data.bs_name, data.interface_o, data.request, data.response, data.service_url, data.domain_url, data.request_headers, data.response_headers, data.stack_trace, formattedDate]) }
 
-        def saveCall(Map data) { sql.execute("INSERT INTO call_history (cs_name, bs_name, interface_o, request, response, service_url, domain_url, request_headers, response_headers, stack_trace, call_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [data.cs_name, data.bs_name, data.interface_o, data.request, data.response, data.service_url, data.domain_url, data.request_headers, data.response_headers, data.stack_trace, new Date()]) }
         def getAll() { return sql.rows("SELECT * FROM call_history ORDER BY id DESC") }
         def getGroup(String csName) { return sql.rows("SELECT * FROM call_history WHERE cs_name = ? ORDER BY id ASC", [csName]) }
-
         def search(Map params) {
-            def queryBuilder = new StringBuilder("SELECT * FROM call_history")
-            def whereClauses = []
-            def queryParams = []
-            params.each { key, value ->
-                if (value && !value.trim().isEmpty()) {
-                    def normalizedValue = "%${value.trim().toLowerCase()}%"
-                    switch (key) {
-                        case 'csName': whereClauses.add("LOWER(cs_name) LIKE ?"); queryParams.add(normalizedValue); break
-                        case 'bsName': whereClauses.add("LOWER(bs_name) LIKE ?"); queryParams.add(normalizedValue); break
-                        case 'interfaceName': whereClauses.add("LOWER(interface_o) LIKE ?"); queryParams.add(normalizedValue); break
-                        case 'url': whereClauses.add("LOWER(service_url) LIKE ?"); queryParams.add(normalizedValue); break
-                        case 'content': whereClauses.add("(LOWER(request) LIKE ? OR LOWER(response) LIKE ? OR LOWER(stack_trace) LIKE ?)"); 3.times { queryParams.add(normalizedValue) }; break
-                    }
-                }
-            }
-            if (whereClauses) { queryBuilder.append(" WHERE ").append(whereClauses.join(" AND ")) }
-            queryBuilder.append(" ORDER BY id DESC")
-            return sql.rows(queryBuilder.toString(), queryParams)
-        }
+            def qb = new StringBuilder("SELECT * FROM call_history"); def wc = []; def qp = [];
+            params.each { k,v -> if(v&&!v.trim().isEmpty()){ def nv = "%${v.trim().toLowerCase()}%";
+                switch(k){
+                    case 'csName': wc.add("LOWER(cs_name) LIKE ?"); qp.add(nv); break;
+                    case 'bsName': wc.add("LOWER(bs_name) LIKE ?"); qp.add(nv); break;
+                    case 'interfaceName': wc.add("LOWER(interface_o) LIKE ?"); qp.add(nv); break;
+                    case 'url': wc.add("LOWER(service_url) LIKE ?"); qp.add(nv); break;
+                    case 'content': wc.add("(LOWER(request) LIKE ? OR LOWER(response) LIKE ? OR LOWER(stack_trace) LIKE ?)");
+                    case 'dateFrom': wc.add("datetime(call_date) >= datetime(?)"); qp.add("${v} 00:00:00"); break;
+                    case 'dateTo':   wc.add("datetime(call_date) <= datetime(?)"); qp.add("${v} 23:59:59"); break;
+                    3.times{qp.add(nv)}; break;}}}; if (wc) qb.append(" WHERE ").append(wc.join(" AND "));
+            qb.append(" ORDER BY id DESC"); return sql.rows(qb.toString(), qp)}
 
         def getAllCredentials() { return sql.rows("SELECT id, name FROM credentials ORDER BY name ASC") }
         def getCredentialById(int id) { return sql.firstRow("SELECT * FROM credentials WHERE id = ?", [id]) }
-        def saveCredential(Map data) { if (data.id) { sql.execute("UPDATE credentials SET name=?, login=?, password=? WHERE id=?", [data.name, data.login, data.password, data.id]) } else { sql.execute("INSERT INTO credentials (name, login, password) VALUES (?,?,?)", [data.name, data.login, data.password]) }; return [status: 'OK'] }
+        def saveCredential(Map data) { if (data.id) sql.execute("UPDATE credentials SET name=?, login=?, password=? WHERE id=?", [data.name, data.login, data.password, data.id]) else sql.execute("INSERT INTO credentials (name, login, password) VALUES (?,?,?)", [data.name, data.login, data.password]); return [status: 'OK'] }
         def deleteCredential(int id) { sql.execute("DELETE FROM credentials WHERE id=?", [id]); return [status: 'OK']}
     }
 
     static void main(String[] args){
-        def dbFile = 'editor.db'
-        def sql = Sql.newInstance("jdbc:sqlite:${dbFile}", "org.sqlite.JDBC")
-
-        // --- ИНИЦИАЛИЗАЦИЯ ВСЕХ ТАБЛИЦ БД ---
-        sql.execute'''CREATE TABLE IF NOT EXISTS saved_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, content TEXT, date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
+        def dbFile = 'editor.db'; def sql = Sql.newInstance("jdbc:sqlite:${dbFile}", "org.sqlite.JDBC")
+        sql.execute'''CREATE TABLE IF NOT EXISTS saved_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, content TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, task_url TEXT, task_number TEXT, stage TEXT, status TEXT, deployment_date TEXT, additional_comment TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS task_settings (key TEXT PRIMARY KEY, value TEXT)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS labels_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, display_order INTEGER DEFAULT 99)'''
-        sql.execute'''CREATE TABLE IF NOT EXISTS labels (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, content TEXT NOT NULL, usage_count INTEGER DEFAULT 0, date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(category_id) REFERENCES labels_categories(id))'''
+        sql.execute'''CREATE TABLE IF NOT EXISTS labels (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, content TEXT, usage_count INTEGER DEFAULT 0, date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP, title TEXT, FOREIGN KEY(category_id) REFERENCES labels_categories(id))'''
         sql.execute'''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, login TEXT, password TEXT)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS call_history (id INTEGER PRIMARY KEY AUTOINCREMENT, cs_name TEXT, bs_name TEXT, interface_o TEXT, request TEXT, response TEXT, service_url TEXT, domain_url TEXT, request_headers TEXT, response_headers TEXT, stack_trace TEXT, call_date DATETIME)'''
-
-        // --- МИГРАЦИЯ СХЕМЫ (добавление новых колонок в существующие таблицы) ---
+        sql.execute'''CREATE TABLE IF NOT EXISTS saved_xsd (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, content TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
         try { sql.firstRow("SELECT usage_count FROM labels LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE labels ADD COLUMN usage_count INTEGER DEFAULT 0") }
         try { sql.firstRow("SELECT bs_name FROM call_history LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE call_history ADD COLUMN bs_name TEXT") }
         try { sql.firstRow("SELECT spec_url FROM tasks LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE tasks ADD COLUMN spec_url TEXT") }
         try { sql.firstRow("SELECT contact_person FROM tasks LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE tasks ADD COLUMN contact_person TEXT") }
         try { sql.firstRow("SELECT title FROM labels LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE labels ADD COLUMN title TEXT") }
 
-        def check = sql.firstRow("SELECT COUNT(*) as c FROM task_settings WHERE key IN ('target_url', 'target_user', 'target_password')")
-        if (check.c == 0) {
-            sql.execute("INSERT INTO task_settings (key, value) VALUES ('target_url', '')")
-            sql.execute("INSERT INTO task_settings (key, value) VALUES ('target_user', '')")
-            sql.execute("INSERT INTO task_settings (key, value) VALUES ('target_password', '')")
-        }
-
-        def server = HttpServer.create(new InetSocketAddress(8080), 0)
-        println "Сервер запущен на http://localhost:8080"
-
-        def historyManager = new CallHistoryManager(sql)
-        def converter = new DataConverter(); def excelExporter = new ExcelExporter(); def exampleGenerator = new ExampleGenerator(); def multiRequestExecutor = new MultiRequestExecutor(historyManager); def xsdToWsdlConverter = new XsdToWsdlConverter(); def labelsManager = new LabelsManager(sql)
-
-        def staticContentHandler = { HttpExchange e ->
-            try {
-                String path = e.getRequestURI().getPath(); if (path == "/") path = "/index.html"
-                String filePath = path.substring(1); def file = new File(filePath)
-                if (file.exists() && !file.isDirectory()) {
-                    String contentType = "text/html; charset=utf-8"; if (path.endsWith(".css")) contentType = "text/css; charset=utf-8"; else if (path.endsWith(".js")) contentType = "application/javascript; charset=utf-8"
-                    byte[] fileBytes = new FileInputStream(file).readAllBytes(); e.responseHeaders.add("Content-Type", contentType); e.sendResponseHeaders(200, fileBytes.length); e.getResponseBody().write(fileBytes); e.getResponseBody().close()
-                } else { sendResponse(e, "Файл не найден: ${filePath}", "text/plain", 404) }
-            } catch (Exception ex) { sendResponse(e, "Внутренняя ошибка сервера: " + ex.message, "text/plain", 500); ex.printStackTrace() }
-        }
-        server.createContext("/", staticContentHandler)
-
-        // --- ВСЕ API ENDPOINTS ---
-        server.createContext("/api/parse"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,groovy.json.JsonOutput.toJson(converter.parse(d.text,d.format)),"application/json")}}
-        server.createContext("/api/serialize"){e->handleRequest(e,"POST"){def s=new JsonSlurper().parse(e.requestBody);def p=e.requestURI.query?.split('&').collectEntries{[(it.split('=')[0]):URLDecoder.decode(it.split('=')[1],"UTF-8")]};sendResponse(e,converter.serialize(s,p.format?:'json',p.pretty?p.pretty=='true':true),"text/plain")}}
+        def server = HttpServer.create(new InetSocketAddress(8080), 0); println "Сервер запущен на http://localhost:8080"
+        def historyManager = new CallHistoryManager(sql); def converter = new DataConverter(); def excelExporter = new ExcelExporter(); def exampleGenerator = new ExampleGenerator(); def multiRequestExecutor = new MultiRequestExecutor(historyManager); def xsdToWsdlConverter = new XsdToWsdlConverter(); def labelsManager = new LabelsManager(sql)
+        server.createContext("/", { e -> try { def path = e.getRequestURI().getPath() == "/" ? "/index.html" : e.getRequestURI().getPath(); def file = new File(path.substring(1)); if (file.exists()) { def ct = "text/html; charset=utf-8"; if (path.endsWith(".css")) ct = "text/css; charset=utf-8"; else if (path.endsWith(".js")) ct = "application/javascript; charset=utf-8"; def bytes = file.readBytes(); e.responseHeaders.add("Content-Type",ct);e.sendResponseHeaders(200, bytes.length); e.getResponseBody().write(bytes); e.getResponseBody().close()} else {sendResponse(e,"Not Found", "text/plain", 404)}} catch(Exception ex){sendResponse(e, ex.message, "text/plain", 500)}})
+        server.createContext("/api/parse"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,MyJsonOutput.toJson(converter.parse(d.text,d.format)),"application/json")}}
+        server.createContext("/api/serialize"){e->handleRequest(e,"POST"){def s=new JsonSlurper().parse(e.requestBody);def p=e.requestURI.query?.split('&').collectEntries{[(it.split('=')[0]):URLDecoder.decode(it.split('=')[1],"UTF-8")]};sendResponse(e,converter.serialize(s,p.format?:'json',p.pretty.toBoolean()),"text/plain")}}
         server.createContext("/api/fetch-url"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,new URL(d.url).text,"text/plain")}}
-        server.createContext("/api/convert"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);if(!d.text||!d.from||!d.to)throw new IllegalArgumentException("Args missing");sendResponse(e,converter.serialize(converter.parse(d.text,d.from),d.to,true),"text/plain")}}
-
-        server.createContext("/api/generate-schema") { e -> handleRequest(e, "POST") {
-            def jsonText = e.requestBody.text
-            def jsonData = new JsonSlurper().parseText(jsonText)
-            def schema = converter.generateJsonSchema(jsonData)
-            sendResponse(e, MyJsonOutput.prettyPrint(MyJsonOutput.toJson(schema)), "application/json")
-        }
-        }
-
-        server.createContext("/api/export-to-excel"){e->handleRequest(e,"POST"){String b=e.requestBody.text;def jT=b.trim().startsWith("{")||b.trim().startsWith("[")?b:(b.startsWith("json=")?URLDecoder.decode(b.substring(5),"UTF-8"):null);if(!jT)throw new IllegalArgumentException("No JSON found");byte[]x=excelExporter.createExcelFromStructure(new JsonSlurper().parseText(jT));e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"json_structure.xlsx\"");e.sendResponseHeaders(200,x.length);e.responseBody.withStream{it.write(x)}}}
+        server.createContext("/api/convert"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,converter.serialize(converter.parse(d.text,d.from),d.to,true),"text/plain")}}
+        server.createContext("/api/generate-schema"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parseText(e.requestBody.text);sendResponse(e,MyJsonOutput.prettyPrint(MyJsonOutput.toJson(converter.generateJsonSchema(d))),"application/json")}}
+        server.createContext("/api/export-to-excel"){e->handleRequest(e,"POST"){String b=e.requestBody.text;def jT=b.startsWith("json=")?URLDecoder.decode(b.substring(5),"UTF-8"):b;byte[]x=excelExporter.createExcelFromStructure(new JsonSlurper().parseText(jT));e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"json_structure.xlsx\"");e.sendResponseHeaders(200,x.length);e.responseBody.withStream{it.write(x)}}}
         server.createContext("/api/xml-to-excel"){e->handleRequest(e,"POST"){String b=e.requestBody.text;def xT=b.startsWith("xml=")?URLDecoder.decode(b.substring(4),"UTF-8"):b;byte[]x=excelExporter.createExcelFromStructure(converter.parse(xT,"xml"));e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"xml_structure.xlsx\"");e.sendResponseHeaders(200,x.length);e.responseBody.withStream{it.write(x)}}}
-        server.createContext("/api/generate-example"){e->handleRequest(e,"POST"){def schemaText=e.requestBody.text;if(!schemaText||schemaText.trim().isEmpty()){throw new IllegalArgumentException("Тело запроса со схемой не может быть пустым.")};def exampleJsonStr=exampleGenerator.generateExampleFromJsonSchema(schemaText);sendResponse(e,exampleJsonStr,"application/json")}}
-        server.createContext("/api/documents"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(sql.rows("SELECT id, name FROM saved_documents ORDER BY name ASC")),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);def doc=sql.firstRow("SELECT id FROM saved_documents WHERE name=?",[d.name]);if(doc){sql.execute("UPDATE saved_documents SET content=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",[d.content,doc.id]);sendResponse(e,MyJsonOutput.toJson([status:"OK",id:doc.id,name:d.name]),"application/json")}else{def id=sql.executeInsert("INSERT INTO saved_documents (name,content) VALUES (?,?)",[d.name,d.content])[0][0];sendResponse(e,MyJsonOutput.toJson([status:"OK",id:id,name:d.name]),"application/json")}}}
-        server.createContext("/api/documents/"){e->def id=e.requestURI.path.split('/').last();if(e.requestMethod=="GET")handleRequest(e,"GET"){def d=sql.firstRow("SELECT content FROM saved_documents WHERE id=?",[id]);if(d)sendResponse(e,d.content,"text/plain")else sendResponse(e,"Документ не найден","text/plain",404)}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){sql.execute("DELETE FROM saved_documents WHERE id=?",[id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
-        server.createContext("/api/xsd-to-wsdl") { e -> handleRequest(e, "POST") { def data = new JsonSlurper().parse(e.requestBody); def wsdlString = xsdToWsdlConverter.generate(data.xsdContent, data.xsdFileName, data.serviceType); sendResponse(e, wsdlString, "application/xml") } }
-        server.createContext("/api/tasks/settings") { e -> if (e.requestMethod == "GET") { handleRequest(e, "GET") { def settings = [:]; sql.eachRow("SELECT key, value FROM task_settings") { row -> settings[row.key] = row.value }; sendResponse(e, MyJsonOutput.toJson(settings), "application/json") } } else if (e.requestMethod == "POST") { handleRequest(e, "POST") { def data = new JsonSlurper().parse(e.requestBody); data.each { key, value -> sql.execute("UPDATE task_settings SET value=? WHERE key=?", [value, key]) }; sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json") } } }
-        server.createContext("/api/tasks") { e ->
-            if (e.requestMethod == "GET") {
-                handleRequest(e, "GET") { def tasks = sql.rows("SELECT * FROM tasks ORDER BY last_updated DESC"); sendResponse(e, MyJsonOutput.toJson(tasks), "application/json") }
-            } else if (e.requestMethod == "POST") {
-                handleRequest(e, "POST") {
-                    def task = new JsonSlurper().parse(e.requestBody);
-                    if (task.id) {
-                        sql.execute("UPDATE tasks SET user=?, task_url=?, task_number=?, stage=?, status=?, deployment_date=?, additional_comment=?, spec_url=?, contact_person=?, last_updated=CURRENT_TIMESTAMP WHERE id=?",
-                                [task.user, task.task_url, task.task_number, task.stage, task.status, task.deployment_date, task.additional_comment, task.spec_url, task.contact_person, task.id])
-                    } else {
-                        sql.execute("INSERT INTO tasks (user, task_url, task_number, stage, status, deployment_date, additional_comment, spec_url, contact_person) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                                [task.user, task.task_url, task.task_number, task.stage, task.status, task.deployment_date, task.additional_comment, task.spec_url, task.contact_person])
-                    };
-                    sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
-                }
-            } else if (e.requestMethod == "DELETE") {
-                handleRequest(e, "DELETE") { def data = new JsonSlurper().parse(e.requestBody); sql.execute("DELETE FROM tasks WHERE id = ?", [data.id]); sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json") }
-            }
-        }
-        server.createContext("/api/tasks/send") { e -> handleRequest(e, "POST") { def settings = [:]; sql.eachRow("SELECT key, value FROM task_settings") { row -> settings[row.key] = row.value }; if (!settings.target_url) { throw new Exception("URL для отправки не настроен.") }; def tasks = sql.rows("SELECT * FROM tasks"); String auth = settings.target_user + ":" + (settings.target_password ?: ""); String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8)); def client = HttpClient.newHttpClient(); def request = HttpRequest.newBuilder().uri(URI.create(settings.target_url)).header("Content-Type", "application/json").header("Authorization", "Basic " + encodedAuth).POST(HttpRequest.BodyPublishers.ofString(MyJsonOutput.toJson(tasks))).build(); def response = client.send(request, HttpResponse.BodyHandlers.ofString()); def result = [statusCode: response.statusCode(), responseBody: response.body()]; sendResponse(e, MyJsonOutput.toJson(result), "application/json") } }
-        server.createContext("/api/tasks/export") { e -> handleRequest(e, "GET") { Workbook wb = new XSSFWorkbook(); Sheet sheet = wb.createSheet("Задачи"); Row headerRow = sheet.createRow(0); def headers = ["ID", "Пользователь", "Номер задачи", "URL задачи", "Этап", "Статус", "Дата установки (PROD)", "Комментарий", "Последнее обновление", "Спецификация", "Контакт"]; headers.eachWithIndex { header, i -> headerRow.createCell(i).setCellValue(header) }; def tasks = sql.rows("SELECT * FROM tasks ORDER BY id DESC"); tasks.eachWithIndex { task, i -> Row row = sheet.createRow(i + 1); row.createCell(0).setCellValue(task.id.toString()); row.createCell(1).setCellValue(task.user); row.createCell(2).setCellValue(task.task_number); row.createCell(3).setCellValue(task.task_url); row.createCell(4).setCellValue(task.stage); row.createCell(5).setCellValue(task.status); row.createCell(6).setCellValue(task.deployment_date); row.createCell(7).setCellValue(task.additional_comment); row.createCell(8).setCellValue(task.last_updated); row.createCell(9).setCellValue(task.spec_url); row.createCell(10).setCellValue(task.contact_person); }; headers.size().times{ sheet.autoSizeColumn(it) }; def os = new ByteArrayOutputStream(); wb.write(os); wb.close(); byte[] excelBytes = os.toByteArray(); e.responseHeaders.add("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); e.responseHeaders.add("Content-Disposition", "attachment; filename=\"tasks_export.xlsx\""); e.sendResponseHeaders(200, excelBytes.length); e.responseBody.withStream { it.write(excelBytes) } } }
-        server.createContext("/api/labels/all") { e -> handleRequest(e, "GET") { def data = labelsManager.getAll(); sendResponse(e, MyJsonOutput.toJson(data), "application/json") } }
-        server.createContext("/api/labels/search") { e -> handleRequest(e, "GET") { def params = [:]; if (e.requestURI.query) { params = e.requestURI.query.split('&').collectEntries { param -> def parts = param.split('=', 2); [(URLDecoder.decode(parts[0], "UTF-8")): (parts.length > 1) ? URLDecoder.decode(parts[1], "UTF-8") : ""] } }; def query = params.q; def categoryId = (params.categoryId && params.categoryId.isInteger()) ? params.categoryId as Integer : null; def labels = labelsManager.search(query, categoryId); sendResponse(e, MyJsonOutput.toJson(labels), "application/json") } }
-        server.createContext("/api/labels/category") { e -> if (e.requestMethod == "POST") { handleRequest(e, "POST") { def data = new JsonSlurper().parse(e.requestBody); def result = labelsManager.saveCategory(data); sendResponse(e, MyJsonOutput.toJson(result), "application/json") } } else if (e.requestMethod == "DELETE") { handleRequest(e, "DELETE") { def data = new JsonSlurper().parse(e.requestBody); def result = labelsManager.deleteCategory(data.id as int); sendResponse(e, MyJsonOutput.toJson(result), "application/json") } } }
-        server.createContext("/api/labels/label") { e -> if (e.requestMethod == "POST") { handleRequest(e, "POST") { def data = new JsonSlurper().parse(e.requestBody); def result = labelsManager.saveLabel(data); sendResponse(e, MyJsonOutput.toJson(result), "application/json") } } else if (e.requestMethod == "DELETE") { handleRequest(e, "DELETE") { def data = new JsonSlurper().parse(e.requestBody); def result = labelsManager.deleteLabel(data.id as int); sendResponse(e, MyJsonOutput.toJson(result), "application/json") } } }
-        server.createContext("/api/labels/increment_usage") { e -> handleRequest(e, "POST") { def data = new JsonSlurper().parse(e.requestBody); def result = labelsManager.incrementUsage(data.id as int); sendResponse(e, MyJsonOutput.toJson(result), "application/json") } }
-        server.createContext("/api/execute-calls") { e -> handleRequest(e, "POST") { def config = new JsonSlurper().parse(e.requestBody); def logs = multiRequestExecutor.executeAndGetLogs(config); sendResponse(e, logs, "text/plain") } }
-        server.createContext("/api/credentials/all") { e -> handleRequest(e, "GET") { sendResponse(e, MyJsonOutput.toJson(historyManager.getAllCredentials()), "application/json") } }
-        server.createContext("/api/credentials/get") { e -> handleRequest(e, "GET") { def id = e.getRequestURI().getQuery().split("=")[1]; sendResponse(e, MyJsonOutput.toJson(historyManager.getCredentialById(id as int)), "application/json") } }
-        server.createContext("/api/credentials/save") { e -> handleRequest(e, "POST") { def data = new JsonSlurper().parse(e.requestBody); sendResponse(e, MyJsonOutput.toJson(historyManager.saveCredential(data)), "application/json") } }
-        server.createContext("/api/credentials/delete") { e -> handleRequest(e, "DELETE") { def data = new JsonSlurper().parse(e.requestBody); sendResponse(e, MyJsonOutput.toJson(historyManager.deleteCredential(data.id as int)), "application/json") } }
-        server.createContext("/api/history/all") { e -> handleRequest(e, "GET") { sendResponse(e, MyJsonOutput.toJson(historyManager.getAll()), "application/json") } }
-        server.createContext("/api/history/search") { e -> handleRequest(e, "GET") { def params = [:]; if (e.requestURI.query) { params = e.requestURI.query.split('&').collectEntries { param -> def parts = param.split('=', 2); [(URLDecoder.decode(parts[0], "UTF-8")): (parts.length > 1) ? URLDecoder.decode(parts[1], "UTF-8") : ""] } }; sendResponse(e, MyJsonOutput.toJson(historyManager.search(params)), "application/json") } }
+        server.createContext("/api/generate-example"){e->handleRequest(e,"POST"){def schemaText=e.requestBody.text;sendResponse(e,exampleGenerator.generateExampleFromJsonSchema(schemaText),"application/json")}}
+        server.createContext("/api/documents"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(sql.rows("SELECT id, name FROM saved_documents ORDER BY name ASC")),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);def doc=sql.firstRow("SELECT id FROM saved_documents WHERE name=?",[d.name]);if(doc){sql.execute("UPDATE saved_documents SET content=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",[d.content,doc.id])}else{sql.execute("INSERT INTO saved_documents (name,content) VALUES (?,?)",[d.name,d.content])};sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/documents/"){e->def id=e.requestURI.path.split('/').last();if(e.requestMethod=="GET")handleRequest(e,"GET"){def d=sql.firstRow("SELECT content FROM saved_documents WHERE id=?",[id]);if(d)sendResponse(e,d.content,"text/plain")else sendResponse(e,"", "text/plain", 404)}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){sql.execute("DELETE FROM saved_documents WHERE id=?",[id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/xsd-to-wsdl"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,xsdToWsdlConverter.generate(d.xsdContent,d.xsdFileName,d.serviceType),"application/xml")}}
+        server.createContext("/api/tasks/settings"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def s=[:];sql.eachRow("SELECT key,value FROM task_settings"){r->s[r.key]=r.value};sendResponse(e,MyJsonOutput.toJson(s),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);d.each{k,v->sql.execute("UPDATE task_settings SET value=? WHERE key=?",[v,k])};sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/tasks"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def t=sql.rows("SELECT * FROM tasks ORDER BY last_updated DESC");sendResponse(e,MyJsonOutput.toJson(t),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def t=new JsonSlurper().parse(e.requestBody);if(t.id)sql.execute("UPDATE tasks SET user=?,task_url=?,task_number=?,stage=?,status=?,deployment_date=?,additional_comment=?,spec_url=?,contact_person=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",[t.user,t.task_url,t.task_number,t.stage,t.status,t.deployment_date,t.additional_comment,t.spec_url,t.contact_person,t.id])else sql.execute("INSERT INTO tasks (user,task_url,task_number,stage,status,deployment_date,additional_comment,spec_url,contact_person) VALUES (?,?,?,?,?,?,?,?,?)",[t.user,t.task_url,t.task_number,t.stage,t.status,t.deployment_date,t.additional_comment,t.spec_url,t.contact_person]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sql.execute("DELETE FROM tasks WHERE id = ?",[d.id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/tasks/send"){e->handleRequest(e,"POST"){def s=[:];sql.eachRow("SELECT key,value FROM task_settings"){r->s[r.key]=r.value};def t=sql.rows("SELECT * FROM tasks");String auth="${s.target_user}:${s.target_password?:''}";String enc=Base64.encoder.encodeToString(auth.bytes);def c=HttpClient.newHttpClient();def req=HttpRequest.newBuilder().uri(URI.create(s.target_url)).header("Content-Type","application/json").header("Authorization","Basic "+enc).POST(HttpRequest.BodyPublishers.ofString(MyJsonOutput.toJson(t))).build();def res=c.send(req,HttpResponse.BodyHandlers.ofString());sendResponse(e,MyJsonOutput.toJson([statusCode:res.statusCode(),responseBody:res.body()]),"application/json")}}
+        server.createContext("/api/tasks/export"){e->handleRequest(e,"GET"){Workbook wb=new XSSFWorkbook();Sheet s=wb.createSheet("Задачи");Row hr=s.createRow(0);def h=["ID","Пользователь","Номер задачи","URL задачи","Этап","Статус","Дата установки(PROD)","Комментарий","Последнее обновление","Спецификация","Контакт"];h.eachWithIndex{hd,i->hr.createCell(i).setCellValue(hd)};def t=sql.rows("SELECT * FROM tasks ORDER BY id DESC");t.eachWithIndex{tk,i->Row r=s.createRow(i+1);r.createCell(0).setCellValue(tk.id.toString());r.createCell(1).setCellValue(tk.user);r.createCell(2).setCellValue(tk.task_number);r.createCell(3).setCellValue(tk.task_url);r.createCell(4).setCellValue(tk.stage);r.createCell(5).setCellValue(tk.status);r.createCell(6).setCellValue(tk.deployment_date);r.createCell(7).setCellValue(tk.additional_comment);r.createCell(8).setCellValue(tk.last_updated);r.createCell(9).setCellValue(tk.spec_url);r.createCell(10).setCellValue(tk.contact_person)};h.size().times{s.autoSizeColumn(it)};def os=new ByteArrayOutputStream();wb.write(os);wb.close();byte[] b=os.toByteArray();e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"tasks_export.xlsx\"");e.sendResponseHeaders(200,b.length);e.responseBody.withStream{it.write(b)}}}
+        server.createContext("/api/labels/all"){e->handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(labelsManager.getAll()),"application/json")}}
+        server.createContext("/api/labels/search"){e->handleRequest(e,"GET"){def p=e.requestURI.query.split('&').collectEntries{pa->def parts=pa.split('=',2);[(URLDecoder.decode(parts[0],"UTF-8")):(parts.length>1)?URLDecoder.decode(parts[1],"UTF-8"):""]};sendResponse(e,MyJsonOutput.toJson(labelsManager.search(p.q,p.categoryId?.toInteger())),"application/json")}}
+        server.createContext("/api/labels/category"){e->if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.saveCategory(d)),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.deleteCategory(d.id as int)),"application/json")}}
+        server.createContext("/api/labels/label"){e->if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.saveLabel(d)),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.deleteLabel(d.id as int)),"application/json")}}
+        server.createContext("/api/labels/increment_usage"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.incrementUsage(d.id as int)),"application/json")}}
+        server.createContext("/api/execute-calls"){e->handleRequest(e,"POST"){def c=new JsonSlurper().parse(e.requestBody);sendResponse(e,multiRequestExecutor.executeAndGetLogs(c),"text/plain")}}
+        server.createContext("/api/credentials/all"){e->handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(historyManager.getAllCredentials()),"application/json")}}
+        server.createContext("/api/credentials/get"){e->handleRequest(e,"GET"){def id=e.getRequestURI().getQuery().split("=")[1];sendResponse(e,MyJsonOutput.toJson(historyManager.getCredentialById(id as int)),"application/json")}}
+        server.createContext("/api/credentials/save"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(historyManager.saveCredential(d)),"application/json")}}
+        server.createContext("/api/credentials/delete"){e->handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(historyManager.deleteCredential(d.id as int)),"application/json")}}
+        server.createContext("/api/history/all"){e->handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(historyManager.getAll()),"application/json")}}
+        server.createContext("/api/history/search"){e->handleRequest(e,"GET"){def p=e.requestURI.query.split('&').collectEntries{pa->def parts=pa.split('=',2);[(URLDecoder.decode(parts[0],"UTF-8")):(parts.length>1)?URLDecoder.decode(parts[1],"UTF-8"):""]};sendResponse(e,MyJsonOutput.toJson(historyManager.search(p)),"application/json")}}
+        server.createContext("/api/history/group"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def cs=URLDecoder.decode(e.getRequestURI().getQuery().split("=")[1],"UTF-8");sendResponse(e,MyJsonOutput.toJson(historyManager.getGroup(cs)),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sql.execute("DELETE FROM call_history WHERE cs_name=?",[d.csName]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/history/item/"){e->handleRequest(e,"DELETE"){def id=e.requestURI.path.split('/').last();sql.execute("DELETE FROM call_history WHERE id=?",[id as int]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
 
-        server.createContext("/api/history/group") { e ->
-            if (e.requestMethod == "GET") {
-                handleRequest(e, "GET") {
-                    def csName = URLDecoder.decode(e.getRequestURI().getQuery().split("=")[1], "UTF-8")
-                    sendResponse(e, MyJsonOutput.toJson(historyManager.getGroup(csName)), "application/json")
-                }
-            } else if (e.requestMethod == "DELETE") {
-                handleRequest(e, "DELETE") {
-                    def data = new JsonSlurper().parse(e.requestBody)
-                    sql.execute("DELETE FROM call_history WHERE cs_name=?", [data.csName])
-                    sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
-                }
-            }
-        }
-
-        server.createContext("/api/history/item/") { e ->
-            handleRequest(e, "DELETE") {
-                def id = e.getRequestURI().getPath().split('/').last()
-                sql.execute("DELETE FROM call_history WHERE id=?", [id as int])
-                sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
-            }
-        }
+        // --- НОВЫЙ БЛОК API ДЛЯ XSD-КОНСТРУКТОРА ---
+        server.createContext("/api/xsd") { e -> if (e.requestMethod == "GET") handleRequest(e,"GET"){def docs=sql.rows("SELECT id, name FROM saved_xsd ORDER BY name ASC");sendResponse(e, MyJsonOutput.toJson(docs),"application/json")} else if (e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);def doc=sql.firstRow("SELECT id FROM saved_xsd WHERE name=?",[d.name]);if(doc)sql.execute("UPDATE saved_xsd SET content=?, last_updated=CURRENT_TIMESTAMP WHERE id=?",[d.content,doc.id])else sql.execute("INSERT INTO saved_xsd (name,content) VALUES (?,?)",[d.name,d.content]);sendResponse(e, MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/xsd/"){e->def id=e.requestURI.path.split('/').last();if(e.requestMethod=="GET")handleRequest(e,"GET"){def d=sql.firstRow("SELECT content FROM saved_xsd WHERE id=?",[id]);if(d)sendResponse(e,d.content,"application/json")else sendResponse(e,"{}","application/json",404)}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){sql.execute("DELETE FROM saved_xsd WHERE id=?",[id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        // --- КОНЕЦ НОВОГО БЛОКА ---
 
         server.start()
     }

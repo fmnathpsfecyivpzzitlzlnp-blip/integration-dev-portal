@@ -4,10 +4,98 @@
     <title>Выполнение HTTP вызовов</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .main-action-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1em;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .main-action-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        #dataRules-section {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        #dataRules-section h2 {
+            margin-top: 0;
+            color: #495057;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+        .form-row label {
+            min-width: 180px;
+            font-weight: 600;
+        }
+        .form-row input, .form-row select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #calls-page-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        #calls-page-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        #calls-page-column {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .form-section {
+            background: white;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #log-output {
+            background: #f1f1f1;
+            border: 1px solid #ddd;
+            padding: 15px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            border-radius: 6px;
+            margin-top: 10px;
+            color: #333;
+        }
+    </style>
 </head>
 <body id="calls-page">
 <div class="main-content">
     <h2>Выполнение множественных HTTP вызовов</h2>
+
     <div id="calls-page-container">
         <div class="form-section">
             <div class="form-row">
@@ -17,84 +105,304 @@
                     <option value="rest">REST/JSON (httpbin.org)</option>
                     <option value="soap">SOAP/XML (NumberConversion)</option>
                 </select>
-                <button id="clear-state-btn" style="margin-left: 15px;">Сбросить форму</button>
+                <button id="clear-state-btn" style="margin-left: 15px; padding: 8px 16px;">Сбросить форму</button>
             </div>
         </div>
 
         <div id="calls-page-row">
             <div id="calls-page-column">
                 <div class="form-section">
-                    <div class="form-row"><label for="url">URL сервиса:</label><input type="text" id="url"></div>
-                    <div class="form-row"><label for="method">HTTP Метод:</label><select id="method"><option value="POST">POST</option><option value="GET">GET</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select></div>
-                    <div class="form-row"><label for="numRequests">Кол-во запросов:</label><input type="number" id="numRequests" value="1" min="1"></div>
+                    <div class="form-row"><label for="url">URL сервиса:</label><input type="text" id="url" placeholder="https://example.com/api"></div>
+                    <div class="form-row"><label for="method">HTTP Метод:</label>
+                        <select id="method">
+                            <option value="POST">POST</option>
+                            <option value="GET">GET</option>
+                            <option value="PUT">PUT</option>
+                            <option value="PATCH">PATCH</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                    <div class="form-row"><label for="numRequests">Кол-во запросов:</label><input type="number" id="numRequests" value="1" min="1" max="1000"></div>
                     <div class="form-row"><label for="csName">Имя сценария (CS):</label><input type="text" id="csName" placeholder="Для группировки в истории"></div>
                     <div class="form-row"><label for="bsName">Имя системы (BS):</label><input type="text" id="bsName" placeholder="Для информации в истории"></div>
-                    <div class="form-row"><label for="interfaceName">Интерфейс:</label><input type="text" id="interfaceName" placeholder="Для информации в истории"></div>
+                    <div class="form-row"><label for="interfaceName">Интерфейс:</label><input type="text" id="interfaceName" placeholder="Например: CreateOrder"></div>
                 </div>
 
                 <div class="form-section">
                     <h2>Управление учетными данными (Basic Auth)</h2>
-                    <div class="form-row"><label for="credentials-select">Выбрать сохраненные:</label><select id="credentials-select"><option value="">-- Новые --</option></select><button id="delete-credential-btn" style="margin-left:10px;" disabled>Удалить</button></div>
-                    <div class="form-row"><label for="credential-name">Имя для сохранения:</label><input type="text" id="credential-name"/><button id="save-credential-btn" style="margin-left:10px;">Сохранить</button></div>
+                    <div class="form-row">
+                        <label for="credentials-select">Выбрать сохраненные:</label>
+                        <select id="credentials-select"><option value="">-- Новые --</option></select>
+                        <button id="delete-credential-btn" style="margin-left:10px;" disabled>Удалить</button>
+                    </div>
+                    <div class="form-row">
+                        <label for="credential-name">Имя для сохранения:</label>
+                        <input type="text" id="credential-name" placeholder="Например: TEST_ENV">
+                        <button id="save-credential-btn" style="margin-left:10px;">Сохранить</button>
+                    </div>
                     <div class="form-row"><label for="login">Логин:</label><input type="text" id="login"></div>
                     <div class="form-row"><label for="password">Пароль:</label><input type="password" id="password"></div>
                 </div>
             </div>
 
             <div id="calls-page-column">
-                <div class="form-section"><h2>Заголовки (Headers)</h2><textarea id="headers" placeholder='{ "Content-Type": "application/json" }'></textarea></div>
-                <div class="form-section" style="flex-grow:1; display:flex; flex-direction:column;"><h2 style="margin-bottom:10px;">Шаблон тела запроса</h2><textarea id="template" style="flex-grow:1;"></textarea></div>
+                <div class="form-section">
+                    <h2>Заголовки (Headers)</h2>
+                    <textarea id="headers" placeholder='{
+  "Content-Type": "application/json",
+  "Accept": "application/json"
+}'>{"Content-Type": "application/json"}</textarea>
+                </div>
+
+                <div class="form-section" style="flex-grow:1; display:flex; flex-direction:column;">
+                    <h2 style="margin-bottom:10px;">Шаблон тела запроса</h2>
+                    <textarea id="template" style="flex-grow:1;" placeholder='{
+  "userId": "##userId##",
+  "name": "##userName##",
+  "transactionId": "##transactionId##"
+}'></textarea>
+                </div>
             </div>
         </div>
 
         <div class="form-section" id="dataRules-section">
             <h2>Правила генерации данных</h2>
-            <textarea id="dataRules"></textarea>
+            <textarea id="dataRules" placeholder='{
+  "userId": { "type": "increment", "start": 1001, "step": 1 },
+  "userName": { "type": "random", "values": ["Alice", "Bob", "Charlie"] },
+  "transactionId": { "type": "uuid" }
+}'></textarea>
+            <small style="color:#666; display:block; margin-top:8px;">
+                Поддерживаются: increment, random, uuid, random_number, current_timestamp, from_list
+            </small>
         </div>
     </div>
+
     <button id="execute-btn" class="main-action-btn" style="margin-top: 20px;">Выполнить вызовы</button>
+
     <h3 style="margin-top: 20px;">Логи выполнения:</h3>
-    <pre id="log-output">Здесь будут отображаться логи...</pre>
+    <pre id="log-output">Готов к запуску. Нажмите «Выполнить вызовы».</pre>
 </div>
+
 <script src="libs/jquery-3.6.0.min.js"></script>
 <script>
     $(function() {
-        const fieldsToSave = ['#url', '#method', '#numRequests', '#csName', '#bsName', '#interfaceName', '#login', '#password', '#headers', '#template', '#dataRules', '#config-select', '#credential-name', '#credentials-select'];
-        function loadState() { fieldsToSave.forEach(s => { const v = localStorage.getItem('calls_' + s); if (v !== null) $(s).val(v); }); $('#credentials-select').trigger('change'); }
-        function saveState() { fieldsToSave.forEach(s => localStorage.setItem('calls_' + s, $(s).val())); }
-        function clearState() { if(confirm('Очистить форму?')) { fieldsToSave.forEach(s => localStorage.removeItem('calls_' + s)); window.location.reload(); } }
+        const fieldsToSave = [
+            '#url', '#method', '#numRequests', '#csName', '#bsName', '#interfaceName',
+            '#login', '#password', '#headers', '#template', '#dataRules',
+            '#config-select', '#credential-name', '#credentials-select'
+        ];
+
+        function loadState() {
+            fieldsToSave.forEach(selector => {
+                const key = 'calls_' + selector;
+                const value = localStorage.getItem(key);
+                if (value !== null) {
+                    $(selector).val(value);
+                }
+            });
+
+            // КРИТИЧЕСКИ ВАЖНО: если dataRules пустые или {}, — оставляем чистое поле
+            const savedRules = localStorage.getItem('calls_#dataRules');
+            if (!savedRules || savedRules.trim() === '' || savedRules === '{}' || savedRules === 'null') {
+                $('#dataRules').val('{}');
+            } else {
+                $('#dataRules').val(savedRules);
+            }
+
+            $('#credentials-select').trigger('change');
+        }
+
+        function saveState() {
+            fieldsToSave.forEach(selector => {
+                localStorage.setItem('calls_' + selector, $(selector).val());
+            });
+        }
+
+        function clearState() {
+            if (confirm('Очистить всю форму и сохранённое состояние?')) {
+                fieldsToSave.forEach(selector => {
+                    localStorage.removeItem('calls_' + selector);
+                });
+                window.location.reload();
+            }
+        }
+
         $(fieldsToSave.join(', ')).on('change input', saveState);
         $('#clear-state-btn').on('click', clearState);
 
         const presets = {
-            rest: { url: 'https://httpbin.org/post', method: 'POST', numRequests: 5, headers: JSON.stringify({"Content-Type":"application/json", "Accept":"application/json"}, null, 4), template: JSON.stringify({user:{id:"##userId##",name:"##userName##"}, transactionId:"##transactionId##"}, null, 4), dataRules: JSON.stringify({userId:{type:"increment", start:1001, step:1}, userName:{type:"random", values:["Alice","Bob","Charlie"]}, transactionId:{type:"uuid"}}, null, 4)},
-            soap: { url: 'https://www.dataaccess.com/webservicesserver/NumberConversion.wso', method: 'POST', numRequests: 3, headers: JSON.stringify({"Content-Type":"text/xml; charset=utf-8"}, null, 4), template: `<?xml version="1.0" encoding="utf-8"?>\n<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">\n  <soap:Body>\n    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">\n      <ubiNum>##number##</ubiNum>\n    </NumberToWords>\n  </soap:Body>\n</soap:Envelope>`, dataRules: JSON.stringify({number:{type:"random_number",min:1,max:1000}}, null, 4)}
+            rest: {
+                url: 'https://httpbin.org/post',
+                method: 'POST',
+                numRequests: 5,
+                headers: JSON.stringify({"Content-Type":"application/json", "Accept":"application/json"}, null, 4),
+                template: JSON.stringify({
+                    user: { id: "##userId##", name: "##userName##" },
+                    transactionId: "##transactionId##"
+                }, null, 4),
+                dataRules: JSON.stringify({
+                    userId: { type: "increment", start: 1001, step: 1 },
+                    userName: { type: "random", values: ["Alice","Bob","Charlie","David","Eva"] },
+                    transactionId: { type: "uuid" }
+                }, null, 4)
+            },
+            soap: {
+                url: 'https://www.dataaccess.com/webservicesserver/NumberConversion.wso',
+                method: 'POST',
+                numRequests: 3,
+                headers: JSON.stringify({"Content-Type":"text/xml; charset=utf-8", "SOAPAction": ""}, null, 4),
+                template: `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">
+      <ubiNum>##number##</ubiNum>
+    </NumberToWords>
+  </soap:Body>
+</soap:Envelope>`,
+                dataRules: JSON.stringify({
+                    number: { type: "random_number", min: 1, max: 999999 }
+                }, null, 4)
+            }
         };
 
-        function applyPreset(name) { const p = presets[name]; if(p) { $('#url').val(p.url); $('#method').val(p.method); $('#numRequests').val(p.numRequests); $('#headers').val(p.headers); $('#template').val(p.template); $('#dataRules').val(p.dataRules); saveState(); } }
-        $('#config-select').on('change', function() { applyPreset($(this).val()); });
+        function applyPreset(name) {
+            const p = presets[name];
+            if (!p) return;
+            $('#url').val(p.url);
+            $('#method').val(p.method);
+            $('#numRequests').val(p.numRequests);
+            $('#headers').val(p.headers);
+            $('#template').val(p.template);
+            $('#dataRules').val(p.dataRules);
+            saveState();
+        }
 
-        $('#execute-btn').on('click', function() {
-            const btn = $(this), log = $('#log-output');
-            log.text('Выполнение...'); btn.prop('disabled', true).text('Выполнение...');
-            try {
-                const config = { url: $('#url').val().trim(), method: $('#method').val(), numberOfRequests: parseInt($('#numRequests').val(), 10) || 1, csName: $('#csName').val().trim(), bsName: $('#bsName').val().trim(), interfaceName: $('#interfaceName').val().trim(), login: $('#login').val(), password: $('#password').val(), headers: JSON.parse($('#headers').val()||'{}'), template: $('#template').val(), dataRules: JSON.parse($('#dataRules').val()||'{}') };
-                if(!config.url) throw new Error("URL не может быть пустым.");
-                $.ajax({ url:'/api/execute-calls', type:'POST', contentType:'application/json', data:JSON.stringify(config),
-                    success: res => log.text(res),
-                    error: xhr => log.text(`Ошибка:\n${xhr.responseText}`),
-                    complete: () => btn.prop('disabled', false).text('Выполнить вызовы')
-                });
-            } catch(e) { log.text(`Ошибка в конфигурации: \n${e.message}`); btn.prop('disabled', false).text('Выполнить вызовы'); }
+        $('#config-select').on('change', function() {
+            const val = $(this).val();
+            if (val === 'custom') return;
+            applyPreset(val);
         });
 
-        function loadCredentials() { $.get('/api/credentials/all', c => { const s = $('#credentials-select'); s.empty().append('<option value="">-- Новые --</option>'); c.forEach(i => s.append(`<option value="${i.id}">${i.name}</option>`)); if(localStorage.getItem('calls_#credentials-select')) { s.val(localStorage.getItem('calls_#credentials-select')).trigger('change'); } }); }
-        $('#credentials-select').on('change', function(){ const id=$(this).val(); $('#delete-credential-btn').prop('disabled',!id); if(id){ $.get(`/api/credentials/get?id=${id}`, d => { $('#credential-name').val(d.name).trigger('input'); $('#login').val(d.login).trigger('input'); $('#password').val(d.password).trigger('input'); }); } else { $('#credential-name, #login, #password').val('').trigger('input'); }});
-        $('#save-credential-btn').on('click', function() { const data={id:$('#credentials-select').val(),name:$('#credential-name').val().trim(),login:$('#login').val(),password:$('#password').val()}; if(!data.name) return alert('Введите имя.'); $.ajax({url:'/api/credentials/save', type:'POST', contentType:'application/json',data:JSON.stringify(data),success:() => { alert('Сохранено!');loadCredentials(); } }); });
-        $('#delete-credential-btn').on('click', function() { const id = $('#credentials-select').val(); if(!id || !confirm('Удалить?'))return; $.ajax({url:'/api/credentials/delete',type:'DELETE',contentType:'application/json',data:JSON.stringify({id}),success:()=>{alert('Удалено!');loadCredentials();$('#credential-name, #login, #password').val('').trigger('input');$('#delete-credential-btn').prop('disabled', true);}}); });
+        $('#execute-btn').on('click', function() {
+            const btn = $(this);
+            const log = $('#log-output');
+            log.text('Выполнение...');
+            btn.prop('disabled', true).text('Выполняется...');
 
-        loadState(); loadCredentials();
-        if (!$('#url').val()) { applyPreset('rest'); $('#config-select').val('rest'); }
+            try {
+                const headersRaw = $('#headers').val() || '{}';
+                const dataRulesRaw = $('#dataRules').val() || '{}';
+
+                const config = {
+                    url: $('#url').val().trim(),
+                    method: $('#method').val(),
+                    numberOfRequests: parseInt($('#numRequests').val(), 10) || 1,
+                    csName: $('#csName').val().trim(),
+                    bsName: $('#bsName').val().trim(),
+                    interfaceName: $('#interfaceName').val().trim(),
+                    login: $('#login').val(),
+                    password: $('#password').val(),
+                    headers: JSON.parse(headersRaw),
+                    template: $('#template').val(),
+                    dataRules: JSON.parse(dataRulesRaw)
+                };
+
+                if (!config.url) throw new Error("URL обязателен");
+
+                $.ajax({
+                    url: '/api/execute-calls',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(config),
+                    success: function(res) {
+                        log.text(res);
+                    },
+                    error: function(xhr) {
+                        log.text('Ошибка сервера:\n' + (xhr.responseText || xhr.statusText));
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).text('Выполнить вызовы');
+                    }
+                });
+            } catch (e) {
+                log.text('Ошибка в конфигурации:\n' + e.message);
+                btn.prop('disabled', false).text('Выполнить вызовы');
+            }
+        });
+
+        function loadCredentials() {
+            $.get('/api/credentials/all', function(items) {
+                const select = $('#credentials-select');
+                select.empty().append('<option value="">-- Новые --</option>');
+                items.forEach(item => {
+                    select.append(`<option value="${item.id}">${item.name}</option>`);
+                });
+                const saved = localStorage.getItem('calls_#credentials-select');
+                if (saved) select.val(saved).trigger('change');
+            });
+        }
+
+        $('#credentials-select').on('change', function() {
+            const id = $(this).val();
+            $('#delete-credential-btn').prop('disabled', !id);
+            if (id) {
+                $.get(`/api/credentials/get?id=${id}`, function(data) {
+                    $('#credential-name').val(data.name);
+                    $('#login').val(data.login);
+                    $('#password').val(data.password);
+                });
+            } else {
+                $('#credential-name, #login, #password').val('');
+            }
+        });
+
+        $('#save-credential-btn').on('click', function() {
+            const data = {
+                id: $('#credentials-select').val() || null,
+                name: $('#credential-name').val().trim(),
+                login: $('#login').val(),
+                password: $('#password').val()
+            };
+            if (!data.name) return alert('Введите имя для сохранения');
+            $.ajax({
+                url: '/api/credentials/save',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: () => {
+                    alert('Учетные данные сохранены');
+                    loadCredentials();
+                }
+            });
+        });
+
+        $('#delete-credential-btn').on('click', function() {
+            const id = $('#credentials-select').val();
+            if (!id || !confirm('Удалить эти учетные данные?')) return;
+            $.ajax({
+                url: '/api/credentials/delete',
+                type: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({id: id}),
+                success: () => {
+                    alert('Удалено');
+                    loadCredentials();
+                    $('#credential-name, #login, #password').val('');
+                    $('#delete-credential-btn').prop('disabled', true);
+                }
+            });
+        });
+
+        // Инициализация
+        loadState();
+        loadCredentials();
+
+        // Если форма пустая — подгружаем REST-пресет
+        if (!$('#url').val()) {
+            applyPreset('rest');
+            $('#config-select').val('rest');
+        }
     });
 </script>
 </body>

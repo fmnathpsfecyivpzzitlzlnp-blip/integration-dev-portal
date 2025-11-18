@@ -4,52 +4,14 @@
     <title>Инструменты для разработчика</title>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: sans-serif;
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #sidebar {
-            width: 250px; /* Сделал немного шире */
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding-top: 20px;
-            flex-shrink: 0; /* Панель не будет сжиматься */
-        }
-        #sidebar h1 {
-            font-size: 1.2em;
-            text-align: center;
-            margin: 0 0 20px 0;
-            color: #ffffff;
-        }
-        #sidebar ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        #sidebar ul li a {
-            display: block;
-            padding: 15px 20px;
-            color: #ecf0f1;
-            text-decoration: none;
-            border-left: 3px solid transparent;
-            transition: background 0.3s, border-left 0.3s;
-        }
-        #sidebar ul li a:hover {
-            background: #34495e;
-        }
-        #sidebar ul li a.active {
-            background: #1abc9c;
-            color: #ffffff;
-            border-left: 3px solid #ffffff;
-        }
-        #content-frame {
-            flex-grow: 1; /* Фрейм займет все оставшееся место */
-            border: none;
-            height: 100%;
-        }
+        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 250px; background: #2c3e50; color: #ecf0f1; padding-top: 20px; flex-shrink: 0; display: flex; flex-direction: column; }
+        #sidebar h1 { font-size: 1.2em; text-align: center; margin: 0 0 20px 0; color: #ffffff; }
+        #sidebar ul { list-style: none; padding: 0; margin: 0; }
+        #sidebar ul li a { display: block; padding: 15px 20px; color: #ecf0f1; text-decoration: none; border-left: 3px solid transparent; transition: background 0.2s; }
+        #sidebar ul li a:hover { background: #34495e; }
+        #sidebar ul li a.active { background: #1abc9c; color: #ffffff; }
+        #content-frame { flex-grow: 1; border: none; height: 100%; }
     </style>
 </head>
 <body>
@@ -57,23 +19,19 @@
 <div id="sidebar">
     <h1>Инструменты</h1>
     <ul>
-        <!-- Существующий пункт меню -->
-        <li><a href="task_tracker.html" target="content"><b>Ведение задач</b></a></li>
-
-        <!-- ================================== -->
-        <!-- === НАЧАЛО ДОБАВЛЕННОГО БЛОКА === -->
-        <!-- ================================== -->
+        <li><a href="task_tracker.html" target="content">Ведение задач</a></li>
         <li><a href="labels.html" target="content">Метки</a></li>
-        <!-- ================================ -->
-        <!-- === КОНЕЦ ДОБАВЛЕННОГО БЛОКА === -->
-        <!-- ================================ -->
-
         <hr>
         <li><a href="editor.html" target="content">Редактор XML/JSON</a></li>
+        <li><a href="xsd_constructor.html" target="content">XSD Конструктор</a></li>
+        <li><a href="xsd-to-wsdl.html" target="content">xsdToWsdl</a></li>
+        <hr>
+        <li><a href="xml_to_json.html" target="content">XML в JSON</a></li>
+        <li><a href="json_to_xml.html" target="content">JSON в XML</a></li>
+        <hr>
         <li><a href="calls.html" target="content">Вызовы</a></li>
         <li><a href="calls_history.html" target="content">История вызовов</a></li>
-        <li><a href="xsd-to-wsdl.html" target="content">xsdToWsdl</a></li>
-
+        <hr>
         <li><a href="schema_generator.html" target="content">JsonSchemaToJson</a></li>
         <li><a href="excel_exporter.html" target="content">JsonToExcel</a></li>
         <li><a href="xml_exporter.html" target="content">XmlToExcel</a></li>
@@ -88,25 +46,31 @@
         const links = document.querySelectorAll('#sidebar a');
         const frame = document.getElementById('content-frame');
 
-        // Функция для установки активного состояния
-        const setActiveLink = (targetHref) => {
+        function setActiveLink(targetHref) {
             links.forEach(l => l.classList.remove('active'));
+            // Ищем ссылку, href которой ТОЧНО совпадает с targetHref
             const activeLink = Array.from(links).find(l => l.getAttribute('href') === targetHref);
             if (activeLink) {
                 activeLink.classList.add('active');
             }
-        };
+        }
 
+        // Подсветка при клике
         links.forEach(link => {
             link.addEventListener('click', function(e) {
-                // Не используем preventDefault, так как нам нужно, чтобы ссылка работала
                 setActiveLink(e.currentTarget.getAttribute('href'));
             });
         });
 
-        // Устанавливаем активный класс при загрузке страницы по умолчанию
-        const defaultSrc = frame.getAttribute('src');
-        setActiveLink(defaultSrc);
+        // Подсветка при загрузке iframe (важно для кнопки "Повторить вызов")
+        frame.addEventListener('load', () => {
+            // Получаем путь к файлу внутри iframe
+            const frameLocation = frame.contentWindow.location.pathname.substring(1); // убираем / в начале
+            setActiveLink(frameLocation);
+        });
+
+        // Первоначальная подсветка при загрузке страницы
+        setActiveLink(frame.getAttribute('src'));
     });
 </script>
 
