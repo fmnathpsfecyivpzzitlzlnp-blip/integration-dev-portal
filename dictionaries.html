@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Ведение справочников</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin:0; padding:20px; min-height:100vh; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { text-align:center; color:#818cf8; margin-bottom:40px; font-size:28px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap:24px; }
+    .card {
+      background: #1e293b; border-radius:16px; padding:24px; box-shadow:0 8px 25px rgba(0,0,0,0.3);
+      border: 1px solid #334155; transition: all 0.3s;
+    }
+    .card:hover { transform:translateY(-6px); box-shadow:0 15px 40px rgba(129,140,248,0.2); border-color:#6366f1; }
+    .card h3 { margin:0 0 16px 0; color:#818cf8; font-size:21px; display:flex; align-items:center; gap:10px; }
+    .card ul { margin:12px 0; padding-left:22px; }
+    .card li { padding:6px 0; color:#cbd5e1; }
+    .btn {
+      padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:600;
+      background:#6366f1; color:white; transition:0.2s;
+    }
+    .btn:hover { background:#4f46e5; transform:scale(1.03); }
+    .btn-danger { background:#ef4444; }
+    .btn-danger:hover { background:#dc2626; }
+
+    /* Модальное окно */
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center; }
+    .modal.active { display:flex; }
+    .modal-content {
+      background:#1e293b; padding:30px; border-radius:16px; width:90%; max-width:500px; border:2px solid #6366f1;
+      box-shadow:0 20px 50px rgba(129,140,248,0.3);
+    }
+    .modal h2 { margin:0 0 20px 0; color:#818cf8; text-align:center; }
+    input, textarea { width:100%; padding:12px; margin:10px 0; border-radius:8px; border:1px solid #475569; background:#334155; color:white; font-size:15px; }
+    .modal-buttons { display:flex; gap:12px; justify-content:center; margin-top:20px; }
+    .close { position:absolute; top:15px; right:20px; font-size:28px; cursor:pointer; color:#94a3b8; }
+    .close:hover { color:#f87171; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Ведение справочников</h1>
+
+  <div class="grid">
+
+    <!-- Справочник систем -->
+    <div class="card">
+      <h3>Системы</h3>
+      <p>Справочник интеграционных систем</p>
+      <ul id="systems-list">
+        <!-- Заполнится динамически -->
+      </ul>
+      <button class="btn" onclick="openModal()">Редактировать системы</button>
+    </div>
+
+    <!-- Остальные справочники (пока заглушки) -->
+    <div class="card">
+      <h3>Протоколы и форматы</h3>
+      <p>REST, SOAP, JMS, JSON, XML и др.</p>
+      <button class="btn" disabled>Скоро</button>
+    </div>
+
+    <div class="card">
+      <h3>Типы связи</h3>
+      <p>sync / async</p>
+      <button class="btn" disabled>Готово</button>
+    </div>
+
+    <div class="card">
+      <h3>Метки задач</h3>
+      <p>Управление метками и категориями</p>
+      <button class="btn" onclick="location.href='labels.html'">Перейти</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Модальное окно редактирования систем -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">×</span>
+    <h2>Редактирование систем</h2>
+    <div>
+      <input type="text" id="sid-input" placeholder="SID системы (например: BS_PSBONLINE)" maxlength="50">
+      <input type="text" id="desc-input" placeholder="Описание (не обязательно)">
+      <button class="btn" onclick="addOrUpdateSystem()">Добавить / Сохранить</button>
+    </div>
+
+    <div style="max-height:400px; overflow-y:auto; margin-top:20px;">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+        <tr style="border-bottom:2px solid #475569;">
+          <th style="text-align:left; padding:10px;">SID</th>
+          <th style="text-align:left; padding:10px;">Описание</th>
+          <th style="text-align:center; padding:10px;">Действие</th>
+        </tr>
+        </thead>
+        <tbody id="systems-table"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="btn" style="background:#6b7280;" onclick="closeModal()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let systems = [];
+  let editingId = null;
+
+  async function loadSystems() {
+    const res = await fetch('/api/systems');
+    systems = await res.json();
+    systems.sort((a,b) => a.sid.localeCompare(b.sid));
+    renderSystems();
+  }
+
+  function renderSystems() {
+    const list = document.getElementById('systems-list');
+    const table = document.getElementById('systems-table');
+    list.innerHTML = '';
+    table.innerHTML = '';
+
+    systems.forEach(s => {
+      // В карточке
+      const li = document.createElement('li');
+      li.textContent = s.sid + (s.description ? ` — ${s.description}` : '');
+      list.appendChild(li);
+
+      // В таблице модалки
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid #334155';
+      tr.innerHTML = `
+                <td style="padding:10px;">${s.sid}</td>
+                <td style="padding:10px;">${s.description || '—'}</td>
+                <td style="padding:10px; text-align:center;">
+                    <button class="btn" style="padding:6px 12px; font-size:13px;" onclick="editSystem(${s.id})">Изменить</button>
+                    <button class="btn btn-danger" style="padding:6px 12px; font-size:13px;" onclick="deleteSystem(${s.id})">Удалить</button>
+                </td>
+            `;
+      table.appendChild(tr);
+    });
+  }
+
+  window.openModal = () => {
+    document.getElementById('modal').classList.add('active');
+    loadSystems(); // обновим на всякий
+  }
+
+  window.closeModal = () => {
+    document.getElementById('modal').classList.remove('active');
+    editingId = null;
+    document.getElementById('sid-input').value = '';
+    document.getElementById('desc-input').value = '';
+  }
+
+  window.editSystem = (id) => {
+    const sys = systems.find(s => s.id === id);
+    if (sys) {
+      editingId = id;
+      document.getElementById('sid-input').value = sys.sid;
+      document.getElementById('desc-input').value = sys.description || '';
+    }
+  }
+
+  window.addOrUpdateSystem = async () => {
+    const sid = document.getElementById('sid-input').value.trim();
+    const desc = document.getElementById('desc-input').value.trim();
+
+    if (!sid) {
+      alert('Введите SID системы!');
+      return;
+    }
+
+    const body = { sid, description: desc };
+    if (editingId) body.id = editingId;
+
+    await fetch('/api/systems', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    closeModal();
+    loadSystems();
+  }
+
+  window.deleteSystem = async (id) => {
+    if (!confirm('Удалить систему? Это может сломать существующие потоки!')) return;
+    await fetch('/api/systems', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    loadSystems();
+  }
+
+  // Загрузка при старте
+  loadSystems();
+</script>
+
+</body>
+</html>

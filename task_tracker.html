@@ -10,6 +10,85 @@
         .CodeMirror { border: 1px solid #ccc; border-radius: 4px; height: auto; min-height: 200px; font-size: 14px; }
         .comment-area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .comment-indicator { cursor: help; font-size: 1.2em; }
+
+        /* Единая кнопка действий */
+        .task-actions-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .menu-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(99,102,241,0.3);
+            transition: all 0.2s;
+        }
+        .menu-btn:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+        }
+
+        .menu-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 48px;
+            background: white;
+            min-width: 260px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            z-index: 9999;
+        }
+
+        .menu-content a {
+            display: flex;
+            align-items: center;
+            padding: 12px 18px;
+            color: #1e293b;
+            text-decoration: none;
+            font-size: 14.5px;
+            transition: background 0.2s;
+            gap: 12px;
+        }
+
+        .menu-content a:hover {
+            background: #f8fafc;
+        }
+
+        .menu-content a.danger {
+            color: #dc2626;
+        }
+
+        .menu-content a.danger:hover {
+            background: #fee2e2;
+        }
+
+        .task-actions-menu:hover .menu-content {
+            display: block;
+        }
+
+        /* Невидимый мостик — курсор не теряется */
+        .task-actions-menu::before {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            top: 40px;
+            height: 16px;
+            background: transparent;
+        }
     </style>
 </head>
 <body>
@@ -41,7 +120,11 @@
                     <label for="additional-comment">Дополнительный комментарий</label>
                     <div style="display:flex;align-items:center;">
                         <label for="syntax-select" style="font-weight:normal;margin-right:5px;">Синтаксис:</label>
-                        <select id="syntax-select" style="width:auto;"><option value="text/x-java">Java</option><option value="javascript">JavaScript</option><option value="text/plain">Простой текст</option></select>
+                        <select id="syntax-select" style="width:auto;">
+                            <option value="text/x-java">Java</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="text/plain">Простой текст</option>
+                        </select>
                         <button id="theme-toggle-btn" class="secondary" style="margin-left:10px;"></button>
                     </div>
                 </div>
@@ -60,19 +143,34 @@
         <table class="task-table">
             <thead>
             <tr>
-                <th data-sort="user">Пользователь</th><th data-sort="task_number">Номер задачи</th><th data-sort="stage">Этап</th><th data-sort="status">Статус</th><th title="Комментарий">Км</th><th data-sort="contact_person">Ответственный</th><th data-sort="spec_url">Спецификация</th><th data-sort="last_updated">Посл. изменение</th><th>Действия</th>
+                <th data-sort="user">Пользователь</th>
+                <th data-sort="task_number">Номер задачи</th>
+                <th data-sort="stage">Этап</th>
+                <th data-sort="status">Статус</th>
+                <th title="Комментарий">Км</th>
+                <th data-sort="contact_person">Ответственный</th>
+                <th data-sort="spec_url">Спецификация</th>
+                <th data-sort="last_updated">Посл. изменение</th>
+                <th>Действия</th>
             </tr>
             </thead>
             <tbody id="task-list"></tbody>
         </table>
     </div>
 </div>
-<div id="infoModal" class="modal"><div class="modal-content"><span class="modal-close" onclick="closeInfoModal()">&times;</span><h2>Описание статусов</h2><div class="status-info-list" id="status-info-content"></div></div></div>
+
+<div id="infoModal" class="modal"><div class="modal-content"><span class="modal-close" onclick="closeInfoModal()">×</span><h2>Описание статусов</h2><div class="status-info-list" id="status-info-content"></div></div></div>
 <div id="responsePopup" class="notification"></div>
-<script src="libs/jquery-3.6.0.min.js"></script><script src="libs/codemirror.min.js"></script><script src="libs/clike.min.js"></script><script src="libs/javascript.min.js"></script>
+
+<script src="libs/jquery-3.6.0.min.js"></script>
+<script src="libs/codemirror.min.js"></script>
+<script src="libs/clike.min.js"></script>
+<script src="libs/javascript.min.js"></script>
+
 <script>
     const statusConfig = { "Этап 1: Очередь (Бэклог)": {"Новая": "Задача создана."}, "Этап 2: Аналитика и проектирование": {"Анализ": "Изучение требований.", "Проектирование / ТЗ": "Написание ТЗ.", "Согласование": "ТЗ на утверждении."}, "Этап 3: Разработка": {"В разработке": "Написание кода.", "Ревью кода / Peer Review": "Код на проверке."}, "Этап 4: Тестирование": {"Тестирование (DEV)": "Первичное тестирование.", "Готово к развертыванию (TEST)": "Готово к тесту.", "Тестирование (TEST)": "Идет тестирование.", "Приемка (UAT)": "На приемке."}, "Этап 5: Внедрение": {"Готово к внедрению (PROD)": "Готово к ПРОД.", "Внедрение": "Установка на ПРОД."}, "Этап 6: Завершение": {"Мониторинг / Поддержка": "Идет наблюдение.", "Закрыто": "Задача выполнена."}, "Специальные статусы": {"Приостановлено (On Hold)": "Приостановлена.", "Заблокировано (Blocked)": "Заблокирована.", "К уточнению (Needs Info)": "Требуется информация."}};
     let allTasks = [], currentSort = { key: 'last_updated', order: 'desc' }, commentEditor;
+
     $(function(){
         const savedTheme = localStorage.getItem('codeMirrorTheme') || 'dracula';
         commentEditor = CodeMirror.fromTextArea(document.getElementById('additional-comment'),{lineNumbers:true,mode:"text/x-java",theme:savedTheme,indentUnit:4,matchBrackets:true,lineWrapping:true});
@@ -83,27 +181,126 @@
         themeBtn.on('click',()=>{const newTheme=commentEditor.getOption("theme")==='dracula'?'default':'dracula';commentEditor.setOption("theme",newTheme);updateThemeBtn(newTheme);localStorage.setItem('codeMirrorTheme',newTheme);});
         $('#syntax-select').on('change',function(){commentEditor.setOption("mode",$(this).val());});
         populateStageDropdown();updateStatusDropdown();loadTasks();loadSettings();
-        $('#task-search-input').on('input',e=>{const q=e.target.value.toLowerCase(),f=allTasks.filter(t=>Object.values(t).some(v=>String(v).toLowerCase().includes(q)));renderTasks(f);});
+        $('#task-search-input').on('input',e=>{const q=e.target.value.toLowerCase(),f=allTasks.filter(t=>Object.values(t).some(v=>String(v||'').toLowerCase().includes(q)));renderTasks(f);});
         $('.task-table th[data-sort]').on('click',function(){const sortKey=$(this).data('sort'),header=$(this).text().replace(/ [▲▼]/,'');$('.task-table th[data-sort]').each(function(){$(this).text($(this).text().replace(/ [▲▼]/,''));});currentSort={key:sortKey,order:currentSort.key===sortKey&&currentSort.order==='asc'?'desc':'asc'};$(this).text(header+(currentSort.order==='asc'?' ▲':' ▼'));$('#task-search-input').trigger('input');});
     });
+
     function renderTasks(tasks){
-        const list=$('#task-list').empty();if(!tasks)return;
-        tasks.sort((a,b)=>{let vA=a[currentSort.key]||'',vB=b[currentSort.key]||'';if(currentSort.key==='last_updated')return currentSort.order==='asc'?new Date(vA)-new Date(vB):new Date(vB)-new Date(vA);if(vA<vB)return currentSort.order==='asc'?-1:1;if(vA>vB)return currentSort.order==='asc'?1:-1;return 0;});
-        tasks.forEach(t=>{const upd=new Date(t.last_updated).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),spec=t.spec_url?`<a href="${t.spec_url}" target="_blank">Ссылка</a>`:'',comm=t.additional_comment&&t.additional_comment.trim()!==''?`<span class="comment-indicator" title="${t.additional_comment.substring(0,150).replace(/"/g,'&quot;')}">💬</span>`:'';const row=`<tr><td>${t.user||''}</td><td><a href="${t.task_url||'#'}" target="_blank">${t.task_number||''}</a></td><td>${t.stage||''}</td><td>${t.status||''}</td><td>${comm}</td><td>${t.contact_person||''}</td><td>${spec}</td><td>${upd}</td><td><button onclick='editTask(${JSON.stringify(t)})' title="Редактировать">✏️</button><button class="danger" onclick='deleteTask(${t.id})' title="Удалить">🗑️</button></td></tr>`;list.append(row);});
+        const list=$('#task-list').empty();
+        if(!tasks || tasks.length===0){ list.append('<tr><td colspan="9" style="text-align:center;color:#999;">Нет задач</td></tr>'); return; }
+
+        tasks.sort((a,b)=>{
+            let vA=a[currentSort.key]||'', vB=b[currentSort.key]||'';
+            if(currentSort.key==='last_updated') return currentSort.order==='asc'?new Date(vA)-new Date(vB):new Date(vB)-new Date(vA);
+            if(vA<vB) return currentSort.order==='asc'?-1:1;
+            if(vA>vB) return currentSort.order==='asc'?1:-1;
+            return 0;
+        });
+
+        tasks.forEach(t=>{
+            const upd = new Date(t.last_updated).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            const spec = t.spec_url ? `<a href="${t.spec_url}" target="_blank">Ссылка</a>` : '';
+            const comm = t.additional_comment && t.additional_comment.trim()!=='' ? `<span class="comment-indicator" title="${t.additional_comment.replace(/"/g,'&quot;')}">💬</span>` : '';
+
+            const row = `<tr data-task-id="${t.id}">
+                <td>${t.user||''}</td>
+                <td><a href="${t.task_url||'#'}" target="_blank">${t.task_number||''}</a></td>
+                <td>${t.stage||''}</td>
+                <td>${t.status||''}</td>
+                <td>${comm}</td>
+                <td>${t.contact_person||''}</td>
+                <td>${spec}</td>
+                <td>${upd}</td>
+                <td style="text-align: right; padding: 8px;">
+                    <div class="task-actions-menu">
+                        <button class="menu-btn" title="Действия">...</button>
+                        <div class="menu-content">
+                            <a href="#" onclick="loadTaskToForm(${t.id}); return false;">
+                                Изменить задачу
+                            </a>
+                            <a href="#" onclick="duplicateTask(${t.id}); return false;">
+                                Дублировать
+                            </a>
+                            <a href="service-org.html?id=${t.id}" target="_blank" >
+                                Организация сервиса
+                            </a>
+                            <a href="#" onclick="if(confirm('Удалить задачу навсегда?')) deleteTask(${t.id}); return false;" class="danger">
+                                Удалить
+                            </a>
+                        </div>
+                    </div>
+                </td>
+            </tr>`;
+            list.append(row);
+        });
     }
+
+    // === НОВЫЕ ФУНКЦИИ ===
+    function copyTaskToForm(id) {
+        const task = allTasks.find(t => t.id === id);
+        if (task) {
+            editTask(task);
+            showPopup("Задача скопирована в форму сверху ↑");
+        }
+    }
+
+    function duplicateTask(id) {
+        const task = allTasks.find(t => t.id === id);
+        if (task) {
+            delete task.id;
+            task.task_number += " (копия)";
+            editTask(task);
+            showPopup("Задача готова к дублированию — измените номер и сохраните");
+        }
+    }
+
+    function openInGenerator(taskNumber) {
+        window.open(`example-generator.html?template=${encodeURIComponent(taskNumber)}`, "_blank");
+    }
+
+    // Остальные функции без изменений
     function populateStageDropdown(){Object.keys(statusConfig).forEach(s=>$('#stage').append($('<option>',{value:s,text:s})));}
     function updateStatusDropdown(){const sS=$('#status').empty(),sel=$('#stage').val();if(sel&&statusConfig[sel])Object.keys(statusConfig[sel]).forEach(s=>sS.append($('<option>',{value:s,text:s})));}
     function clearForm(){$('#task-id,#user,#task-url,#task-number,#deployment-date,#spec-url,#contact-person').val('');commentEditor.setValue('');$('#stage').prop('selectedIndex',0);updateStatusDropdown();}
     async function loadTasks(){try{const r=await fetch('/api/tasks');if(!r.ok)throw new Error('Ошибка загрузки');allTasks=await r.json();renderTasks(allTasks);}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    function editTask(t){$('#task-id').val(t.id);$('#user').val(t.user);$('#task-url').val(t.task_url);$('#task-number').val(t.task_number);$('#deployment-date').val(t.deployment_date||'');commentEditor.setValue(t.additional_comment||'');$('#spec-url').val(t.spec_url||'');$('#contact-person').val(t.contact_person||'');$('#stage').val(t.stage);updateStatusDropdown();$('#status').val(t.status);window.scrollTo(0,0);}
+    function editTask(t){$('#task-id').val(t.id||'');$('#user').val(t.user||'');$('#task-url').val(t.task_url||'');$('#task-number').val(t.task_number||'');$('#deployment-date').val(t.deployment_date||'');commentEditor.setValue(t.additional_comment||'');$('#spec-url').val(t.spec_url||'');$('#contact-person').val(t.contact_person||'');$('#stage').val(t.stage||'');updateStatusDropdown();$('#status').val(t.status||'');window.scrollTo(0,0);}
     async function saveTask(){const t={id:$('#task-id').val()||null,user:$('#user').val(),task_url:$('#task-url').val(),task_number:$('#task-number').val(),stage:$('#stage').val(),status:$('#status').val(),deployment_date:$('#deployment-date').val(),additional_comment:commentEditor.getValue(),spec_url:$('#spec-url').val(),contact_person:$('#contact-person').val()};if(!t.user||!t.task_number)return alert('Поля "Пользователь" и "Номер задачи" обязательны.');try{const r=await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)});if(!r.ok)throw new Error('Ошибка сохранения');showPopup('Задача сохранена!');clearForm();loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    async function deleteTask(id){if(!confirm('Удалить?'))return;try{const r=await fetch('/api/tasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error('Ошибка удаления');showPopup('Удалено.');loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    async function loadSettings(){try{const r=await fetch('/api/tasks/settings');const s=await r.json();$('#target-url').val(s.target_url);$('#target-user').val(s.target_user);$('#target-password').val(s.target_password);}catch(e){}}
+    async function deleteTask(id){if(!confirm('Удалить задачу?'))return;try{const r=await fetch('/api/tasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error('Ошибка удаления');showPopup('Удалено.');loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
+    async function loadSettings(){try{const r=await fetch('/api/tasks/settings');const s=await r.json();$('#target-url').val(s.target_url||'');$('#target-user').val(s.target_user||'');$('#target-password').val(s.target_password||'');}catch(e){}}
     async function saveSettings(){const s={target_url:$('#target-url').val(),target_user:$('#target-user').val(),target_password:$('#target-password').val()};try{await fetch('/api/tasks/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});showPopup('Настройки сохранены!');}catch(e){showPopup('Ошибка сохранения',true);}}
-    async function sendTasks(){if(!confirm('Отправить все задачи?'))return;try{const r=await fetch('/api/tasks/send',{method:'POST'});const res=await r.json();if(r.ok)showPopup(`Отправлено. Статус: ${res.statusCode}`);else throw new Error(res.message);}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
+    async function sendTasks(){if(!confirm('Отправить все задачи?'))return;try{const r=await fetch('/api/tasks/send',{method:'POST'});const res=await r.json();if(r.ok)showPopup(`Отправлено. Статус: ${res.statusCode}`);else throw new Error(res.message||'Ошибка');}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
     function showInfoModal(){const c=$('#status-info-content').empty();Object.keys(statusConfig).forEach(stage=>{const dl=$('<dl>').append($('<h3>').text(stage));Object.keys(statusConfig[stage]).forEach(status=>{dl.append($('<dt>').text(status)).append($('<dd>').text(statusConfig[stage][status]));});c.append(dl);});$('#infoModal').show();}
     function closeInfoModal(){$('#infoModal').hide();}
-    let pT;function showPopup(msg,isErr=false){clearTimeout(pT);const p=$('#responsePopup').text(msg).show().removeClass('error');if(isErr)p.addClass('error');pT=setTimeout(()=>p.fadeOut(),3000);}
+    let pT;function showPopup(msg,isErr=false){clearTimeout(pT);const p=$('#responsePopup').text(msg).show().removeClass('error');if(isErr)p.addClass('error');pT=setTimeout(()=>p.fadeOut(),4000);}
+    function copyTaskToForm(id) {
+        const task = allTasks.find(t => t.id === id);
+        if (task) editTask(task);
+        showPopup("Задача скопирована в форму");
+    }
+
+    function duplicateTask(id) {
+        const task = allTasks.find(t => t.id === id);
+        if (!task) return;
+        delete task.id;
+        task.task_number += " (копия)";
+        editTask(task);
+        showPopup("Готово к сохранению дубликата");
+    }
+
+    function openGenerator(num) {
+        window.open(`example-generator.html?template=${encodeURIComponent(num)}`, "_blank");
+    }
+    // Надёжное копирование задачи в форму по ID
+    function loadTaskToForm(id) {
+        const task = allTasks.find(t => t.id === id);
+        if (!task) {
+            showPopup("Задача не найдена", true);
+            return;
+        }
+        editTask(task);
+        showPopup("Задача загружена в форму для редактирования");
+    }
+
 </script>
 </body>
 </html>

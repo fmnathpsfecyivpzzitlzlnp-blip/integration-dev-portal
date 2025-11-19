@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Детали потока</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin:0; padding:20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .header { background: #4f46e5; padding: 20px; border-radius: 12px; text-align: center; color: white; margin-bottom: 30px; }
+        .flow { font-size: 28px; font-weight: bold; }
+        .section { margin: 30px 0; }
+        .label { display: block; margin: 10px 0 6px; color: #94a3b8; font-size: 14px; }
+        input, select, textarea {
+            width: 100%; padding: 14px; background: #334155; border: 1px solid #475569; border-radius: 10px; color: white; font	Size: 16px;
+        }
+        textarea { height: 120px; resize: vertical; }
+        .btn { padding: 14px 32px; background: #10b981; color: white; border: none; border-radius: 12px; font-size: 16px; cursor: pointer; margin-top: 20px; }
+        .btn:hover { background: #059669; }
+        .system { font-weight: bold; font-size: 22px; color: #c084fc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Детали интеграционного потока</h1>
+        <div class="flow"><span id="sender" class="system">—</span> → <span id="receiver" class="system">—</span></div>
+        <div style="margin-top:8px; opacity:0.9;">Задача ID: <span id="task-id">—</span> | Порядковый № <span id="flow-order">—</span></div>
+    </div>
+
+    <div class="section">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div>
+                <div class="label">Протокол</div>
+                <select id="protocol">
+                    <option value="">— не выбран —</option>
+                    <option>SOAP</option>
+                    <option>REST</option>
+                    <option>JMS</option>
+                    <option>RFC</option>
+                    <option>File</option>
+                </select>
+            </div>
+            <div>
+                <div class="label">Формат данных</div>
+                <select id="format">
+                    <option value="">— не выбран —</option>
+                    <option>XML</option>
+                    <option>JSON</option>
+                    <option>ISO 8583</option>
+                    <option>Fixed Length</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="label">Тип связи</div>
+        <select id="connection_type">
+            <option value="">— не выбран —</option>
+            <option>Синхронная (sync)</option>
+            <option>Асинхронная (async)</option>
+        </select>
+    </div>
+
+    <div class="section">
+        <div class="label">Путь к файлу спецификации / WSDL / Swagger</div>
+        <input type="text" id="file_path" placeholder="Например: \\server\specs\2025\FESB-1234\...">
+    </div>
+
+    <div class="section">
+        <div class="label">Описание потока</div>
+        <textarea id="description" placeholder="Краткое описание назначения потока..."></textarea>
+    </div>
+
+    <div style="text-align:center;">
+        <button class="btn" onclick="saveAndBack()">Сохранить и вернуться</button>
+    </div>
+</div>
+
+<script>
+    const params = new URLSearchParams(location.search);
+    const taskId = params.get('task_id');
+    const flowOrder = params.get('flow_order');
+
+    document.getElementById('task-id').textContent = taskId;
+    document.getElementById('flow-order').textContent = flowOrder;
+
+    // Загружаем поток и детали
+    fetch(`/api/flows?task_id=${taskId}`).then(r => r.json()).then(flows => {
+        const flow = flows.find(f => f.order_num == flowOrder);
+        if (flow) {
+            document.getElementById('sender').textContent = flow.sender;
+            document.getElementById('receiver').textContent = flow.receiver;
+        }
+    });
+
+    // Загружаем детали
+    fetch(`/api/flow-details?task_id=${taskId}&flow_order=${flowOrder}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.id) {
+                document.getElementById('protocol').value = data.protocol || '';
+                document.getElementById('format').value = data.format || '';
+                document.getElementById('connection_type').value = data.connection_type || '';
+                document.getElementById('file_path').value = data.file_path || '';
+                document.getElementById('description').value = data.description || '';
+            }
+        });
+
+    window.saveAndBack = async () => {
+        const payload = {
+            task_id: taskId,
+            flow_order: flowOrder,
+            protocol: document.getElementById('protocol').value,
+            format: document.getElementById('format').value,
+            connection_type: document.getElementById('connection_type').value,
+            file_path: document.getElementById('file_path').value,
+            description: document.getElementById('description').value
+        };
+
+        await fetch('/api/flow-details', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        history.back();
+    }
+</script>
+</body>
+</html>

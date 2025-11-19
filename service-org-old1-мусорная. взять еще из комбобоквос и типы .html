@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Организация сервиса — Задача #${taskNumber}</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; margin:0; padding:20px; }
+        .container { max-width: 1100px; margin:0 auto; background:white; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); overflow:hidden; }
+        .header { background: #4f46e5; color:white; padding:20px 30px; }
+        .header h1 { margin:0; font-size:24px; }
+        .header .task-info { margin-top:8px; font-size:14px; opacity:0.9; }
+        .content { padding:30px; }
+        .section { margin-bottom:40px; }
+        .section h2 { color:#4f46e5; border-bottom:2px solid #e0e7ff; padding-bottom:10px; margin-bottom:20px; }
+        .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+        label { display:block; font-weight:600; margin-bottom:6px; color:#374151; }
+        input, select { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; }
+        .btn { background:#4f46e5; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:600; }
+        .btn:hover { background:#4338ca; }
+        table { width:100%; border-collapse:collapse; margin-top:10px; }
+        th, td { padding:12px; text-align:left; border-bottom:1px solid #e5e7eb; }
+        th { background:#f8fafc; font-weight:600; color:#4b5563; }
+        .path { font-family: monospace; background:#f1f5f9; padding:8px 12px; border-radius:4px; font-size:13px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Организация сервиса</h1>
+        <div class="task-info">Задача: <span id="task-number">—</span> | Пользователь: <span id="user">—</span></div>
+    </div>
+    <div class="content">
+
+        <div class="section">
+            <h2>Система-отправитель</h2>
+            <div class="grid">
+                <div><label>Система</label><select id="sender-system"><option>BS_PSBONLINE</option></select></div>
+                <div><label>Протокол</label><select id="sender-protocol"><option>REST</option><option>SOAP</option><option>JMS</option></select></div>
+                <div><label>Формат сообщения</label><select id="sender-format"><option>XML</option><option>JSON</option></select></div>
+                <div><label>Тип связи</label><select id="sender-type"><option>sync</option><option>async</option></select></div>
+            </div>
+            <label>Путь к файлу (json или xml)</label>
+            <div class="path" id="sender-path">—</div>
+        </div>
+
+        <div class="section">
+            <h2>Система-приёмник</h2>
+            <div class="grid">
+                <div><label>Система</label><select id="receiver-system"><option>BS_PSBONLINE</option></select></div>
+                <div><label>Тип связи</label><select id="receiver-protocol"><option>REST</option></select></div>
+                <div><label>Формат сообщения</label><select id="receiver-format"><option>XML</option></select></div>
+            </div>
+            <label>Путь к файлу (json или xml)</label>
+            <div class="path" id="receiver-path">—</div>
+        </div>
+
+        <div class="section">
+            <h2>Справочник связей</h2>
+            <table id="connections-table">
+                <thead><tr><th>№</th><th>out → in</th><th>Описание</th></tr></thead>
+                <tbody>
+                <tr><td>1</td><td>BS_PSBONLINE → FACTOR</td><td>Единое Окно</td></tr>
+                <tr><td>2</td><td>FACTOR → BS_ATHENA_M</td><td>Маршрутизация</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align:center; padding-top:20px;">
+            <button class="btn">Сохранить изменения</button>
+            <button class="btn" style="background:#6b7280; margin-left:10px;">Создать новую связку</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('id');
+
+    if (!taskId) {
+        document.body.innerHTML = "<h2 style='text-align:center; padding:50px; color:#ef4444;'>Ошибка: не указан ID задачи</h2>";
+    } else {
+        // Здесь будет загрузка данных задачи с сервера
+        fetch(`/api/tasks/${taskId}`)
+            .then(r => r.json())
+            .then(task => {
+                document.getElementById('task-number').textContent = task.task_number || '—';
+                document.getElementById('user').textContent = task.user || '—';
+
+                // Пример заполнения (позже будешь брать из доп. полей или отдельной таблицы)
+                document.getElementById('sender-path').textContent =
+                    task.additional_comment?.includes('PSBONLINE_si_ai_NameOperation')
+                        ? 'C:\\2025task\\FESB-2024\\PSBONLINE_si_ai_NameOperation'
+                        : '—';
+
+                // Здесь можно заполнить все остальные поля из task.custom_fields или отдельного API
+            })
+            .catch(err => {
+                alert('Не удалось загрузить данные задачи');
+                console.error(err);
+            });
+    }
+</script>
+</body>
+</html>

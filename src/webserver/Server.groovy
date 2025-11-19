@@ -241,6 +241,63 @@ class Server {
         sql.execute'''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, login TEXT, password TEXT)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS call_history (id INTEGER PRIMARY KEY AUTOINCREMENT, cs_name TEXT, bs_name TEXT, interface_o TEXT, request TEXT, response TEXT, service_url TEXT, domain_url TEXT, request_headers TEXT, response_headers TEXT, stack_trace TEXT, call_date DATETIME)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS saved_xsd (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, content TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
+
+        // Интеграционные потоки ===
+        sql.execute('''
+            CREATE TABLE IF NOT EXISTS integration_flows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                sender TEXT NOT NULL,
+                receiver TEXT NOT NULL,
+                order_num INTEGER NOT NULL,
+                FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+        ''')
+
+        // Индекс для ускорения выборки по задаче
+        try { sql.execute("CREATE INDEX IF NOT EXISTS idx_flows_task_id ON integration_flows(task_id)") } catch(Exception e) {}
+        // === Справочник систем ===
+        sql.execute('''
+            CREATE TABLE IF NOT EXISTS systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sid TEXT NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        // Заполним стартовыми данными (если пусто)
+        if (sql.rows("SELECT COUNT(*) as c FROM systems").first().c == 0) {
+            sql.executeInsert('''
+                INSERT INTO systems (sid, description) VALUES 
+                ('BS_EFO', 'Единое Окно'),
+                ('BS_PSB_ONLINE', 'Онлайн'),
+                ('BS_ATHENA_E', 'Афина Восток'),
+                ('BS_ATHENA_W', 'Афина Запад'),
+                ('BS_ATHENA_M', 'Афина Москва'),
+                ('FACTOR', 'Фактор'),
+                ('BS_NAUMEN', 'Наумен'),
+                ('BS_DBOCORP', 'ДБО Корп')
+            ''')
+        }
+        // === Детали интеграционных потоков ===
+        sql.execute('''
+            CREATE TABLE IF NOT EXISTS flow_details (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                flow_order INTEGER NOT NULL,
+                protocol TEXT,
+                format TEXT,
+                connection_type TEXT,
+                file_path TEXT,
+                description TEXT,
+                operation_name TEXT,
+                service_description TEXT,
+                UNIQUE(task_id, flow_order),
+                FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            )
+        ''')
+
         try { sql.firstRow("SELECT usage_count FROM labels LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE labels ADD COLUMN usage_count INTEGER DEFAULT 0") }
         try { sql.firstRow("SELECT bs_name FROM call_history LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE call_history ADD COLUMN bs_name TEXT") }
         try { sql.firstRow("SELECT spec_url FROM tasks LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE tasks ADD COLUMN spec_url TEXT") }
@@ -283,6 +340,129 @@ class Server {
         // --- НОВЫЙ БЛОК API ДЛЯ XSD-КОНСТРУКТОРА ---
         server.createContext("/api/xsd") { e -> if (e.requestMethod == "GET") handleRequest(e,"GET"){def docs=sql.rows("SELECT id, name FROM saved_xsd ORDER BY name ASC");sendResponse(e, MyJsonOutput.toJson(docs),"application/json")} else if (e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);def doc=sql.firstRow("SELECT id FROM saved_xsd WHERE name=?",[d.name]);if(doc)sql.execute("UPDATE saved_xsd SET content=?, last_updated=CURRENT_TIMESTAMP WHERE id=?",[d.content,doc.id])else sql.execute("INSERT INTO saved_xsd (name,content) VALUES (?,?)",[d.name,d.content]);sendResponse(e, MyJsonOutput.toJson([status:"OK"]),"application/json")}}
         server.createContext("/api/xsd/"){e->def id=e.requestURI.path.split('/').last();if(e.requestMethod=="GET")handleRequest(e,"GET"){def d=sql.firstRow("SELECT content FROM saved_xsd WHERE id=?",[id]);if(d)sendResponse(e,d.content,"application/json")else sendResponse(e,"{}","application/json",404)}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){sql.execute("DELETE FROM saved_xsd WHERE id=?",[id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+
+        // === API: Получить все потоки по задаче ===
+        server.createContext("/api/flows") { e ->
+        if (e.requestMethod == "GET") {
+            handleRequest(e, "GET") {
+                def query = e.requestURI.query
+                if (!query || !query.contains("task_id=")) {
+                    sendResponse(e, MyJsonOutput.toJson([error: "Параметр task_id обязателен"]), "application/json", 400)
+                    return
+                }
+                def taskId = query.split("task_id=")[1].split("&")[0]
+                def flows = sql.rows("SELECT id, sender, receiver, order_num FROM integration_flows WHERE task_id = ? ORDER BY order_num ASC", [taskId as Integer])
+                sendResponse(e, MyJsonOutput.toJson(flows), "application/json")
+            }
+        }
+        else if (e.requestMethod == "POST") {
+            handleRequest(e, "POST") {
+                def data = new JsonSlurper().parse(e.requestBody)
+                def taskId = data.task_id
+                def newFlows = data.flows as List<Map>
+
+                if (!taskId || !(newFlows instanceof List)) {
+                    sendResponse(e, MyJsonOutput.toJson([error: "Неверный формат: нужен task_id и flows[]"]), "application/json", 400)
+                    return
+                }
+
+                // Удаляем старые потоки
+                sql.execute("DELETE FROM integration_flows WHERE task_id = ?", [taskId as Integer])
+
+                // Вставляем новые с правильной нумерацией
+                newFlows.eachWithIndex { flow, idx ->
+                    def sender = flow.sender?.toString() ?: ""
+                    def receiver = flow.receiver?.toString() ?: ""
+                    if (sender && receiver) {
+                        sql.execute("""
+                                INSERT INTO integration_flows (task_id, sender, receiver, order_num)
+                                VALUES (?, ?, ?, ?)
+                            """, [taskId as Integer, sender, receiver, idx + 1])
+                    }
+                }
+
+                sendResponse(e, MyJsonOutput.toJson([status: "OK", saved: newFlows.size()]), "application/json")
+            }
+        }
+    }
+
+        // === API: Справочник систем ===
+        server.createContext("/api/systems") { e ->
+            if (e.requestMethod == "GET") {
+                handleRequest(e, "GET") {
+                    def systems = sql.rows("SELECT id, sid, description FROM systems ORDER BY sid ASC")
+                    sendResponse(e, MyJsonOutput.toJson(systems), "application/json")
+                }
+            }
+            else if (e.requestMethod == "POST") {
+                handleRequest(e, "POST") {
+                    def data = new JsonSlurper().parse(e.requestBody)
+                    def sid = data.sid?.trim()
+                    def desc = data.description?.trim() ?: ""
+                    if (!sid) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "SID обязателен"]), "application/json", 400)
+                        return
+                    }
+                    try {
+                        if (data.id) {
+                            sql.execute("UPDATE systems SET sid=?, description=? WHERE id=?", [sid, desc, data.id as Integer])
+                        } else {
+                            sql.execute("INSERT INTO systems (sid, description) VALUES (?, ?)", [sid, desc])
+                        }
+                        sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
+                    } catch (Exception ex) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Такая система уже существует"]), "application/json", 400)
+                    }
+                }
+            }
+            else if (e.requestMethod == "DELETE") {
+                handleRequest(e, "DELETE") {
+                    def data = new JsonSlurper().parse(e.requestBody)
+                    sql.execute("DELETE FROM systems WHERE id = ?", [data.id as Integer])
+                    sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
+                }
+            }
+        }
+        // === API: Детали потока ===
+        server.createContext("/api/flow-details") { e ->
+            if (e.requestMethod == "GET") {
+                handleRequest(e, "GET") {
+                    def taskId = e.requestURI.query?.split('&')?.find { it.startsWith('task_id=') }?.split('=')?.getAt(1)
+                    def flowOrder = e.requestURI.query?.split('&')?.find { it.startsWith('flow_order=') }?.split('=')?.getAt(1)
+                    if (!taskId || !flowOrder) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Нужны task_id и flow_order"]), "application/json", 400)
+                        return
+                    }
+                    def detail = sql.firstRow("SELECT * FROM flow_details WHERE task_id = ? AND flow_order = ?", [taskId as Integer, flowOrder as Integer])
+                    sendResponse(e, MyJsonOutput.toJson(detail ?: [:]), "application/json")
+                }
+            }
+            else if (e.requestMethod == "POST") {
+                handleRequest(e, "POST") {
+                    def data = new JsonSlurper().parse(e.requestBody)
+                    def taskId = data.task_id as Integer
+                    def flowOrder = data.flow_order as Integer
+
+                    def existing = sql.firstRow("SELECT id FROM flow_details WHERE task_id = ? AND flow_order = ?", [taskId, flowOrder])
+                    if (existing) {
+                        sql.executeUpdate("""UPDATE flow_details SET 
+                            protocol=?, format=?, connection_type=?, file_path=?, description=?,
+                            operation_name=?, service_description=?
+                            WHERE task_id=? AND flow_order=?""",
+                                [data.protocol, data.format, data.connection_type, data.file_path, data.description,
+                                 data.operation_name, data.service_description, taskId, flowOrder])
+                    } else {
+                        sql.executeInsert("""INSERT INTO flow_details 
+                            (task_id, flow_order, protocol, format, connection_type, file_path, description, operation_name, service_description)
+                            VALUES (?,?,?,?,?,?,?,?,?)""",
+                                [taskId, flowOrder, data.protocol, data.format, data.connection_type, data.file_path, data.description,
+                                 data.operation_name, data.service_description])
+                    }
+                    sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
+                }
+            }
+        }
+
         // --- КОНЕЦ НОВОГО БЛОКА ---
 
         server.start()
