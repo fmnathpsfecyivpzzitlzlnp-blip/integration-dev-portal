@@ -33,12 +33,12 @@
     /* === УЛУЧШЕННАЯ ПАНЕЛЬ УПРАВЛЕНИЯ === */
     .controls {
       background: #fff;
-      padding: 20px; /* Больше воздуха */
+      padding: 20px;
       margin: 0 20px;
-      border-radius: 8px; /* Закругленные края блока */
+      border-radius: 8px;
       border: 1px solid #e2e8f0;
       display: flex;
-      gap: 15px; /* Расстояние между элементами */
+      gap: 15px;
       align-items: center;
       flex-shrink: 0;
       box-shadow: 0 2px 4px rgba(0,0,0,0.02);
@@ -46,7 +46,7 @@
 
     /* Обертка для поиска с иконкой */
     .search-wrapper {
-      flex-grow: 1; /* Растягиваем на всё свободное место */
+      flex-grow: 1;
       position: relative;
       display: flex;
       align-items: center;
@@ -61,10 +61,10 @@
       pointer-events: none;
     }
 
-    /* Поле поиска (СДЕЛАЛИ БОЛЬШЕ И УДОБНЕЕ) */
+    /* Поле поиска */
     #search-input {
       width: 100%;
-      height: 44px; /* Фиксированная удобная высота */
+      height: 44px;
       padding: 10px 15px 10px 40px; /* Отступ слева под иконку */
       border: 1px solid #cbd5e1;
       border-radius: 6px;
@@ -72,13 +72,13 @@
       outline: none;
       background-color: #f8fafc;
       transition: all 0.2s;
-      box-sizing: border-box; /* Важно для правильного размера */
+      box-sizing: border-box;
     }
 
     #search-input:focus {
       background-color: #fff;
       border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* Красивый ореол при фокусе */
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     }
 
     /* Селект категорий */
@@ -100,6 +100,14 @@
       white-space: nowrap;
       font-weight: 600;
       font-size: 14px;
+      border: 1px solid #ccc;
+      background: #fff;
+      color: #555;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #add-category-btn:hover {
+      background: #f1f5f9;
     }
 
     /* --- Основной контейнер --- */
@@ -132,6 +140,18 @@
       letter-spacing: 0.03em;
     }
 
+    /* Действия категории */
+    .cat-actions button {
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 5px;
+    }
+    .add-lbl-btn { background: #fff; border-color: #ccc; color: #555; }
+    .del-cat-btn { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+
     .labels-list {
       display: grid;
       /* Адаптивность: колонки от 300px */
@@ -150,6 +170,7 @@
       transition: transform 0.2s, box-shadow 0.2s;
       position: relative;
       height: 200px;
+      overflow: hidden;
     }
 
     .label-item:hover {
@@ -164,6 +185,7 @@
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 10px;
+      height: 24px;
     }
 
     .label-title {
@@ -175,6 +197,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 80%;
+      display: inline-block;
     }
     .label-title:hover { color: #2563eb; text-decoration: underline; }
 
@@ -187,7 +210,7 @@
       font-weight: 600;
     }
 
-    /* Превью текста */
+    /* Превью текста с градиентной маской */
     .label-preview {
       background: #f8fafc;
       border: 1px solid #f1f5f9;
@@ -196,14 +219,15 @@
       font-family: 'Consolas', monospace;
       font-size: 11px;
       color: #64748b;
-      flex-grow: 1; /* Занять все место */
+      flex-grow: 1;
       overflow: hidden;
       margin-bottom: 15px;
       cursor: pointer;
       word-break: break-all;
-      /* Эффект угасания текста внизу */
-      mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-      -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+
+      /* Стандарт CSS Level 1 Masking */
+      -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+      mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
     }
     .label-preview:hover { background: #f1f5f9; border-color: #e2e8f0; }
 
@@ -212,6 +236,7 @@
       display: flex;
       gap: 10px;
       align-items: center;
+      margin-top: auto;
     }
 
     .btn-copy {
@@ -227,6 +252,7 @@
     }
     .btn-copy:hover { background: #3b82f6; color: white; }
 
+    .action-icons { display: flex; gap: 5px; }
     .action-icons button {
       background: transparent;
       border: none;
@@ -252,10 +278,25 @@
     .modal-close { float: right; font-size: 24px; cursor: pointer; color: #aaa; margin-top:-10px; }
     .modal-close:hover { color: #333; }
 
+    /* Стандартные кнопки в модалках */
+    button.primary { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight:600; cursor:pointer;}
+    button.secondary { background: #fff; color: #555; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor:pointer;}
+
+    textarea {
+      font-family: 'Consolas', monospace;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
     /* Тост уведомления */
     .notification {
       position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: white;
       padding: 12px 20px; border-radius: 6px; font-size: 13px; display: none; z-index: 3000;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
     }
     .notification.error { background: #ef4444; }
   </style>
@@ -266,7 +307,7 @@
 <div class="page-header">
   <div style="display:flex; align-items:center; gap:15px;">
     <button onclick="window.location.href='index.html'" class="secondary">← На главную</button>
-    <h2 style="margin:0; font-size:20px; color:#1e293b;">Управление Метками</h2>
+    <h2 style="margin:0; font-size:20px; color:#1e293b;">База Знаний (Метки)</h2>
   </div>
   <div style="font-size:12px; color:#64748b;">Хранение: Database</div>
 </div>
@@ -283,7 +324,7 @@
     <option value="">Все категории</option>
   </select>
 
-  <button id="add-category-btn" class="secondary" title="Создать новую группу">+ Категория</button>
+  <button id="add-category-btn">+ Категория</button>
 </div>
 
 <!-- Основной контент -->
@@ -292,20 +333,20 @@
 <!-- MODAL: Create/Edit -->
 <div id="label-modal" class="modal">
   <div class="modal-content">
-    <span class="modal-close">&times;</span>
+    <span class="modal-close modal-close-btn">&times;</span>
     <h2 id="modal-title" style="margin-top:0;">Новая метка</h2>
     <input type="hidden" id="modal-label-id">
     <input type="hidden" id="modal-category-id">
 
-    <label style="font-weight:600; margin-bottom:5px;">Название метки</label>
-    <input type="text" id="modal-label-title" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px;" placeholder="Пример: Auth Header">
+    <label style="font-weight:600; margin-bottom:5px; display:block;">Название метки</label>
+    <input type="text" id="modal-label-title" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px; box-sizing:border-box;" placeholder="Пример: Auth Header">
 
-    <label style="font-weight:600; margin-bottom:5px;">Содержимое</label>
-    <textarea id="modal-label-content" style="min-height: 250px; width:100%; padding:10px; font-family:monospace; font-size:12px; border:1px solid #ccc; border-radius:4px; background:#f9fafb;"></textarea>
+    <label style="font-weight:600; margin-bottom:5px; display:block;">Содержимое</label>
+    <textarea id="modal-label-content" style="min-height: 250px; font-size:12px; background:#f9fafb;"></textarea>
 
     <div style="text-align:right; margin-top:15px;">
       <button class="secondary modal-close-btn" style="margin-right:10px;">Отмена</button>
-      <button id="save-label-btn" class="primary" style="background:#2563eb; color:white; border:none; padding:8px 20px; border-radius:4px;">Сохранить</button>
+      <button id="save-label-btn" class="primary">Сохранить</button>
     </div>
   </div>
 </div>
@@ -313,10 +354,10 @@
 <!-- MODAL: View -->
 <div id="view-modal" class="modal">
   <div class="modal-content" style="width:800px;">
-    <span class="modal-close">&times;</span>
+    <span class="modal-close modal-close-btn">&times;</span>
     <h2 id="view-modal-title" style="margin-top:0;"></h2>
     <div style="position:relative;">
-      <pre id="view-modal-content" style="background:#f1f5f9; padding:15px; border-radius:6px; overflow:auto; max-height:60vh; font-size:12px; color:#333;"></pre>
+      <pre id="view-modal-content" style="background:#f1f5f9; padding:15px; border-radius:6px; overflow:auto; max-height:60vh; font-size:12px; color:#333; white-space: pre-wrap; font-family: 'Consolas', monospace; margin:0;"></pre>
       <button id="view-modal-copy-btn" style="position:absolute; top:10px; right:10px; background:#3b82f6; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer;">📋 Копировать</button>
     </div>
   </div>
@@ -332,7 +373,7 @@
     const labelModal = $('#label-modal');
     const viewModal = $('#view-modal');
 
-    // === LOAD DATA ===
+    // === LOAD DATA (AJAX) ===
     function loadAllDataAndRender() {
       $.get('/api/labels/all', function(data) {
         allCategories = data.categories || [];
@@ -343,74 +384,90 @@
       }).fail(() => showNotification("Ошибка загрузки данных с сервера", true));
     }
 
-    // === RENDER LOGIC ===
+    // === RENDER PAGE STRUCTURE ===
     function renderPage(categories, labels) {
       const container = $('#labels-container').empty();
 
       if (categories.length === 0) {
-        container.html('<div style="text-align:center; padding:40px; color:#94a3b8;">Нет категорий. Создайте первую!</div>');
+        container.html(`
+                <div style="text-align:center; padding:40px; color:#94a3b8;">
+                    <h2>База знаний пуста</h2>
+                    <p>Начните с создания категории</p>
+                </div>
+            `);
         return;
       }
 
       categories.forEach(cat => {
-        // Шапка категории
+        // Отрисовка блока категории
         const section = $(`
               <div class="category-block" data-category-id="${cat.id}">
                 <div class="category-header">
                     <h3>${escapeHtml(cat.name)}</h3>
-                    <div>
-                        <button class="secondary add-label-btn" style="padding:4px 10px; font-size:11px;">+ Метка</button>
-                        <button class="danger delete-category-btn" style="padding:4px 10px; font-size:11px; color:#ef4444; border-color:#fecaca; background:#fff;">Удалить</button>
+                    <div class="cat-actions">
+                        <button class="add-label-btn add-lbl-btn">+ Метка</button>
+                        <button class="delete-category-btn del-cat-btn">Удалить категорию</button>
                     </div>
                 </div>
-                <div class="labels-list"></div>
+                <div class="labels-list">
+                    <!-- Сюда вставим карточки -->
+                </div>
               </div>`);
+
         container.append(section);
       });
 
-      // Заполнение меток
+      // Вставка карточек в нужные блоки
       renderGrid(labels);
     }
 
+    // === RENDER GRID OF CARDS ===
     function renderGrid(labels) {
-      // Очистка
+      // Очистка контейнеров внутри категорий
       $('.labels-list').empty();
 
       labels.forEach(label => {
-        // Создание превью текста
+        // Подготовка превью (первые ~150 симв)
         let preview = label.content || '';
-        if(preview.length > 150) preview = preview.substring(0, 150) + '...';
+        const maxLen = 180;
+        if(preview.length > maxLen) {
+          preview = preview.substring(0, maxLen);
+        }
 
         const card = `
               <div class="label-item" data-label-id="${label.id}">
                   <div class="label-header">
                       <span class="label-title view-label-btn" title="${escapeHtml(label.title)}">${escapeHtml(label.title)}</span>
-                      <span class="usage-badge" title="Использований">${label.usage_count || 0}</span>
+                      <span class="usage-badge" title="Скопировано раз">★ ${label.usage_count || 0}</span>
                   </div>
 
-                  <div class="label-preview view-label-btn" title="Кликни для просмотра">${escapeHtml(preview)}</div>
+                  <div class="label-preview view-label-btn" title="Кликни для просмотра полного текста">
+${escapeHtml(preview)}
+                  </div>
 
                   <div class="label-footer">
-                      <button class="btn-copy copy-label-btn">📋 Копировать</button>
+                      <button class="btn-copy copy-label-btn" title="Скопировать содержимое в буфер">📋 Копировать</button>
                       <div class="action-icons">
                         <button class="edit-label-btn" title="Редактировать">✎</button>
-                        <button class="delete-label-btn del" title="Удалить">🗑</button>
+                        <button class="delete-label-btn del" title="Удалить метку">🗑</button>
                       </div>
                   </div>
               </div>`;
 
+        // Вставляем в список соответствующей категории
         $(`.category-block[data-category-id="${label.category_id}"] .labels-list`).append(card);
       });
 
-      // Пустые состояния
+      // Если в категории нет меток, показываем заглушку
       $('.category-block').each(function() {
         if ($(this).find('.label-item').length === 0) {
-          $(this).find('.labels-list').html('<div style="grid-column:1/-1; text-align:center; color:#cbd5e1; padding:20px; border:2px dashed #e2e8f0; border-radius:8px;">В этой категории нет меток</div>');
+          $(this).find('.labels-list').html(
+                  `<div style="grid-column:1/-1; text-align:center; padding:25px; border:2px dashed #e2e8f0; border-radius:8px; color:#cbd5e1;">В этой категории пока нет меток</div>`
+          );
         }
       });
     }
 
-    // Обновление выпадающего списка
     function updateCategoryFilter(categories) {
       const filter = $('#category-filter');
       const current = filter.val();
@@ -419,60 +476,78 @@
       if(current) filter.val(current);
     }
 
-    // === ACTIONS ===
+    // === ACTIONS (API CALLS) ===
 
-    // Добавление категории
+    // 1. Добавить категорию
     $('#add-category-btn').on('click', function() {
-      const name = prompt("Введите название новой категории:");
+      const name = prompt("Название новой категории:");
       if(name && name.trim()){
         $.ajax({
-          url: '/api/labels/category', type: 'POST', contentType:'application/json',
+          url: '/api/labels/category',
+          type: 'POST',
+          contentType:'application/json',
           data: JSON.stringify({name: name.trim()}),
-          success: loadAllDataAndRender
+          success: loadAllDataAndRender,
+          error: () => showNotification("Ошибка создания категории", true)
         });
       }
     });
 
-    // Удаление категории
+    // 2. Удалить категорию
     $('#labels-container').on('click', '.delete-category-btn', function() {
-      if(!confirm('Удалить категорию и ВСЕ её метки?')) return;
+      if(!confirm('Удалить категорию и ВСЕ метки в ней?')) return;
       const cid = $(this).closest('.category-block').data('category-id');
       $.ajax({
-        url: '/api/labels/category', type: 'DELETE', contentType:'application/json',
+        url: '/api/labels/category',
+        type: 'DELETE',
+        contentType:'application/json',
         data: JSON.stringify({id: cid}),
-        success: loadAllDataAndRender
+        success: loadAllDataAndRender,
+        error: () => showNotification("Ошибка удаления категории", true)
       });
     });
 
-    // Поиск (с исправлением для сервера)
+    // 3. Поиск
     $('#search-input').on('keyup', debounce(doSearch, 300));
     $('#category-filter').on('change', doSearch);
 
     function doSearch() {
       const q = $('#search-input').val();
       const cid = $('#category-filter').val();
-      const params = { q: q };
+
+      const params = {};
+      if(q) params.q = q;
       if(cid) params.categoryId = cid;
 
       $.get('/api/labels/search', params, function(data) {
-        renderGrid(data); // Обновляем только карточки
+        // Перерисовываем только сетку меток (категории остаются, пустые скрываются внутри grid render)
+        // Но правильнее перерендерить всю сетку, чтобы пустые категории тоже обновились
+        // Для простоты перерисовываем грид внутри существующих DOM категорий
+
+        // Если пришли фильтрованные данные, возможно некоторых категорий в них нет.
+        // Поэтому, очищаем всё перед отрисовкой конкретного поиска
+
+        if(!data) data = [];
+        renderGrid(data);
       });
     }
 
-    // Создание метки
+    // 4. Добавление метки (Модалка)
     $('#labels-container').on('click', '.add-label-btn', function() {
       const cid = $(this).closest('.category-block').data('category-id');
+
+      // Reset Form
       $('#modal-label-id').val('');
       $('#modal-category-id').val(cid);
       $('#modal-label-title').val('');
       $('#modal-label-content').val('');
       $('#modal-title').text('Новая метка');
 
-      labelModal.css('display','flex').hide().fadeIn(200);
-      $('#modal-label-title').focus();
+      labelModal.css('display', 'flex').hide().fadeIn(200);
+      setTimeout(() => $('#modal-label-title').focus(), 100);
     });
 
-    // Редактирование метки
+    // 5. Редактирование (Модалка)
     $('#labels-container').on('click', '.edit-label-btn', function() {
       const lid = $(this).closest('.label-item').data('label-id');
       const label = allLabels.find(l => l.id === lid);
@@ -482,88 +557,124 @@
         $('#modal-label-title').val(label.title);
         $('#modal-label-content').val(label.content);
         $('#modal-title').text('Редактирование');
-        labelModal.css('display','flex').hide().fadeIn(200);
+        labelModal.css('display', 'flex').hide().fadeIn(200);
       }
     });
 
-    // Сохранение метки
+    // 6. Сохранить (AJAX POST)
     $('#save-label-btn').on('click', function() {
       const lid = $('#modal-label-id').val();
+      const cid = $('#modal-category-id').val();
+      const title = $('#modal-label-title').val();
+      const content = $('#modal-label-content').val();
+
+      if(!title.trim()) return alert('Введите название!');
+
       const data = {
         id: lid ? parseInt(lid) : null,
-        category_id: parseInt($('#modal-category-id').val()),
-        title: $('#modal-label-title').val(),
-        content: $('#modal-label-content').val()
+        category_id: parseInt(cid),
+        title: title,
+        content: content
       };
-      if(!data.title) return alert('Введите название');
 
       $.ajax({
-        url: '/api/labels/label', type: 'POST', contentType:'application/json',
+        url: '/api/labels/label',
+        type: 'POST',
+        contentType:'application/json',
         data: JSON.stringify(data),
-        success: () => { labelModal.fadeOut(); loadAllDataAndRender(); showNotification("Сохранено!"); }
+        success: () => {
+          labelModal.fadeOut(200);
+          loadAllDataAndRender();
+          showNotification("Сохранено!");
+        },
+        error: (x) => alert("Ошибка: " + x.responseText)
       });
     });
 
-    // Удаление метки
+    // 7. Удалить метку
     $('#labels-container').on('click', '.delete-label-btn', function() {
-      if(!confirm('Удалить?')) return;
+      if(!confirm('Удалить метку?')) return;
       const lid = $(this).closest('.label-item').data('label-id');
       $.ajax({
-        url: '/api/labels/label', type: 'DELETE', contentType:'application/json',
+        url: '/api/labels/label',
+        type: 'DELETE',
+        contentType:'application/json',
         data: JSON.stringify({id: lid}),
         success: loadAllDataAndRender
       });
     });
 
-    // Просмотр
+    // 8. Просмотр (Модалка View)
     $('#labels-container').on('click', '.view-label-btn', function() {
       const lid = $(this).closest('.label-item').data('label-id');
       const label = allLabels.find(l => l.id === lid);
-      $('#view-modal-title').text(label.title);
-      $('#view-modal-content').text(label.content);
-      $('#view-modal-copy-btn').data('lid', label.id);
-      viewModal.css('display','flex').hide().fadeIn(200);
+      if(label){
+        $('#view-modal-title').text(label.title);
+        $('#view-modal-content').text(label.content);
+        $('#view-modal-copy-btn').data('lid', label.id);
+        viewModal.css('display','flex').hide().fadeIn(200);
+      }
     });
 
-    // Копирование (Модалка)
+    // Копирование из модалки просмотра
     $('#view-modal-copy-btn').on('click', function() {
-      const lid = $(this).data('lid');
       const txt = $('#view-modal-content').text();
-      copyText(txt, lid);
+      const lid = $(this).data('lid');
+      copyToClipboard(txt, lid);
     });
 
-    // Копирование (Быстрое)
+    // Копирование из карточки
     $('#labels-container').on('click', '.copy-label-btn', function() {
       const lid = $(this).closest('.label-item').data('label-id');
       const label = allLabels.find(l => l.id === lid);
-      copyText(label.content, lid);
+      if(label) copyToClipboard(label.content, label.id);
     });
 
-    function copyText(txt, id) {
-      navigator.clipboard.writeText(txt).then(() => {
+    // === UTILS ===
+
+    function copyToClipboard(text, id) {
+      navigator.clipboard.writeText(text).then(() => {
         showNotification("Текст скопирован в буфер!");
-        $.post('/api/labels/increment_usage', JSON.stringify({id:id}));
-      });
+        // Счетчик инкрементим тихо
+        if(id) $.post('/api/labels/increment_usage', JSON.stringify({id:id}));
+      }).catch(err => showNotification('Ошибка копирования', true));
     }
 
-    // Закрытие модалок
-    $('.modal-close, .modal-close-btn').click(() => $('.modal').fadeOut(200));
-    $(window).click(e => { if($(e.target).hasClass('modal')) $('.modal').fadeOut(200); });
+    function escapeHtml(t) {
+      if(!t) return '';
+      return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
 
-    // Утилиты
-    function escapeHtml(t) { if(!t) return ''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    // Тост
+    let _nt;
     function showNotification(msg, err) {
+      clearTimeout(_nt);
       const n = $('#notification');
       n.text(msg).removeClass('error').toggle(false);
       if(err) n.addClass('error');
-      n.fadeIn().delay(1500).fadeOut();
-    }
-    function debounce(func, wait) {
-      let timeout;
-      return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); };
+      n.fadeIn();
+      _nt = setTimeout(() => n.fadeOut(), 2000);
     }
 
-    // Start
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // UI Helpers (Close Modals)
+    $('.modal-close, .modal-close-btn').on('click', function() {
+      $(this).closest('.modal').fadeOut(200);
+    });
+    $(window).on('click', function(e) {
+      if ($(e.target).hasClass('modal')) {
+        $(e.target).fadeOut(200);
+      }
+    });
+
+    // Init
     loadAllDataAndRender();
   });
 </script>
