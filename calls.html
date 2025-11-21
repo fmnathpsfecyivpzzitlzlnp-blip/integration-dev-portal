@@ -91,7 +91,7 @@
             flex-wrap: wrap;
         }
 
-        #calls-page-column {
+        .calls-page-column {
             flex: 1;
             min-width: 300px;
             display: flex;
@@ -159,7 +159,7 @@
 
         <div id="calls-page-row">
             <!-- Левая колонка: Основные настройки -->
-            <div id="calls-page-column">
+            <div class="calls-page-column">
                 <div class="form-section">
                     <h2>Настройки соединения</h2>
                     <div class="form-row"><label for="url">URL Сервиса:</label><input type="text" id="url" placeholder="http://localhost:8080/api/test"></div>
@@ -204,7 +204,7 @@
             </div>
 
             <!-- Правая колонка: Тело и Заголовки -->
-            <div id="calls-page-column">
+            <div class="calls-page-column">
                 <div class="form-section">
                     <h2>Headers (JSON формат)</h2>
                     <textarea id="headers" placeholder='{ "Content-Type": "application/json" }'>{"Content-Type": "application/json"}</textarea>
