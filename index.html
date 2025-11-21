@@ -1,83 +1,250 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <title>Инструменты для разработчика</title>
     <meta charset="UTF-8">
     <style>
-        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        #sidebar { width: 250px; background: #2c3e50; color: #ecf0f1; padding-top: 20px; flex-shrink: 0; display: flex; flex-direction: column; }
-        #sidebar h1 { font-size: 1.2em; text-align: center; margin: 0 0 20px 0; color: #ffffff; }
+        /* Базовые стили */
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f4f7f9;
+        }
+
+        /* --- САЙДБАР (МЕНЮ) --- */
+        #sidebar {
+            width: 260px; /* Базовая ширина */
+            min-width: 260px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            /* Анимация скрытия */
+            transition: margin-left 0.3s ease-in-out;
+            position: relative;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        /* Состояние: Меню скрыто */
+        #sidebar.collapsed {
+            margin-left: -260px; /* Прячем влево за границу экрана */
+        }
+
+        #sidebar h1 {
+            font-size: 1.1em;
+            text-align: center;
+            margin: 0;
+            padding: 20px 0;
+            color: #ffffff;
+            border-bottom: 1px solid #34495e;
+            /* Чтобы текст не скакал при анимации, хотя здесь марджин решает */
+            white-space: nowrap;
+        }
+
+        #sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-top: 10px;
+        }
+
         #sidebar ul { list-style: none; padding: 0; margin: 0; }
-        #sidebar ul li a { display: block; padding: 15px 20px; color: #ecf0f1; text-decoration: none; border-left: 3px solid transparent; transition: background 0.2s; }
-        #sidebar ul li a:hover { background: #34495e; }
-        #sidebar ul li a.active { background: #1abc9c; color: #ffffff; }
-        #content-frame { flex-grow: 1; border: none; height: 100%; }
+        #sidebar ul li a {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: #bdc3c7;
+            text-decoration: none;
+            border-left: 4px solid transparent;
+            transition: background 0.2s, color 0.2s;
+            font-size: 14px;
+        }
+        #sidebar ul li a:hover { background: #34495e; color: white; }
+        #sidebar ul li a.active {
+            background: #212f3d;
+            color: #ffffff;
+            border-left-color: #1abc9c; /* Зеленая полоска активного элемента */
+        }
+
+        /* Разделители */
+        hr { border: 0; border-top: 1px solid #3e5367; margin: 10px 20px; }
+
+        /* --- КНОПКА ТОГГЛЕР --- */
+        #toggle-btn {
+            position: absolute;
+            /* Опускаем кнопку ниже (было 15px).
+               Высота шапки на страницах примерно 50-60px,
+               поэтому 65px гарантированно выведет кнопку из зоны конфликта */
+            top: 65px;
+
+            right: -32px; /* Чуть уменьшим вылет вправо, чтобы была компактнее */
+            width: 32px;  /* Уменьшим размер с 40 до 32 */
+            height: 32px;
+
+            background: #2c3e50;
+            border: 1px solid #34495e; /* Добавим границу для четкости */
+            border-left: none;         /* Уберем границу слева, чтобы сливалось с меню */
+            border-radius: 0 6px 6px 0;
+            cursor: pointer;
+            color: #ecf0f1; /* Чуть мягче белый */
+            font-size: 18px; /* Размер иконки под кнопку */
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 3px 2px 5px rgba(0,0,0,0.15);
+            z-index: 1000; /* Поверх всего */
+            outline: none;
+            pointer-events: auto;
+            transition: background 0.2s;
+        }
+
+        #toggle-btn:hover {
+            background: #34495e;
+            color: #fff;
+        }
+
+        /* --- КОНТЕНТ --- */
+        #content-frame {
+            flex-grow: 1;
+            border: none;
+            height: 100%;
+            background: #fff;
+            display: block;
+        }
     </style>
+
+    <!-- ЗАЩИТА ОТ ВЛОЖЕННОСТИ (Framebuster) -->
+    <script>
+        if (window.self !== window.top) {
+            window.top.location.href = window.self.location.href;
+        }
+    </script>
 </head>
 <body>
 
+<!-- Сайдбар -->
 <div id="sidebar">
+    <!-- Кнопка "гамбургер", прикрепленная к сайдбару -->
+    <button id="toggle-btn" onclick="toggleSidebar()">☰</button>
+
     <h1>Инструменты</h1>
-    <ul>
-        <li><a href="task_tracker.html" target="content">Ведение задач</a></li>
-        <li><a href="labels.html" target="content">Метки</a></li>
-        <hr>
-        <li><a href="editor.html" target="content">Редактор XML/JSON</a></li>
-        <li><a href="xsd_constructor.html" target="content">XSD Конструктор</a></li>
-        <li><a href="xsd-to-wsdl.html" target="content">xsdToWsdl</a></li>
-        <hr>
-        <li><a href="xml_to_json.html" target="content">XML в JSON</a></li>
-        <li><a href="json_to_xml.html" target="content">JSON в XML</a></li>
-        <hr>
-        <li><a href="calls.html" target="content">Вызовы</a></li>
-        <li><a href="calls_history.html" target="content">История вызовов</a></li>
-        <hr>
-        <li><a href="schema_generator.html" target="content">JsonSchemaToJson</a></li>
-        <li><a href="excel_exporter.html" target="content">JsonToExcel</a></li>
-        <li><a href="xml_exporter.html" target="content">XmlToExcel</a></li>
-        <li><a href="example_generator.html" target="content">JsonSchemaToJsonExample</a></li>
-        <hr>
-        <li>
-        <a href="dictionaries.html" style="display:flex; align-items:center; gap:12px; font-weight:600;">
-            Справочники
-        </a>
-        </li>
-    </ul>
+
+    <div id="sidebar-content">
+        <ul>
+            <li><a href="task_tracker.html" target="content">Ведение задач</a></li>
+            <li><a href="labels.html" target="content">Метки</a></li>
+            <hr>
+            <li><a href="editor.html" target="content">Редактор XML/JSON</a></li>
+            <li><a href="xsd_constructor.html" target="content">XSD Конструктор</a></li>
+            <li><a href="xsd-to-wsdl.html" target="content">xsdToWsdl</a></li>
+            <hr>
+            <li><a href="xml_to_json.html" target="content">XML в JSON</a></li>
+            <li><a href="json_to_xml.html" target="content">JSON в XML</a></li>
+            <hr>
+            <li><a href="calls.html" target="content">Вызовы</a></li>
+            <li><a href="calls_history.html" target="content">История вызовов</a></li>
+            <hr>
+            <li><a href="schema_generator.html" target="content">JsonSchemaToJson</a></li>
+            <li><a href="spec_generator.html" target="content">Генератор спецификации</a></li>
+            <li><a href="excel_exporter.html" target="content">JsonToExcel</a></li>
+            <li><a href="xml_exporter.html" target="content">XmlToExcel</a></li>
+            <li><a href="example_generator.html" target="content">Пример JSON из схемы</a></li>
+            <hr>
+            <li>
+                <a href="dictionaries.html" target="content">
+                    📚 Справочники
+                </a>
+            </li>
+        </ul>
+    </div>
 </div>
 
+<!-- Основной контент (Iframe) -->
 <iframe id="content-frame" name="content" src="task_tracker.html"></iframe>
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        const links = document.querySelectorAll('#sidebar a');
+        const links = document.querySelectorAll('#sidebar ul li a');
         const frame = document.getElementById('content-frame');
+        const sidebar = document.getElementById('sidebar');
 
+        // === ЛОГИКА ПОДСВЕТКИ АКТИВНОЙ ССЫЛКИ ===
         function setActiveLink(targetHref) {
             links.forEach(l => l.classList.remove('active'));
-            // Ищем ссылку, href которой ТОЧНО совпадает с targetHref
-            const activeLink = Array.from(links).find(l => l.getAttribute('href') === targetHref);
+            // Сравниваем href без учета слэша в начале, если есть
+            const activeLink = Array.from(links).find(l => {
+                const linkHref = l.getAttribute('href');
+                return linkHref === targetHref || linkHref === targetHref.substring(1) || (targetHref.includes(linkHref) && linkHref !== '#');
+            });
+
             if (activeLink) {
                 activeLink.classList.add('active');
             }
         }
 
-        // Подсветка при клике
+        // Клик по меню
         links.forEach(link => {
             link.addEventListener('click', function(e) {
                 setActiveLink(e.currentTarget.getAttribute('href'));
+                // На мобильных устройствах можно скрывать меню после клика (опционально)
+                // if (window.innerWidth < 768) sidebar.classList.add('collapsed');
             });
         });
 
-        // Подсветка при загрузке iframe (важно для кнопки "Повторить вызов")
+        // Отслеживание загрузки фрейма для актуализации подсветки
+        // (Полезно, когда внутри фрейма переходим по ссылке "Назад")
         frame.addEventListener('load', () => {
-            // Получаем путь к файлу внутри iframe
-            const frameLocation = frame.contentWindow.location.pathname.substring(1); // убираем / в начале
-            setActiveLink(frameLocation);
+            try {
+                const path = frame.contentWindow.location.pathname.split('/').pop(); // Получаем имя файла
+                const search = frame.contentWindow.location.search; // Если нужно учитывать параметры
+
+                // Небольшой хак: если открыта страница, которой нет в меню (детали), подсвечиваем родительскую
+                if(path.includes('flow-details') || path.includes('service-org')) {
+                    setActiveLink('task_tracker.html');
+                } else {
+                    setActiveLink(path);
+                }
+            } catch (e) {
+                // Cross-origin protection может мешать, если запускать не на localhost
+                console.log('Frame nav update skipped');
+            }
         });
 
-        // Первоначальная подсветка при загрузке страницы
+        // Первичная инициализация
         setActiveLink(frame.getAttribute('src'));
     });
+
+    // === ЛОГИКА СКРЫТИЯ МЕНЮ ===
+    function toggleSidebar() {
+        const sb = document.getElementById('sidebar');
+        const btn = document.getElementById('toggle-btn');
+
+        sb.classList.toggle('collapsed');
+
+        // Сохранение состояния в localStorage, чтобы помнить выбор при F5
+        const isClosed = sb.classList.contains('collapsed');
+        localStorage.setItem('sidebar_collapsed', isClosed);
+
+        // Небольшая косметика для кнопки
+        // btn.innerHTML = isClosed ? '➔' : '☰';
+    }
+
+    // Восстановление состояния при загрузке
+    (function initSidebarState() {
+        const isClosed = localStorage.getItem('sidebar_collapsed') === 'true';
+        if (isClosed) {
+            // Без анимации при загрузке
+            const sb = document.getElementById('sidebar');
+            sb.style.transition = 'none';
+            sb.classList.add('collapsed');
+            // Возвращаем анимацию через тик
+            setTimeout(() => sb.style.transition = '', 100);
+        }
+    })();
 </script>
 
 </body>

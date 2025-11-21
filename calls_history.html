@@ -8,107 +8,91 @@
         .filter-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
+            gap: 15px;
             margin-bottom: 20px;
             align-items: end;
         }
-        .filter-item {
-            display: flex;
-            flex-direction: column;
-        }
-        .filter-item label {
-            margin-bottom: 4px;
-            font-size: 0.9em;
-            color: #555;
-        }
         .history-group {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
             margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
         }
         .group-header {
             cursor: pointer;
-            background-color: #e9ecef;
-            padding: 10px 15px;
-            border-radius: 6px;
+            background-color: #f8f9fa;
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: background 0.2s;
+        }
+        .group-header:hover {
+            background-color: #e9ecef;
         }
         .group-body {
             display: none;
-            padding-left: 20px;
-            border-left: 2px solid #e0e0e0;
-            margin-left: 10px;
         }
+        /* Статус коды */
+        .status-success { border-left: 5px solid #28a745; }
+        .status-error { border-left: 5px solid #dc3545; }
+        .status-auth-error { border-left: 5px solid #ffc107; }
+        .status-unknown { border-left: 5px solid #6c757d; }
+
         .call-summary {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
+            padding: 10px 15px;
             border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95em;
         }
-        .call-summary:hover {
-            background-color: #f8f9fa;
-        }
+        .call-summary:hover { background-color: #fcfcfc; }
+
         .call-details {
-            display: none;
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 20px;
             background: #fafafa;
+            border-bottom: 1px solid #ddd;
+            font-size: 0.9em;
+            display: none;
         }
-        .status-success { border-left: 4px solid #28a745; }
-        .status-error { border-left: 4px solid #dc3545; }
-        .status-auth-error { border-left: 4px solid #ffc107; }
-        .status-unknown { border-left: 4px solid #6c757d; }
+
         pre {
             background: #fff;
-            border: 1px solid #ddd;
+            border: 1px solid #e0e0e0;
             padding: 10px;
             border-radius: 4px;
             max-height: 300px;
             overflow: auto;
-            font-size: 0.9em;
+            white-space: pre-wrap;
         }
-        .button-bar {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-        .repeat-call-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .delete-item-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .danger { background: #dc3545; }
     </style>
 </head>
 <body>
 <div class="main-content">
     <h2>История вызовов</h2>
 
-    <div class="filter-grid">
-        <div class="filter-item"><label for="csName-filter">Сценарий (CS)</label><input type="text" id="csName-filter" class="filter-input" data-filter-key="csName"></div>
-        <div class="filter-item"><label for="bsName-filter">Система (BS)</label><input type="text" id="bsName-filter" class="filter-input" data-filter-key="bsName"></div>
-        <div class="filter-item"><label for="interface-filter">Интерфейс</label><input type="text" id="interface-filter" class="filter-input" data-filter-key="interfaceName"></div>
-        <div class="filter-item"><label for="url-filter">URL</label><input type="text" id="url-filter" class="filter-input" data-filter-key="url"></div>
-        <div class="filter-item"><label for="dateFrom-filter">Дата от</label><input type="date" id="dateFrom-filter" class="filter-input" data-filter-key="dateFrom"></div>
-        <div class="filter-item"><label for="dateTo-filter">Дата до</label><input type="date" id="dateTo-filter" class="filter-input" data-filter-key="dateTo"></div>
-        <div class="filter-item" style="grid-column: 1 / -1;"><label for="content-filter">Содержимое (включая заголовки и правила)</label><input type="text" id="content-filter" class="filter-input" data-filter-key="content"></div>
+    <div class="form-section">
+        <div class="filter-grid">
+            <div><label>Сценарий (CS)</label><input type="text" id="csName-filter" class="filter-input" data-key="csName"></div>
+            <div><label>Система (BS)</label><input type="text" id="bsName-filter" class="filter-input" data-key="bsName"></div>
+            <div><label>Интерфейс</label><input type="text" id="interface-filter" class="filter-input" data-key="interfaceName"></div>
+            <div><label>URL</label><input type="text" id="url-filter" class="filter-input" data-key="url"></div>
+            <div><label>Дата от</label><input type="date" id="dateFrom-filter" class="filter-input" data-key="dateFrom"></div>
+            <div><label>Дата до</label><input type="date" id="dateTo-filter" class="filter-input" data-key="dateTo"></div>
+            <div style="grid-column: 1 / -1;">
+                <label>Содержимое (заголовки, тело, правила)</label>
+                <input type="text" id="content-filter" class="filter-input" data-key="content" placeholder="Поиск текста...">
+            </div>
+        </div>
     </div>
 
-    <div id="history-container"><p>Загрузка истории...</p></div>
+    <div id="history-container">
+        <p style="text-align:center; color:#777; padding: 20px;">Загрузка истории...</p>
+    </div>
 </div>
 
 <script src="libs/jquery-3.6.0.min.js"></script>
@@ -116,237 +100,260 @@
     $(function() {
         let allHistoryData = [];
 
-        function getStatus(item) {
-            if (item.stack_trace) return 500;
-            if (!item.response_headers) return null;
-            try {
-                const headers = JSON.parse(item.response_headers);
-                const statusLine = headers[':status'] || (headers[''] && headers[''][0]);
-                return status ? parseInt(status, 10) : null;
-            } catch (e) {
-                return null;
-            }
-        }
-
-        function getStatusClass(statusCode) {
-            if (statusCode >= 200 && statusCode < 300) return 'status-success';
-            if (statusCode === 401 || statusCode === 403) return 'status-auth-error';
-            if (statusCode >= 400) return 'status-error';
-            return 'status-unknown';
-        }
-
+        // === КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Логика определения среды через словарь ===
         function getEnvironmentInfo(url) {
             if (!url) return 'URL не указан';
+
+            let host;
             try {
-                const host = new URL(url).hostname;
-                if (host.includes('-dev') || host.includes('.dev.')) return `<span style="font-weight:bold; color:#17a2b8;">DEV:</span> ${host}`;
-                if (host.includes('-test') || host.includes('.test.')) return `<span style="font-weight:bold; color:#ffc107;">TEST:</span> ${host}`;
-                return `<span style="font-weight:bold; color:#28a745;">PROD:</span> ${host}`;
+                host = new URL(url).hostname;
             } catch (e) {
                 return url;
             }
-        }
 
-        function escapeHtml(text) {
-            return $('<div>').text(text || '').html();
-        }
+            // 1. Загружаем справочник (предполагаем, что он уже сохранен в dictionaries.html)
+            // Если нет - пустой массив
+            const envDict = JSON.parse(localStorage.getItem('env_dictionary') || '[]');
 
-        function prettyPrintJson(jsonStr) {
-            if (!jsonStr) return '';
-            try {
-                return JSON.stringify(JSON.parse(jsonStr), null, 2);
-            } catch (e) {
-                return jsonStr;
+            // 2. Ищем совпадение (по подстроке или точно)
+            // Пример элемента словаря: { host: 'brmq-dev1', type: 'DEV' }
+            const match = envDict.find(entry => host.includes(entry.host));
+
+            if (match) {
+                let color = '#6c757d'; // Gray default
+                let bg = '#f8f9fa';
+                if (match.type === 'PROD') { color = '#155724'; bg = '#d4edda'; }
+                if (match.type === 'TEST') { color = '#856404'; bg = '#fff3cd'; }
+                if (match.type === 'DEV')  { color = '#0c5460'; bg = '#d1ecf1'; }
+
+                return `<span style="font-weight:bold; color:${color}; background:${bg}; padding:2px 6px; border-radius:4px; font-size:0.85em;">${match.type}</span> ${host}`;
             }
+
+            // 3. Fallback: если в словаре нет, НЕ ПИШЕМ PROD! Пишем Unknown или Host.
+            return `<span style="color: #999; font-weight: bold; font-size: 0.85em;">UNKNOWN</span> ${host}`;
+        }
+        // =====================================================================
+
+        function getStatusClass(item) {
+            // Считаем статус код
+            if(item.stack_trace) return 'status-error';
+            if(!item.response_headers) return 'status-unknown';
+            try {
+                // Попытка найти статус в заголовках
+                let status = 0;
+                // Просто эвристика для парсинга разных форматов заголовков
+                if(typeof item.response_headers === 'object') {
+                    // если пришло как объект
+                    status = item.status_code; // часто есть такое поле
+                } else {
+                    // если json string
+                    const headers = JSON.parse(item.response_headers);
+                    // Попытка найти :status или взять статус из item, если API передает
+                }
+                // Фолбэк на простой статус если есть поле в базе
+                if(item.http_status) status = item.http_status;
+
+                if (status >= 200 && status < 300) return 'status-success';
+                if (status >= 400 && status < 500) return 'status-auth-error';
+                if (status >= 500) return 'status-error';
+            } catch(e) {}
+
+            // Грубый фолбэк: есть stack_trace или нет
+            return item.stack_trace ? 'status-error' : 'status-success';
         }
 
         function renderHistory(history) {
             const container = $('#history-container').empty();
             if (!history || history.length === 0) {
-                container.html('<p>История пуста или по вашему запросу ничего не найдено.</p>');
+                container.html('<div class="form-section"><p style="text-align:center; color:#777;">Записи отсутствуют.</p></div>');
                 return;
             }
 
+            // Группировка по Сценарию (CS Name)
             const groupedByCS = history.reduce((acc, item) => {
                 const key = item.cs_name || 'Без сценария';
                 (acc[key] = acc[key] || []).push(item);
                 return acc;
             }, {});
 
-            const sortedCSKeys = Object.keys(groupedByCS).sort((a, b) => b.localeCompare(a, 'ru', { sensitivity: 'base' }));
+            const sortedKeys = Object.keys(groupedByCS).sort().reverse();
 
-            for (const csName of sortedCSKeys) {
+            sortedKeys.forEach(csName => {
                 const groupItems = groupedByCS[csName];
+                const groupCount = groupItems.length;
 
-                const groupedByInterface = groupItems.reduce((acc, item) => {
-                    const key = `${item.bs_name || '—'}/${item.interface_o || '—'}`;
-                    (acc[key] = acc[key] || []).push(item);
-                    return acc;
-                }, {});
-
-                const groupContainer = $(`<div class="history-group"></div>`).appendTo(container);
-                const groupHeader = $(`
-                    <div class="group-header">
-                        <h3>Группа: ${escapeHtml(csName)} (${groupItems.length} вызовов)</h3>
-                        <span style="font-size: 1.2em;">▼</span>
-                    </div>
-                `).appendTo(groupContainer);
-                const groupBody = $(`<div class="group-body"></div>`).appendTo(groupContainer);
-
-                Object.keys(groupedByInterface).sort().forEach(interfaceKey => {
-                    const items = groupedByInterface[interfaceKey].sort((a, b) => b.id - a.id);
-                    const lastItemStatus = getStatus(items[0]);
-                    const statusClass = getStatusClass(lastItemStatus);
-
-                    const callSummary = $(`
-                        <div class="call-summary ${statusClass}">
-                            <span><strong>${escapeHtml(interfaceKey)}</strong></span>
-                            <span style="color:#6c757d; font-size:0.9em;">Последний: ${new Date(items[0].call_date).toLocaleString('ru-RU')}</span>
+                // Шаблон Группы
+                const group = $(`
+                    <div class="history-group">
+                        <div class="group-header">
+                            <strong style="font-size:1.1em; color:#343a40;">${escapeHtml(csName)} <span style="color:#adb5bd; font-weight:normal;">(${groupCount})</span></strong>
+                            <span class="toggle-icon">▼</span>
                         </div>
-                    `).appendTo(groupBody);
+                        <div class="group-body"></div>
+                    </div>
+                `);
 
-                    const detailsContainer = $(`<div class="call-details-container" style="display:none; padding-left: 20px;"></div>`).appendTo(groupBody);
+                const body = group.find('.group-body');
 
-                    items.forEach(item => {
-                        const statusCode = getStatus(item);
-                        const detailStatusClass = getStatusClass(statusCode);
+                // Внутри сортируем по ID убывания (новые сверху)
+                groupItems.sort((a, b) => b.id - a.id);
 
-                        const detailHeader = $(`
-                            <div class="call-summary ${detailStatusClass}" style="background-color: #fdfdfd; font-size: 0.95em;">
-                                <span>${getEnvironmentInfo(item.service_url)}</span>
-                                <span>${statusCode || '—'} — ${new Date(item.call_date).toLocaleTimeString('ru-RU')}</span>
+                groupItems.forEach(item => {
+                    const stClass = getStatusClass(item);
+                    const dateStr = new Date(item.call_date).toLocaleString('ru-RU');
+
+                    // Строка саммари
+                    const summary = $(`
+                        <div class="call-summary ${stClass}">
+                            <div style="flex:1;">
+                                <div style="font-weight:600; margin-bottom:3px;">${escapeHtml(item.bs_name)} / ${escapeHtml(item.interface_o)}</div>
+                                <div>${getEnvironmentInfo(item.service_url)}</div>
                             </div>
-                        `).appendTo(detailsContainer);
+                            <div style="color:#888; font-size:0.85em; align-self:center;">
+                                ${dateStr}
+                            </div>
+                        </div>
+                    `);
 
-                        const detailBody = $(`
-                            <div class="call-details">
-                                <div class="button-bar">
-                                    <button class="repeat-call-btn">Повторить вызов</button>
-                                    <button class="delete-item-btn danger">Удалить</button>
+                    // Блок деталей
+                    const details = $(`
+                        <div class="call-details">
+                            <div class="button-bar" style="justify-content: flex-start; margin-bottom:15px; gap:10px;">
+                                <button class="repeat-btn" style="background:#007bff; color:white;">⟳ Повторить вызов</button>
+                                <button class="danger delete-btn" style="margin-left:auto;">🗑 Удалить</button>
+                            </div>
+
+                            <h4>Request (Body)</h4>
+                            <pre>${escapeHtml(item.request)}</pre>
+
+                            <h4>Response</h4>
+                            <pre>${escapeHtml(item.response || '(empty)')}</pre>
+
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:15px;">
+                                <div>
+                                    <strong>Request Headers:</strong>
+                                    <pre style="font-size:0.8em; max-height:150px;">${safeJsonFormat(item.request_headers)}</pre>
                                 </div>
-                                <h4>Request Headers</h4>
-                                <pre>${prettyPrintJson(item.request_headers)}</pre>
-                                <h4>Request Body</h4>
-                                <pre>${escapeHtml(item.request)}</pre>
-                                <hr>
-                                <h4>Response Headers</h4>
-                                <pre>${prettyPrintJson(item.response_headers)}</pre>
-                                <h4>Response Body</h4>
-                                <pre>${prettyPrintJson(item.response)}</pre>
-                                ${item.stack_trace ? `<h4>Ошибка / Stack Trace</h4><pre style="color: #c7254e; background-color: #f9f2f4;">${escapeHtml(item.stack_trace)}</pre>` : ''}
-                                ${item.data_rules && item.data_rules.trim() !== '{}' && item.data_rules.trim() !== '' ? `<h4>Правила генерации данных</h4><pre style="background:#e8f5e8;">${prettyPrintJson(item.data_rules)}</pre>` : ''}
+                                <div>
+                                    <strong>Response Headers:</strong>
+                                    <pre style="font-size:0.8em; max-height:150px;">${safeJsonFormat(item.response_headers)}</pre>
+                                </div>
                             </div>
-                        `).data('history-item', item).appendTo(detailsContainer);
 
-                        detailHeader.on('click', () => detailBody.slideToggle(200));
+                            ${item.stack_trace ? `<h4 style="color:red;">Error Trace</h4><pre style="background:#fff5f5; border-color:#ffa8a8;">${escapeHtml(item.stack_trace)}</pre>` : ''}
+                        </div>
+                    `);
+
+                    // Логика кнопок
+                    details.find('.delete-btn').on('click', function(e) {
+                        e.stopPropagation();
+                        if(confirm('Удалить эту запись?')) {
+                            $.ajax({
+                                url: `/api/history/item/${item.id}`,
+                                type: 'DELETE',
+                                success: () => { summary.remove(); details.remove(); }
+                            });
+                        }
                     });
+
+                    details.find('.repeat-btn').on('click', function(e) {
+                        e.stopPropagation();
+                        repeatCall(item);
+                    });
+
+                    // Тоггл деталей по клику на саммари
+                    summary.on('click', () => {
+                        details.slideToggle(200);
+                    });
+
+                    body.append(summary).append(details);
                 });
-            }
-        }
 
-        function loadAllHistory() {
-            $.get('/api/history/all')
-                .done(data => {
-                    allHistoryData = data;
-                    renderHistory(allHistoryData);
-                })
-                .fail(() => $('#history-container').html('<p style="color:red;">Ошибка загрузки истории.</p>'));
-        }
-
-        function performSearch() {
-            const params = {};
-            $('.filter-input').each(function() {
-                const k = $(this).data('filter-key');
-                const v = $(this).val().trim();
-                if (v) params[k] = v;
-            });
-            $.get('/api/history/search', params).done(renderHistory);
-        }
-
-        // Главная магия: повтор вызова с правильной обработкой dataRules
-        $('#history-container').on('click', '.repeat-call-btn', function() {
-            const item = $(this).closest('.call-details').data('history-item');
-            if (!item) return;
-
-            // Основные поля — всегда
-            const fieldMap = {
-                '#url': item.service_url || '',
-                '#template': item.request || '',
-                '#headers': item.request_headers || '{}',
-                '#bsName': item.bs_name || '',
-                '#csName': item.cs_name || '',
-                '#interfaceName': item.interface_o || ''
-            };
-
-            Object.entries(fieldMap).forEach(([selector, value]) => {
-                window.parent.localStorage.setItem(`calls_${selector}`, value);
+                container.append(group);
             });
 
-            // Очищаем логин/пароль
-            window.parent.localStorage.setItem('calls_#login', '');
-            window.parent.localStorage.setItem('calls_#password', '');
+            // Аккордеон для групп
+            $('.group-header').on('click', function() {
+                $(this).next('.group-body').slideToggle(200);
+                // Меняем стрелочку (простой способ)
+                const txt = $(this).find('.toggle-icon').text();
+                $(this).find('.toggle-icon').text(txt === '▼' ? '▲' : '▼');
+            });
+        }
 
-            // КЛЮЧЕВАЯ ЛОГИКА: правила генерации
+        function repeatCall(item) {
+            // Пишем в LS
             try {
-                const savedRules = item.data_rules;
-                if (savedRules && savedRules.trim() !== '' && savedRules !== 'null' && savedRules !== '{}') {
-                    const parsed = JSON.parse(savedRules);
-                    if (Object.keys(parsed).length > 0) {
-                        window.parent.localStorage.setItem('calls_#dataRules', savedRules);
-                    } else {
-                        window.parent.localStorage.removeItem('calls_#dataRules');
-                    }
+                localStorage.setItem('calls_#url', item.service_url || '');
+                localStorage.setItem('calls_#method', item.http_method || 'POST'); // если сохраняли метод
+                localStorage.setItem('calls_#headers', item.request_headers || '{}');
+                localStorage.setItem('calls_#template', item.request || '');
+                // Принудительно очистить пароли из безопасности
+                localStorage.setItem('calls_#login', '');
+                localStorage.setItem('calls_#password', '');
+
+                // Восстанавливаем правила (если они были)
+                if(item.data_rules && item.data_rules !== '{}' && item.data_rules !== 'null') {
+                    localStorage.setItem('calls_#dataRules', item.data_rules);
                 } else {
-                    window.parent.localStorage.removeItem('calls_#dataRules');
+                    localStorage.setItem('calls_#dataRules', '{}');
                 }
-            } catch (e) {
-                console.warn('Ошибка парсинга data_rules:', e);
-                window.parent.localStorage.removeItem('calls_#dataRules');
+
+                // Перенаправляем на вкладку calls.html (если во фрейме - window.location, иначе абсолютный)
+                // Учитываем, что это SPA/Frame структура.
+                // Попытаемся найти ссылку в родительском меню и кликнуть её
+                if(window.parent && window.parent.document) {
+                    const link = window.parent.document.querySelector('a[href="calls.html"]');
+                    if(link) link.click();
+                    else window.location.href = 'calls.html';
+                } else {
+                    window.location.href = 'calls.html';
+                }
+            } catch(e) {
+                alert('Ошибка подготовки повтора: ' + e.message);
             }
-
-            // Переход на вкладку вызовов
-            const callsTab = window.parent.document.querySelector('a[href="calls.html"], a[onclick*="calls.html"]');
-            if (callsTab) {
-                callsTab.click();
-            } else {
-                window.parent.location.href = 'calls.html';
-            }
-        });
-
-        $('#history-container').on('click', '.delete-item-btn', function() {
-            const details = $(this).closest('.call-details');
-            const item = details.data('history-item');
-            if (!item || !confirm(`Удалить вызов #${item.id} от ${new Date(item.call_date).toLocaleString('ru-RU')}?`)) return;
-
-            $.ajax({
-                url: `/api/history/item/${item.id}`,
-                type: 'DELETE'
-            }).done(() => {
-                details.prev('.call-summary').addBack().fadeOut(300, function() { $(this).remove(); });
-            });
-        });
-
-        $('#history-container').on('click', '.group-header', function() {
-            $(this).next('.group-body').slideToggle(200);
-            $(this).find('span:last').text($(this).next('.group-body').is(':visible') ? '▲' : '▼');
-        });
-
-        $('#history-container').on('click', '.call-summary', function(e) {
-            if ($(e.target).is('button')) return;
-            $(this).next('.call-details-container').slideToggle(200);
-        });
-
-        $('.filter-input').on('keyup change', debounce(performSearch, 400));
-
-        function debounce(func, delay) {
-            let timer;
-            return function(...args) {
-                clearTimeout(timer);
-                timer = setTimeout(() => func.apply(this, args), delay);
-            };
         }
 
-        loadAllHistory();
+        function safeJsonFormat(str) {
+            try {
+                if(!str) return '{}';
+                // Попытка скрыть Auth header при рендеринге, если это простой JSON
+                const obj = JSON.parse(str);
+                // Опционально: маскировка
+                // if(obj['Authorization']) obj['Authorization'] = '*** MASKED ***';
+                return JSON.stringify(obj, null, 2);
+            } catch(e) {
+                return escapeHtml(str);
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return $('<div>').text(text).html();
+        }
+
+        // Поиск
+        $('.filter-input').on('keyup change', function() {
+            const params = {};
+            $('.filter-input').each((i, el) => {
+                const v = $(el).val().trim();
+                if(v) params[$(el).data('key')] = v;
+            });
+
+            // Debounce можно добавить при желании, пока прямой вызов
+            $.get('/api/history/search', params)
+                .done(renderHistory)
+                .fail(() => $('#history-container').html('<p>Ошибка поиска</p>'));
+        });
+
+        // Initial Load
+        $.get('/api/history/all').done((data) => {
+            allHistoryData = data;
+            renderHistory(data);
+        }).fail(() => {
+            // Fallback для верстки без API
+            renderHistory([]);
+        });
     });
 </script>
 </body>

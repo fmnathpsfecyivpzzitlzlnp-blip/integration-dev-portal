@@ -3,226 +3,495 @@
 <head>
     <meta charset="UTF-8">
     <title>Организация сервиса</title>
+    <!-- Библиотеки -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Подключаем общий файл стилей, если он лежит в корне, или используем встроенные -->
+    <link rel="stylesheet" href="style.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin:0; padding:20px; }
-        .container { max-width: 1100px; margin: 0 auto; background: #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .header { background: #4f46e5; padding: 24px; text-align: center; color: white; }
-        .header h1 { margin:0; font-size: 26px; }
-        .content { padding: 30px; }
-        .btn-group { margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
-        .btn {
-            padding: 12px 24px; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; transition: 0.2s;
+        /* === ЛОКАЛЬНЫЕ СТИЛИ СТРАНИЦЫ === */
+
+        /* Переключение режимов (View / Edit) */
+        .mode-view { display: block; }
+        .mode-edit { display: none; width: 100%; gap: 10px; align-items: center; }
+
+        /* Класс редактирования на body */
+        body.editing .mode-view { display: none; }
+        body.editing .mode-edit { display: flex; }
+
+        /* Drag & Drop ручка (скрыта в режиме просмотра) */
+        .drag-handle {
+            display: none;
+            cursor: grab;
+            font-size: 18px;
+            color: #ccc;
+            margin-right: 8px;
+            user-select: none;
         }
-        .btn-add { background: #6366f1; color: white; }
-        .btn-add:hover { background: #4f46e5; }
-        .btn-edit { background: #475569; color: white; }
-        .btn-edit.active { background: #818cf8; }
-        .btn-save { background: #10b981; color: white; font-size: 16px; padding: 16px 36px; margin-top: 20px; }
-        .btn-save:hover { background: #059669; }
+        body.editing .drag-handle { display: inline-block; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background: #334155; padding: 16px; text-align: left; font-weight: 600; color: #cbd5e1; }
-        td { padding: 14px 16px; border-bottom: 1px solid #334155; vertical-align: middle; }
-        tr:hover { background: #334155; }
-        tr.dragging { opacity: 0.5; background: #6366f1; }
+        /* Стиль перетаскиваемой строки */
+        .draggable-row.dragging {
+            opacity: 0.5;
+            background: #eef2ff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
 
-        select { width: 100%; padding: 10px; background: #334155; color: white; border: 1px solid #475569; border-radius: 8px; font-size: 15px; }
-        select:focus { outline: none; border-color: #818cf8; }
+        /* Выпадающие списки внутри таблицы */
+        .sys-select {
+            width: 45%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 13px;
+            font-weight: 500;
+        }
 
-        .view-mode { font-weight: 500; }
-        .edit-mode { display: none; align-items: center; gap: 12px; }
-        .edit-mode.active { display: flex; }
-        .arrow { font-weight: bold; color: #818cf8; font-size: 18px; }
+        /* Бейджи для режима просмотра */
+        .sys-view-badge {
+            padding: 6px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #334155;
+        }
+        .arrow { font-weight:bold; color:#cbd5e1; font-size:1.2em; padding: 0 10px; }
+
+        /* Фикс обрезания выпадающих списков в таблице */
+        .task-table, .task-table tbody, .task-table tr, .task-table td {
+            overflow: visible !important;
+        }
+        .table-wrapper { min-height: 300px; padding-bottom: 100px; }
+
+        /* Кнопки в хедере */
+        .header-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .header-btn:hover { background: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h1>Организация сервиса</h1>
-        <div style="margin-top:8px; opacity:0.9;">Задача: <span id="task-num">—</span> (ID: <span id="task-id">—</span>)</div>
+<!-- HEADER -->
+<div style="height:60px; background:#2c3e50; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0;">
+    <div style="display:flex; align-items:center; gap:15px;">
+        <button onclick="window.location.href='task_tracker.html'" class="header-btn">← К задачам</button>
+        <h3 style="margin:0; color: #fff; border: none;">Организация сервиса</h3>
+        <span style="font-size:12px; color:#aaa;">ID задачи: <span id="task-id-display" style="color:#fff; font-weight: bold;">Loading...</span></span>
     </div>
+    <div id="success-msg" style="color:#4ade80; font-weight:bold; display:none;">Изменения сохранены!</div>
+</div>
 
-    <div class="content">
-        <div class="btn-group">
-            <button class="btn btn-add" onclick="addFlow()">Добавить поток</button>
-            <button class="btn btn-edit" id="edit-btn" onclick="toggleEdit()">Редактировать</button>
+<div class="main-content scroll-y">
+    <div class="form-section">
+
+        <!-- Toolbar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:15px;">
+            <h2 style="margin:0; border:none;">🧩 Интеграционные потоки</h2>
+            <div style="display:flex; gap:10px;">
+                <button id="btn-toggle" class="secondary" onclick="toggleEdit()">Редактировать структуру</button>
+                <button id="btn-save" onclick="saveAll()" style="background:#27ae60; color:white; display:none; font-weight:bold; padding:8px 20px;">💾 Сохранить изменения</button>
+            </div>
         </div>
 
-        <table>
-            <thead>
-            <tr>
-                <th width="60">#</th>
-                <th>Система-отправитель → Система-приёмник</th>
-                <th width="180">Действия</th>
-            </tr>
-            </thead>
-            <tbody id="flows-body"></tbody>
-        </table>
-
-        <div style="text-align:center; margin-top:30px;">
-            <button class="btn btn-save" onclick="saveFlows()">Сохранить потоки</button>
+        <!-- Edit Controls (Visible only in Edit) -->
+        <div id="edit-controls" style="margin-bottom:15px; display:none; background: #f0f9ff; padding: 10px; border-radius: 4px; border: 1px solid #bae6fd;">
+            <button onclick="addNewRow()" style="background:#3b82f6; color:white;">+ Добавить поток</button>
+            <span style="font-size:12px; color:#0f172a; margin-left:10px;">Перетаскивайте строки за иконку <b>☰</b> для смены порядка. Нажмите "Сохранить изменения" для записи в базу.</span>
         </div>
+
+        <!-- TABLE -->
+        <div class="table-wrapper">
+            <table class="task-table" id="flows_table">
+                <thead>
+                <tr>
+                    <th width="60">#</th>
+                    <th>Отправитель &rarr; Получатель</th>
+                    <th width="180" style="text-align:right;">Действия</th>
+                </tr>
+                </thead>
+                <tbody id="flows_body">
+                <!-- Сгенерируется скриптом -->
+                </tbody>
+            </table>
+
+            <!-- Пустое состояние -->
+            <div id="empty_state" style="padding:50px; text-align:center; color:#94a3b8; display:none;">
+                <div style="font-size:40px; margin-bottom:10px;">📭</div>
+                <p>Потоков нет. Нажмите «Редактировать структуру», чтобы добавить.</p>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
-    const urlParams = new URLSearchParams(location.search);
-    const taskId = urlParams.get('id');
-    if (!taskId) { alert('Ошибка: не указан ID задачи'); history.back(); }
+    // === ИНИЦИАЛИЗАЦИЯ ПАРАМЕТРОВ ===
+    const URL_PARAMS = new URLSearchParams(window.location.search);
+    const TASK_ID = URL_PARAMS.get('id');
 
-    document.getElementById('task-id').textContent = taskId;
-
-    let allSystems = [];
-    let isEditMode = false;
-    let currentFlows = []; // храним актуальные данные из БД
-
-    async function init() {
-        // Загружаем системы
-        const sysRes = await fetch('/api/systems');
-        allSystems = await sysRes.json();
-        allSystems.sort((a,b) => a.sid.localeCompare(b.sid));
-
-        // Загружаем задачу
-        const taskRes = await fetch(`/api/tasks/${taskId}`);
-        const task = await taskRes.json();
-        document.getElementById('task-num').textContent = task.task_number || '—';
-
-        // Загружаем потоки
-        await loadFlowsFromDB();
+    // Проверка ID
+    if (!TASK_ID) {
+        document.body.innerHTML = '<div style="padding:40px; text-align:center; color: #333;"><h2>Ошибка: ID задачи не передан.</h2><br><button onclick="window.location.href=\'task_tracker.html\'">Вернуться в список задач</button></div>';
+        throw new Error("No Task ID provided");
     }
 
-    async function loadFlowsFromDB() {
-        const res = await fetch(`/api/flows?task_id=${taskId}`);
-        currentFlows = await res.json(); // [{id, sender, receiver, order_num}, ...]
-        currentFlows.sort((a,b) => a.order_num - b.order_num);
+    $('#task-id-display').text(TASK_ID);
 
-        const tbody = document.getElementById('flows-body');
-        tbody.innerHTML = '';
-        currentFlows.forEach((flow, index) => {
-            addFlowRow(flow.sender, flow.receiver, flow.order_num);
+    // Глобальное состояние
+    let flows = [];       // Массив объектов потоков [{sender, receiver, id, order_num}, ...]
+    let systemsRef = [];  // Справочник систем (массив строк SIDs) загруженный с сервера
+    let isEditing = false;
+
+    // === STARTUP ===
+    $(function() {
+        loadReferenceData();
+    });
+
+    // === 1. ЗАГРУЗКА ДАННЫХ ИЗ БД (Server.groovy) ===
+
+    function loadReferenceData() {
+        // Сначала грузим системы для Select-ов
+        $.ajax({
+            url: '/api/systems',
+            type: 'GET',
+            success: function(data) {
+                // data = [{id: 1, sid: 'BS_CRM', description: '...'}, ...]
+                // Нам нужны только SID для выпадающих списков
+                systemsRef = data.map(s => s.sid).sort();
+
+                // После загрузки справочников - грузим потоки
+                loadFlows();
+            },
+            error: function(xhr) {
+                console.error("Ошибка загрузки систем", xhr);
+                alert("Не удалось загрузить справочник систем. Проверьте соединение с сервером.");
+            }
         });
-        if (currentFlows.length === 0) addFlowRow();
     }
 
-    function createSelect(selected = '') {
-        const sel = document.createElement('select');
-        allSystems.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.sid;
-            opt.textContent = s.sid + (s.description ? ` — ${s.description}` : '');
-            if (s.sid === selected) opt.selected = true;
-            sel.appendChild(opt);
+    function loadFlows() {
+        $.ajax({
+            url: '/api/flows?task_id=' + TASK_ID,
+            type: 'GET',
+            success: function(data) {
+                // data = [{id, sender, receiver, order_num}, ...]
+                flows = data;
+                render();
+            },
+            error: function(xhr) {
+                console.error("Ошибка загрузки потоков", xhr);
+                $('#flows_body').html('<tr><td colspan="3" style="color:red; text-align:center;">Ошибка загрузки данных</td></tr>');
+            }
         });
-        return sel;
     }
 
-    function addFlowRow(sender = '', receiver = '', orderNum = null) {
-        const tbody = document.getElementById('flows-body');
-        const tr = document.createElement('tr');
-        tr.draggable = true;
-        const displayNum = orderNum || (tbody.children.length + 1);
+    // === 2. ОТРИСОВКА (RENDER) ===
 
-        tr.innerHTML = `
-            <td class="num">${displayNum}</td>
-            <td>
-                <div class="view-mode">${sender || '—'} <span class="arrow">→</span> ${receiver || '—'}</div>
-                <div class="edit-mode">
-                    ${createSelect(sender).outerHTML}
-                    <span class="arrow">→</span>
-                    ${createSelect(receiver).outerHTML}
-                </div>
-            </td>
-            <td>
-                <button onclick="openDetails(${displayNum})"
-                        style="background:#6366f1; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; margin-right:8px;">
-                    Детали
-                </button>
-                <button onclick="this.closest('tr').remove(); updateNumbers()"
-                        style="color:#ef4444; background:none; border:none; cursor:pointer;">
-                    Удалить
-                </button>
-            </td>
-        `;
+    function render() {
+        const tbody = $('#flows_body').empty();
 
-        // Drag & Drop
-        tr.addEventListener('dragstart', () => tr.classList.add('dragging'));
-        tr.addEventListener('dragover', e => e.preventDefault());
-        tr.addEventListener('dragend', () => tr.classList.remove('dragging'));
-        tr.addEventListener('drop', e => {
+        if (!flows || flows.length === 0) {
+            $('#empty_state').show();
+            $('#flows_table').hide();
+        } else {
+            $('#empty_state').hide();
+            $('#flows_table').show();
+        }
+
+        flows.forEach((f, i) => {
+            const num = i + 1;
+
+            // Генерация опций для Select
+            // Важный момент: если в потоке сохранена система, которую уже удалили из справочника,
+            // мы должны добавить ее в select, иначе будет выбрано пустое поле.
+            const sOpts = getOptionsHtml(f.sender);
+            const rOpts = getOptionsHtml(f.receiver);
+
+            const tr = $(`
+                <tr class="draggable-row" data-idx="${i}" draggable="${isEditing}">
+                    <td style="vertical-align: middle;">
+                        <span class="drag-handle" title="Потяните для перемещения">☰</span>
+                        <b style="font-size:14px; color:#555;">${num}</b>
+                    </td>
+
+                    <td>
+                        <!-- Режим просмотра (READ ONLY) -->
+                        <div class="mode-view">
+                            <span class="sys-view-badge">${escapeHtml(f.sender) || '<span style="color:red;font-size:0.9em;">(не указано)</span>'}</span>
+                            <span class="arrow">&rarr;</span>
+                            <span class="sys-view-badge">${escapeHtml(f.receiver) || '<span style="color:red;font-size:0.9em;">(не указано)</span>'}</span>
+                        </div>
+
+                        <!-- Режим редактирования (INPUTS) -->
+                        <div class="mode-edit">
+                            <select class="sys-select inp-sender">
+                                ${sOpts}
+                            </select>
+                            <span class="arrow">&rarr;</span>
+                            <select class="sys-select inp-receiver">
+                                ${rOpts}
+                            </select>
+                        </div>
+                    </td>
+
+                    <td style="text-align:right;">
+                         <!-- Кнопка Детали доступна всегда, но отключается визуально при редактировании -->
+                         <button class="secondary btn-details" onclick="goDetails(${num})" ${isEditing ? 'disabled style="opacity:0.5;"' : ''} title="Настройка протоколов и маппинга">⚙ Параметры</button>
+
+                         <!-- Кнопка Удалить видна только в режиме редактирования -->
+                         <span class="mode-edit" style="display:none; margin-left: 10px;">
+                             <button class="danger" onclick="removeRow(${i})" title="Удалить строку">🗑</button>
+                         </span>
+                    </td>
+                </tr>
+            `);
+
+            // Явное переключение видимости элементов строки в зависимости от состояния
+            if (isEditing) {
+                tr.find('.mode-view').hide();
+                tr.find('.mode-edit').css('display', 'flex'); // Flex для выравнивания select-arrow-select
+            } else {
+                tr.find('.mode-view').show();
+                tr.find('.mode-edit').hide();
+            }
+
+            tbody.append(tr);
+        });
+
+        updateUIState();
+        // Инициализируем D&D заново, т.к. элементы пересозданы
+        initDragAndDrop();
+    }
+
+    // Генератор HTML опций для <select>
+    function getOptionsHtml(currentValue) {
+        // Клонируем массив, чтобы не мутировать глобальный
+        let list = [...systemsRef];
+
+        // Если текущее значение есть, но его нет в справочнике - добавляем его временно
+        if (currentValue && !list.includes(currentValue)) {
+            list.unshift(currentValue);
+        }
+
+        let html = '<option value="">-- Выберите --</option>';
+        list.forEach(sid => {
+            const selected = (sid === currentValue) ? 'selected' : '';
+            html += `<option value="${escapeHtml(sid)}" ${selected}>${escapeHtml(sid)}</option>`;
+        });
+        return html;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return $('<div>').text(text).html();
+    }
+
+    // === 3. УПРАВЛЕНИЕ UI (КНОПКИ) ===
+
+    window.toggleEdit = function() {
+        if (isEditing) {
+            // Попытка отмены
+            if (confirm("Выйти без сохранения? Все несохраненные изменения будут потеряны.")) {
+                isEditing = false;
+                loadFlows(); // Откат к данным сервера
+            }
+        } else {
+            // Вход в режим редактирования
+            isEditing = true;
+            render(); // Перерисовать с input-ами
+        }
+    }
+
+    function updateUIState() {
+        if (isEditing) {
+            $('body').addClass('editing');
+            $('#btn-toggle').text('Отмена').addClass('secondary'); // Стиль серой кнопки
+            $('#btn-save').show();
+            $('#edit-controls').slideDown(200);
+        } else {
+            $('body').removeClass('editing');
+            $('#btn-toggle').text('✏️ Редактировать структуру').removeClass('secondary');
+            $('#btn-save').hide();
+            $('#edit-controls').slideUp(200);
+        }
+    }
+
+    // === 4. ЛОГИКА СОХРАНЕНИЯ (POST) ===
+
+    window.saveAll = function() {
+        // Считываем данные из DOM-элементов (input/select), так как пользователь мог их менять
+        let flowsToSave = [];
+
+        $('#flows_body tr').each(function() {
+            const row = $(this);
+            const senderVal = row.find('.inp-sender').val();
+            const receiverVal = row.find('.inp-receiver').val();
+
+            // Пустые строки пропускать не обязательно, сервер сохранит как пустые строки или можно фильтровать
+            flowsToSave.push({
+                sender: senderVal || "",
+                receiver: receiverVal || ""
+            });
+        });
+
+        // Валидация (опционально)
+        // if (flowsToSave.length === 0) { return alert("Нет данных для сохранения"); }
+
+        const payload = {
+            task_id: parseInt(TASK_ID),
+            flows: flowsToSave
+        };
+
+        // Анимация сохранения
+        const btn = $('#btn-save');
+        const originalText = btn.text();
+        btn.text('Сохранение...').prop('disabled', true);
+
+        $.ajax({
+            url: '/api/flows',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(response) {
+                $('#success-msg').text(`Успешно сохранено (${response.saved} записей)`).fadeIn().delay(2000).fadeOut();
+
+                // Успех
+                isEditing = false;
+                loadFlows(); // Перезагрузить (получить свежие данные и order)
+            },
+            error: function(xhr) {
+                alert('Ошибка при сохранении: ' + xhr.responseText);
+            },
+            complete: function() {
+                btn.text(originalText).prop('disabled', false);
+            }
+        });
+    };
+
+    window.addNewRow = function() {
+        // Синхронизируем текущие инпуты в массив state перед ререндером
+        syncInputsToState();
+
+        // Добавляем пустую запись
+        flows.push({ sender: '', receiver: '' });
+
+        render();
+
+        // Скроллим вниз
+        $('html, body').animate({ scrollTop: $(document).height() }, 'fast');
+    };
+
+    window.removeRow = function(index) {
+        if(!confirm("Удалить этот поток?")) return;
+
+        syncInputsToState();
+
+        // Удаляем элемент массива
+        flows.splice(index, 1);
+
+        render();
+    };
+
+    // Helper: считывает состояние полей в переменную flows, чтобы не потерять ввод при ре-рендере
+    function syncInputsToState() {
+        let syncedFlows = [];
+        $('#flows_body tr').each(function() {
+            syncedFlows.push({
+                sender: $(this).find('.inp-sender').val(),
+                receiver: $(this).find('.inp-receiver').val(),
+                // ID сохраняем если есть (но при сохранении все равно старые удаляются и новые создаются по логике Server.groovy)
+                id: null
+            });
+        });
+        flows = syncedFlows;
+    }
+
+    // === 5. НАВИГАЦИЯ ===
+
+    window.goDetails = function(flowOrder) {
+        // Переходим на страницу деталей. flow_order соответствует order_num в БД.
+        window.location.href = `flow-details.html?task_id=${TASK_ID}&flow_order=${flowOrder}`;
+    };
+
+    // === 6. DRAG & DROP (NATIVE) ===
+    // Логика перемещения строк таблицы
+    function initDragAndDrop() {
+        const container = document.getElementById('flows_body');
+        let draggedItem = null;
+
+        // Ищем строки с классом draggable-row
+        const rows = container.querySelectorAll('.draggable-row');
+
+        rows.forEach(row => {
+            row.addEventListener('dragstart', function(e) {
+                if (!isEditing) {
+                    e.preventDefault();
+                    return;
+                }
+                draggedItem = row;
+                e.dataTransfer.effectAllowed = 'move';
+                // Небольшая задержка для визуала
+                setTimeout(() => row.classList.add('dragging'), 0);
+            });
+
+            row.addEventListener('dragend', function() {
+                row.classList.remove('dragging');
+                draggedItem = null;
+
+                // После окончания перетаскивания, нужно обновить массив flows в соответствии с новым DOM
+                // Так как мы сохраняем saveAll() считыванием из DOM, главное сейчас -
+                // пересчитать номера порядковые (визуально).
+                updateOrderNumbersVisual();
+            });
+
+            // Добавляем поддержку touch для мобилок (опционально, если jqueryui не используется)
+            // Для простоты здесь только нативный drag API
+        });
+
+        container.addEventListener('dragover', function(e) {
+            if (!isEditing) return;
             e.preventDefault();
-            const after = getDragAfter(tbody, e.clientY);
-            if (after == null) tbody.appendChild(tr);
-            else tbody.insertBefore(tr, after);
-            updateNumbers();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(draggedItem);
+            } else {
+                container.insertBefore(draggedItem, afterElement);
+            }
         });
-
-        tbody.appendChild(tr);
     }
 
-    function getDragAfter(container, y) {
-        const els = [...container.querySelectorAll('tr:not(.dragging)')];
-        return els.reduce((closest, child) => {
+    // Хелпер для определения позиции вставки
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.draggable-row:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
             const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) return { offset, element: child };
-            return closest;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
-    function updateNumbers() {
-        document.querySelectorAll('#flows-body tr').forEach((tr, i) => {
-            tr.querySelector('.num').textContent = i + 1;
+    // Пересчет визуальных номеров (1, 2, 3) после DnD
+    function updateOrderNumbersVisual() {
+        let index = 1;
+        $('#flows_body tr').each(function() {
+            $(this).find('td:first b').text(index++);
         });
     }
 
-    window.toggleEdit = function() {
-        isEditMode = !isEditMode;
-        document.querySelectorAll('.view-mode').forEach(el => el.style.display = isEditMode ? 'none' : 'block');
-        document.querySelectorAll('.edit-mode').forEach(el => el.classList.toggle('active', isEditMode));
-        document.getElementById('edit-btn').textContent = isEditMode ? 'Просмотр' : 'Редактировать';
-        document.getElementById('edit-btn').classList.toggle('active', isEditMode);
-    }
-
-    window.addFlow = () => addFlowRow();
-
-    window.openDetails = function(orderNum) {
-        location.href = `flow-details.html?task_id=${taskId}&flow_order=${orderNum}`;
-    }
-
-    window.saveFlows = async function() {
-        const flows = [];
-        let order = 1;
-        document.querySelectorAll('#flows-body tr').forEach(tr => {
-            let sender, receiver;
-            if (isEditMode) {
-                const selects = tr.querySelectorAll('select');
-                sender = selects[0].value;
-                receiver = selects[1].value;
-            } else {
-                const text = tr.querySelector('.view-mode').textContent;
-                [sender, receiver] = text.split('→').map(s => s.trim());
-                if (sender === '—') sender = '';
-                if (receiver === '—') receiver = '';
-            }
-            if (sender && receiver) {
-                flows.push({ sender, receiver, order_num: order++ });
-            }
-        });
-
-        await fetch('/api/flows', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_id: taskId, flows })
-        });
-
-        alert('Потоки успешно сохранены!');
-        await loadFlowsFromDB(); // перезагружаем из БД — 100% актуально
-        toggleEdit(); // выключаем режим редактирования
-    }
-
-    // Старт
-    init();
 </script>
+
 </body>
 </html>

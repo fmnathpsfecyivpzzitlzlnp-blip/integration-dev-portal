@@ -2,305 +2,559 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Ведение задач</title>
-    <link rel="stylesheet" href="libs/codemirror.min.css">
-    <link rel="stylesheet" href="libs/dracula.min.css">
+    <title>Ведение задач (DB Mode)</title>
+
+    <!-- Библиотеки: jQuery и CodeMirror -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/eclipse.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+
+    <!-- Общие стили -->
     <link rel="stylesheet" href="style.css">
+
     <style>
-        .CodeMirror { border: 1px solid #ccc; border-radius: 4px; height: auto; min-height: 200px; font-size: 14px; }
-        .comment-area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .comment-indicator { cursor: help; font-size: 1.2em; }
+        /* Специфичные стили для этой страницы */
 
-        /* Единая кнопка действий */
-        .task-actions-menu {
-            position: relative;
-            display: inline-block;
+        /* Фикс высоты редактора кода */
+        .CodeMirror {
+            border: 1px solid #d1d5db;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            height: 180px !important;
+            font-size: 13px;
+            font-family: 'Consolas', monospace;
         }
 
-        .menu-btn {
-            background: #6366f1;
-            color: white;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 20px;
-            font-weight: bold;
+        .editor-bar {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 6px rgba(99,102,241,0.3);
-            transition: all 0.2s;
-        }
-        .menu-btn:hover {
-            background: #4f46e5;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+            background: #f8f9fa;
+            border: 1px solid #d1d5db;
+            padding: 5px 10px;
+            border-radius: 4px 4px 0 0;
         }
 
-        .menu-content {
+        /* Меню в таблице */
+        .task-table td { overflow: visible; position: relative; }
+
+        .task-actions { position: relative; display: inline-block; }
+
+        .btn-menu {
+            background: #fff;
+            border: 1px solid #d1d5db;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+            font-size: 12px;
+        }
+        .btn-menu:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
+
+        .dropdown-content {
             display: none;
             position: absolute;
             right: 0;
-            top: 48px;
-            background: white;
-            min-width: 260px;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            border: 1px solid #e2e8f0;
-            overflow: hidden;
-            z-index: 9999;
+            top: 100%;
+            margin-top: 4px;
+            background-color: #fff;
+            min-width: 240px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            z-index: 100;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            text-align: left;
         }
 
-        .menu-content a {
-            display: flex;
-            align-items: center;
-            padding: 12px 18px;
-            color: #1e293b;
-            text-decoration: none;
-            font-size: 14.5px;
-            transition: background 0.2s;
-            gap: 12px;
+        .task-actions:hover .dropdown-content { display: block; }
+
+        /* Прозрачный мост для мыши, чтобы меню не закрывалось */
+        .dropdown-content::before {
+            content: ''; position: absolute; top: -10px; left: 0; width: 100%; height: 10px; background: transparent;
         }
 
-        .menu-content a:hover {
-            background: #f8fafc;
-        }
-
-        .menu-content a.danger {
-            color: #dc2626;
-        }
-
-        .menu-content a.danger:hover {
-            background: #fee2e2;
-        }
-
-        .task-actions-menu:hover .menu-content {
+        .dropdown-content a {
             display: block;
+            padding: 10px 16px;
+            color: #374151;
+            text-decoration: none;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+            transition: background 0.2s;
         }
+        .dropdown-content a:last-child { border-bottom: none; }
+        .dropdown-content a:hover { background-color: #eff6ff; color: #2563eb; }
 
-        /* Невидимый мостик — курсор не теряется */
-        .task-actions-menu::before {
-            content: '';
-            position: absolute;
-            left: 0; right: 0;
-            top: 40px;
-            height: 16px;
-            background: transparent;
-        }
+        .danger-action { color: #dc2626 !important; }
+        .danger-action:hover { background-color: #fef2f2 !important; }
+
+        /* Бейджи этапов и статусов */
+        .badge-stage { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #f3f4f6; color: #64748b; border: 1px solid #e2e8f0; font-weight: 600; }
     </style>
 </head>
 <body>
+
 <div class="main-content">
-    <div class="settings-section">
-        <h2>Настройки отправки</h2>
-        <div class="form-grid">
-            <div><label for="target-url">URL сервиса</label><input type="url" id="target-url"></div>
-            <div><label for="target-user">Пользователь</label><input type="text" id="target-user"></div>
-            <div><label for="target-password">Пароль</label><input type="password" id="target-password"></div>
-        </div>
-        <div class="button-bar"><button onclick="saveSettings()">Сохранить настройки</button><button class="secondary" onclick="sendTasks()">Отправить все задачи</button></div>
+
+    <!-- Верхняя панель навигации -->
+    <div style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="window.top.location.href='index.html'" class="secondary">🏠 На главную</button>
+        <div id="msg_box" style="color:#27ae60; font-weight:bold; display:none; padding: 5px 10px; background: #dcfce7; border-radius: 4px;">Успешно сохранено</div>
     </div>
 
+    <!-- Секция настроек -->
+    <div class="form-section" style="padding:10px 20px; margin-bottom:15px;">
+        <div onclick="$('#settings_panel').slideToggle()" style="cursor:pointer; font-weight:bold; color:#555; display:flex; align-items:center; user-select: none;">
+            ⚙️ Настройки интеграции <span style="margin-left:10px; font-size:10px; color:#999;">▼</span>
+        </div>
+        <div id="settings_panel" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #eee;">
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Параметры для пересылки задач (Sync API):</p>
+            <div class="form-grid">
+                <div><label>Target URL (POST /api/tasks)</label><input id="set_url" placeholder="http://remote-server:8080/api/tasks"></div>
+                <div><label>Basic Auth User</label><input id="set_user"></div>
+                <div><label>Basic Auth Password</label><input type="password" id="set_pass"></div>
+            </div>
+            <button onclick="saveGlobalSettings()" class="primary">Сохранить настройки</button>
+            <button onclick="syncToRemote()" class="secondary" title="Отправить все задачи на удаленный сервер">📤 Синхронизировать</button>
+        </div>
+    </div>
+
+    <!-- ФОРМА РЕДАКТИРОВАНИЯ ЗАДАЧИ -->
     <div class="form-section">
-        <h2>Форма задачи</h2>
-        <input type="hidden" id="task-id">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+            <h2 style="margin:0; border:none;">📝 Карточка Задачи</h2>
+            <button class="secondary" onclick="clearForm()">Очистить форму</button>
+        </div>
+
+        <!-- Скрытое поле ID для Update -->
+        <input type="hidden" id="t_id">
+
         <div class="form-grid">
-            <div><label for="user">Пользователь</label><input type="text" id="user" required></div>
-            <div><label for="task-url">URL на задачу</label><input type="url" id="task-url"></div>
-            <div><label for="task-number">Номер задачи</label><input type="text" id="task-number" required></div>
-            <div><label for="stage">Этап</label><select id="stage" onchange="updateStatusDropdown()"></select></div>
-            <div><label for="status">Статус</label><select id="status"></select></div>
-            <div><label for="deployment-date">Когда ставить на прод</label><input type="date" id="deployment-date"></div>
-            <div><label for="spec-url">Ссылка на спецификацию</label><input type="url" id="spec-url"></div>
-            <div><label for="contact-person">Ответственный от смежной системы</label><input type="text" id="contact-person"></div>
-            <div class="form-grid-full-width">
-                <div class="comment-area-header">
-                    <label for="additional-comment">Дополнительный комментарий</label>
-                    <div style="display:flex;align-items:center;">
-                        <label for="syntax-select" style="font-weight:normal;margin-right:5px;">Синтаксис:</label>
-                        <select id="syntax-select" style="width:auto;">
-                            <option value="text/x-java">Java</option>
-                            <option value="javascript">JavaScript</option>
-                            <option value="text/plain">Простой текст</option>
-                        </select>
-                        <button id="theme-toggle-btn" class="secondary" style="margin-left:10px;"></button>
-                    </div>
+            <div>
+                <label class="required">Разработчик (User)</label>
+                <input type="text" id="t_user" placeholder="Имя или Login">
+            </div>
+            <div>
+                <label class="required">Номер задачи (Key)</label>
+                <input type="text" id="t_num" placeholder="JIRA-123" style="font-weight:bold;">
+            </div>
+
+            <div>
+                <label>Этап (Pipeline)</label>
+                <select id="t_stage" onchange="updateStatuses()">
+                    <!-- Заполняется JS -->
+                </select>
+            </div>
+            <div>
+                <label>Статус</label>
+                <select id="t_status"></select>
+            </div>
+
+            <div><label>Ссылка на задачу</label><input type="text" id="t_link" placeholder="https://tracker..."></div>
+            <div><label>Контактное лицо</label><input type="text" id="t_contact" placeholder="Заказчик / Аналитик"></div>
+            <div><label>Ссылка на ТЗ (Wiki)</label><input type="text" id="t_wiki"></div>
+            <div><label>Дата установки (Plan/Fact)</label><input type="text" id="t_date" placeholder="DD.MM.YYYY"></div>
+        </div>
+
+        <!-- Блок комментария / Кода -->
+        <div class="form-grid-full-width" style="margin-top: 15px;">
+            <div class="editor-bar">
+                <span style="font-weight:600; color:#555; font-size:12px;">Техническое описание / SQL / JSON</span>
+                <div>
+                    <select onchange="cmEditor.setOption('mode', this.value)" style="width:auto; padding:2px; height:24px; font-size:11px; border: 1px solid #ccc;">
+                        <option value="text/x-java">Java / Groovy</option>
+                        <option value="application/json">JSON</option>
+                        <option value="application/xml">XML</option>
+                        <option value="text/x-sql">SQL</option>
+                        <option value="text/plain">Text</option>
+                    </select>
+                    <button class="secondary" onclick="toggleTheme()" style="padding:2px 8px; font-size:11px; height: 24px; line-height: 1;" id="thm_btn">🌙 Dark</button>
                 </div>
-                <textarea id="additional-comment"></textarea>
+            </div>
+            <textarea id="t_comment"></textarea>
+        </div>
+
+        <div class="button-bar" style="margin-top:20px;">
+            <button onclick="saveTask()" style="background:#27ae60; color:white; padding:10px 25px;">💾 Сохранить задачу</button>
+
+            <div style="margin-left:auto; display:flex; gap:10px;">
+                <button onclick="exportCSV()" style="background:#17a2b8; color:white;">📊 Скачать Excel</button>
+                <button class="secondary" onclick="$('#infoModal').fadeIn()">ℹ Справка статусов</button>
             </div>
         </div>
-        <div class="button-bar">
-            <div><button onclick="saveTask()">Сохранить задачу</button><button class="secondary" onclick="clearForm()">Очистить форму</button></div>
-            <div><a href="/api/tasks/export" download="tasks_export.xlsx"><button type="button" class="secondary">Выгрузить в Excel</button></a><button class="secondary" onclick="showInfoModal()">Инфо по статусам</button></div>
+    </div>
+
+    <!-- ТАБЛИЦА СПИСКА ЗАДАЧ -->
+    <div class="form-section" style="margin-top:20px;">
+        <h3 style="margin-top:0;">Список активных задач (DB)</h3>
+        <div style="display:flex; gap:10px; margin-bottom: 10px;">
+            <input id="search_inp" onkeyup="renderTable()" placeholder="🔍 Поиск по номеру, разработчику или статусу..." style="max-width: 400px;">
+            <button class="secondary" onclick="loadTasksFromDB()">🔄 Обновить</button>
+        </div>
+
+        <div class="table-container" style="min-height: 300px;">
+            <table class="task-table" id="tasks_t">
+                <thead>
+                <tr>
+                    <th width="50">ID</th>
+                    <th width="120">Разраб.</th>
+                    <th width="100">Задача</th>
+                    <th>Этап / Статус</th>
+                    <th>Информация</th>
+                    <th width="130">Обновлено</th>
+                    <th width="80" style="text-align:right;">Меню</th>
+                </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
         </div>
     </div>
 
-    <div class="tasks-section">
-        <h2>Список задач</h2>
-        <div style="margin-bottom:20px;"><input type="text" id="task-search-input" placeholder="Поиск по всем полям..."></div>
-        <table class="task-table">
-            <thead>
-            <tr>
-                <th data-sort="user">Пользователь</th>
-                <th data-sort="task_number">Номер задачи</th>
-                <th data-sort="stage">Этап</th>
-                <th data-sort="status">Статус</th>
-                <th title="Комментарий">Км</th>
-                <th data-sort="contact_person">Ответственный</th>
-                <th data-sort="spec_url">Спецификация</th>
-                <th data-sort="last_updated">Посл. изменение</th>
-                <th>Действия</th>
-            </tr>
-            </thead>
-            <tbody id="task-list"></tbody>
-        </table>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: СПРАВКА -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="$('#infoModal').fadeOut()">×</span>
+        <h2>Справка по жизненному циклу</h2>
+        <div id="info_content" style="line-height:1.6; font-size: 13px;"></div>
     </div>
 </div>
 
-<div id="infoModal" class="modal"><div class="modal-content"><span class="modal-close" onclick="closeInfoModal()">×</span><h2>Описание статусов</h2><div class="status-info-list" id="status-info-content"></div></div></div>
-<div id="responsePopup" class="notification"></div>
-
-<script src="libs/jquery-3.6.0.min.js"></script>
-<script src="libs/codemirror.min.js"></script>
-<script src="libs/clike.min.js"></script>
-<script src="libs/javascript.min.js"></script>
-
+<!-- SCRIPT -->
 <script>
-    const statusConfig = { "Этап 1: Очередь (Бэклог)": {"Новая": "Задача создана."}, "Этап 2: Аналитика и проектирование": {"Анализ": "Изучение требований.", "Проектирование / ТЗ": "Написание ТЗ.", "Согласование": "ТЗ на утверждении."}, "Этап 3: Разработка": {"В разработке": "Написание кода.", "Ревью кода / Peer Review": "Код на проверке."}, "Этап 4: Тестирование": {"Тестирование (DEV)": "Первичное тестирование.", "Готово к развертыванию (TEST)": "Готово к тесту.", "Тестирование (TEST)": "Идет тестирование.", "Приемка (UAT)": "На приемке."}, "Этап 5: Внедрение": {"Готово к внедрению (PROD)": "Готово к ПРОД.", "Внедрение": "Установка на ПРОД."}, "Этап 6: Завершение": {"Мониторинг / Поддержка": "Идет наблюдение.", "Закрыто": "Задача выполнена."}, "Специальные статусы": {"Приостановлено (On Hold)": "Приостановлена.", "Заблокировано (Blocked)": "Заблокирована.", "К уточнению (Needs Info)": "Требуется информация."}};
-    let allTasks = [], currentSort = { key: 'last_updated', order: 'desc' }, commentEditor;
+    // === КОНФИГУРАЦИЯ ===
+    const STAGES = {
+        "Этап 1: Очередь (Бэклог)": ["Новая", "Взято в работу", "Оценка", "В очереди"],
+        "Этап 2: Аналитика и проектирование": ["Анализ", "Проектирование / ТЗ", "Согласование"],
+        "Этап 3: Разработка": ["В разработке", "Ревью кода / Peer Review", "Исправление"],
+        "Этап 4: Тестирование": ["Тестирование (DEV)", "Готово к развертыванию (TEST)", "Тестирование (TEST)", "Приемка (UAT)"],
+        "Этап 5: Внедрение": ["Готово к внедрению (PROD)", "Внедрение", "Успешно завершено"],
+        "Этап 6: Завершение": ["Мониторинг / Поддержка", "Закрыто"],
+        "Специальные статусы": ["Приостановлено (On Hold)", "Заблокировано (Blocked)", "К уточнению (Needs Info)", "Отменено"]
+    };
 
-    $(function(){
-        const savedTheme = localStorage.getItem('codeMirrorTheme') || 'dracula';
-        commentEditor = CodeMirror.fromTextArea(document.getElementById('additional-comment'),{lineNumbers:true,mode:"text/x-java",theme:savedTheme,indentUnit:4,matchBrackets:true,lineWrapping:true});
-        commentEditor.setSize(null, "200px");
-        const themeBtn=$('#theme-toggle-btn');
-        function updateThemeBtn(theme){ themeBtn.text(theme==='dracula'?'Светлая тема':'Темная тема');}
-        updateThemeBtn(savedTheme);
-        themeBtn.on('click',()=>{const newTheme=commentEditor.getOption("theme")==='dracula'?'default':'dracula';commentEditor.setOption("theme",newTheme);updateThemeBtn(newTheme);localStorage.setItem('codeMirrorTheme',newTheme);});
-        $('#syntax-select').on('change',function(){commentEditor.setOption("mode",$(this).val());});
-        populateStageDropdown();updateStatusDropdown();loadTasks();loadSettings();
-        $('#task-search-input').on('input',e=>{const q=e.target.value.toLowerCase(),f=allTasks.filter(t=>Object.values(t).some(v=>String(v||'').toLowerCase().includes(q)));renderTasks(f);});
-        $('.task-table th[data-sort]').on('click',function(){const sortKey=$(this).data('sort'),header=$(this).text().replace(/ [▲▼]/,'');$('.task-table th[data-sort]').each(function(){$(this).text($(this).text().replace(/ [▲▼]/,''));});currentSort={key:sortKey,order:currentSort.key===sortKey&&currentSort.order==='asc'?'desc':'asc'};$(this).text(header+(currentSort.order==='asc'?' ▲':' ▼'));$('#task-search-input').trigger('input');});
+    // Глобальное состояние
+    let tasks = [];
+    let cmEditor;
+    let darkTheme = true;
+
+    // === INITIALIZATION ===
+    $(function() {
+        // 1. Настройка редактора CodeMirror
+        cmEditor = CodeMirror.fromTextArea(document.getElementById('t_comment'), {
+            mode: "text/x-java",
+            lineNumbers: true,
+            theme: "dracula",
+            lineWrapping: true,
+            viewportMargin: Infinity
+        });
+
+        // 2. Инициализация выпадающих списков
+        const stg = $('#t_stage');
+        stg.empty();
+        for(let key in STAGES) {
+            stg.append(new Option(key, key));
+        }
+        updateStatuses();
+
+        // 3. Генерация справки
+        const hlp = $('#info_content');
+        for(let key in STAGES) {
+            hlp.append(`<div><strong style="color:#333;">${key}</strong>: <span style="color:#666;">${STAGES[key].join(', ')}</span></div>`);
+        }
+
+        // 4. Загрузка данных с сервера (SQLite через Server.groovy)
+        loadSettings();
+        loadTasksFromDB();
     });
 
-    function renderTasks(tasks){
-        const list=$('#task-list').empty();
-        if(!tasks || tasks.length===0){ list.append('<tr><td colspan="9" style="text-align:center;color:#999;">Нет задач</td></tr>'); return; }
+    // Обновление списка статусов при смене этапа
+    function updateStatuses() {
+        const k = $('#t_stage').val();
+        const vals = STAGES[k] || [];
+        const sts = $('#t_status').empty();
+        vals.forEach(v => sts.append(new Option(v, v)));
+    }
 
-        tasks.sort((a,b)=>{
-            let vA=a[currentSort.key]||'', vB=b[currentSort.key]||'';
-            if(currentSort.key==='last_updated') return currentSort.order==='asc'?new Date(vA)-new Date(vB):new Date(vB)-new Date(vA);
-            if(vA<vB) return currentSort.order==='asc'?-1:1;
-            if(vA>vB) return currentSort.order==='asc'?1:-1;
-            return 0;
-        });
+    // Тема редактора
+    function toggleTheme() {
+        darkTheme = !darkTheme;
+        cmEditor.setOption('theme', darkTheme ? 'dracula' : 'eclipse');
+        $('#thm_btn').text(darkTheme ? '🌙 Dark' : '☀️ Light');
+    }
 
-        tasks.forEach(t=>{
-            const upd = new Date(t.last_updated).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-            const spec = t.spec_url ? `<a href="${t.spec_url}" target="_blank">Ссылка</a>` : '';
-            const comm = t.additional_comment && t.additional_comment.trim()!=='' ? `<span class="comment-indicator" title="${t.additional_comment.replace(/"/g,'&quot;')}">💬</span>` : '';
+    // === API INTERACTION (Server.groovy) ===
 
-            const row = `<tr data-task-id="${t.id}">
-                <td>${t.user||''}</td>
-                <td><a href="${t.task_url||'#'}" target="_blank">${t.task_number||''}</a></td>
-                <td>${t.stage||''}</td>
-                <td>${t.status||''}</td>
-                <td>${comm}</td>
-                <td>${t.contact_person||''}</td>
-                <td>${spec}</td>
-                <td>${upd}</td>
-                <td style="text-align: right; padding: 8px;">
-                    <div class="task-actions-menu">
-                        <button class="menu-btn" title="Действия">...</button>
-                        <div class="menu-content">
-                            <a href="#" onclick="loadTaskToForm(${t.id}); return false;">
-                                Изменить задачу
-                            </a>
-                            <a href="#" onclick="duplicateTask(${t.id}); return false;">
-                                Дублировать
-                            </a>
-                            <a href="service-org.html?id=${t.id}" target="_blank" >
-                                Организация сервиса
-                            </a>
-                            <a href="#" onclick="if(confirm('Удалить задачу навсегда?')) deleteTask(${t.id}); return false;" class="danger">
-                                Удалить
-                            </a>
-                        </div>
-                    </div>
-                </td>
-            </tr>`;
-            list.append(row);
+    function loadTasksFromDB() {
+        $('#tbody').html('<tr><td colspan="7" style="text-align:center; color:#888; padding:20px;">Загрузка данных из базы...</td></tr>');
+
+        $.get('/api/tasks', function(data) {
+            // Server.groovy возвращает массив JSON объектов
+            tasks = data;
+            renderTable();
+        }).fail(function(xhr) {
+            $('#tbody').html('<tr><td colspan="7" style="text-align:center; color:#e74c3c; padding:20px;">Ошибка загрузки данных! Проверьте консоль.</td></tr>');
+            console.error("Load error:", xhr);
         });
     }
 
-    // === НОВЫЕ ФУНКЦИИ ===
-    function copyTaskToForm(id) {
-        const task = allTasks.find(t => t.id === id);
-        if (task) {
-            editTask(task);
-            showPopup("Задача скопирована в форму сверху ↑");
-        }
+    function saveTask() {
+        const id = $('#t_id').val();
+        const u = $('#t_user').val();
+        const n = $('#t_num').val();
+
+        // Валидация
+        if(!u || !n) return alert('Ошибка: Поля "Разработчик" и "Номер задачи" обязательны.');
+
+        // Формирование объекта для отправки
+        // Имена полей должны совпадать с тем, что ждет Server.groovy в handleRequest('/api/tasks', POST)
+        const taskData = {
+            id: id ? parseInt(id) : null, // Важно: число или null
+            user: u,
+            task_number: n,
+            stage: $('#t_stage').val(),
+            status: $('#t_status').val(),
+            task_url: $('#t_link').val(),
+            contact_person: $('#t_contact').val(),
+            spec_url: $('#t_wiki').val(),
+            deployment_date: $('#t_date').val(),
+            additional_comment: cmEditor.getValue()
+        };
+
+        $.ajax({
+            url: '/api/tasks',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(taskData),
+            success: function(res) {
+                $('#msg_box').text('Задача успешно сохранена').fadeIn().delay(2000).fadeOut();
+                clearForm();
+                // Перечитываем список, чтобы получить корректный ID новой задачи и даты
+                loadTasksFromDB();
+            },
+            error: function(xhr) {
+                alert('Ошибка сохранения: ' + xhr.responseText);
+            }
+        });
     }
 
-    function duplicateTask(id) {
-        const task = allTasks.find(t => t.id === id);
-        if (task) {
-            delete task.id;
-            task.task_number += " (копия)";
-            editTask(task);
-            showPopup("Задача готова к дублированию — измените номер и сохраните");
-        }
+    function deleteT(id) {
+        if(!confirm('Вы уверены? Задача будет удалена из базы данных безвозвратно.')) return;
+
+        $.ajax({
+            url: '/api/tasks',
+            type: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({ id: parseInt(id) }),
+            success: function() {
+                loadTasksFromDB();
+            },
+            error: function(xhr) {
+                alert('Ошибка удаления: ' + xhr.responseText);
+            }
+        });
     }
 
-    function openInGenerator(taskNumber) {
-        window.open(`example-generator.html?template=${encodeURIComponent(taskNumber)}`, "_blank");
+    // Клонирование задачи (Создание новой копии в БД)
+    window.cloneDeep = function(oldId) {
+        const oldT = tasks.find(x => x.id == oldId);
+        if(!oldT) return;
+        if(!confirm(`Создать копию задачи ${oldT.task_number}?`)) return;
+
+        // Копируем данные, меняем номер, стираем ID
+        const newTask = {
+            ...oldT,
+            id: null, // Будет создан новый ID
+            task_number: oldT.task_number + '_COPY',
+            status: 'Новая',
+            user: oldT.user + ' (Clone)'
+        };
+
+        $.ajax({
+            url: '/api/tasks',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(newTask),
+            success: function() {
+                alert('Копия создана');
+                loadTasksFromDB();
+            },
+            error: function(e) { alert("Ошибка клонирования"); }
+        });
     }
 
-    // Остальные функции без изменений
-    function populateStageDropdown(){Object.keys(statusConfig).forEach(s=>$('#stage').append($('<option>',{value:s,text:s})));}
-    function updateStatusDropdown(){const sS=$('#status').empty(),sel=$('#stage').val();if(sel&&statusConfig[sel])Object.keys(statusConfig[sel]).forEach(s=>sS.append($('<option>',{value:s,text:s})));}
-    function clearForm(){$('#task-id,#user,#task-url,#task-number,#deployment-date,#spec-url,#contact-person').val('');commentEditor.setValue('');$('#stage').prop('selectedIndex',0);updateStatusDropdown();}
-    async function loadTasks(){try{const r=await fetch('/api/tasks');if(!r.ok)throw new Error('Ошибка загрузки');allTasks=await r.json();renderTasks(allTasks);}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    function editTask(t){$('#task-id').val(t.id||'');$('#user').val(t.user||'');$('#task-url').val(t.task_url||'');$('#task-number').val(t.task_number||'');$('#deployment-date').val(t.deployment_date||'');commentEditor.setValue(t.additional_comment||'');$('#spec-url').val(t.spec_url||'');$('#contact-person').val(t.contact_person||'');$('#stage').val(t.stage||'');updateStatusDropdown();$('#status').val(t.status||'');window.scrollTo(0,0);}
-    async function saveTask(){const t={id:$('#task-id').val()||null,user:$('#user').val(),task_url:$('#task-url').val(),task_number:$('#task-number').val(),stage:$('#stage').val(),status:$('#status').val(),deployment_date:$('#deployment-date').val(),additional_comment:commentEditor.getValue(),spec_url:$('#spec-url').val(),contact_person:$('#contact-person').val()};if(!t.user||!t.task_number)return alert('Поля "Пользователь" и "Номер задачи" обязательны.');try{const r=await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)});if(!r.ok)throw new Error('Ошибка сохранения');showPopup('Задача сохранена!');clearForm();loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    async function deleteTask(id){if(!confirm('Удалить задачу?'))return;try{const r=await fetch('/api/tasks',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error('Ошибка удаления');showPopup('Удалено.');loadTasks();}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    async function loadSettings(){try{const r=await fetch('/api/tasks/settings');const s=await r.json();$('#target-url').val(s.target_url||'');$('#target-user').val(s.target_user||'');$('#target-password').val(s.target_password||'');}catch(e){}}
-    async function saveSettings(){const s={target_url:$('#target-url').val(),target_user:$('#target-user').val(),target_password:$('#target-password').val()};try{await fetch('/api/tasks/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});showPopup('Настройки сохранены!');}catch(e){showPopup('Ошибка сохранения',true);}}
-    async function sendTasks(){if(!confirm('Отправить все задачи?'))return;try{const r=await fetch('/api/tasks/send',{method:'POST'});const res=await r.json();if(r.ok)showPopup(`Отправлено. Статус: ${res.statusCode}`);else throw new Error(res.message||'Ошибка');}catch(e){showPopup(`Ошибка: ${e.message}`,true);}}
-    function showInfoModal(){const c=$('#status-info-content').empty();Object.keys(statusConfig).forEach(stage=>{const dl=$('<dl>').append($('<h3>').text(stage));Object.keys(statusConfig[stage]).forEach(status=>{dl.append($('<dt>').text(status)).append($('<dd>').text(statusConfig[stage][status]));});c.append(dl);});$('#infoModal').show();}
-    function closeInfoModal(){$('#infoModal').hide();}
-    let pT;function showPopup(msg,isErr=false){clearTimeout(pT);const p=$('#responsePopup').text(msg).show().removeClass('error');if(isErr)p.addClass('error');pT=setTimeout(()=>p.fadeOut(),4000);}
-    function copyTaskToForm(id) {
-        const task = allTasks.find(t => t.id === id);
-        if (task) editTask(task);
-        showPopup("Задача скопирована в форму");
+    // Настройки приложения (сохраняются в таблицу task_settings)
+    function loadSettings() {
+        $.get('/api/tasks/settings', function(data) {
+            if(data.target_url) $('#set_url').val(data.target_url);
+            if(data.target_user) $('#set_user').val(data.target_user);
+            // Пароль не показываем в явном виде или поле пустое
+        });
     }
 
-    function duplicateTask(id) {
-        const task = allTasks.find(t => t.id === id);
-        if (!task) return;
-        delete task.id;
-        task.task_number += " (копия)";
-        editTask(task);
-        showPopup("Готово к сохранению дубликата");
+    function saveGlobalSettings() {
+        const s = {
+            target_url: $('#set_url').val(),
+            target_user: $('#set_user').val(),
+            target_password: $('#set_pass').val()
+        };
+        $.ajax({
+            url: '/api/tasks/settings',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(s),
+            success: () => alert('Настройки сохранены в базе!')
+        });
     }
 
-    function openGenerator(num) {
-        window.open(`example-generator.html?template=${encodeURIComponent(num)}`, "_blank");
+    function syncToRemote() {
+        if(!confirm('Отправить все локальные задачи на удаленный сервер?')) return;
+        $.post('/api/tasks/send', {}, function(res) {
+            alert('Результат синхронизации: Code ' + res.statusCode);
+        }).fail(() => alert('Ошибка отправки'));
     }
-    // Надёжное копирование задачи в форму по ID
-    function loadTaskToForm(id) {
-        const task = allTasks.find(t => t.id === id);
-        if (!task) {
-            showPopup("Задача не найдена", true);
+
+    window.exportCSV = function() {
+        // Вызов серверного эндпоинта, который генерирует XLSX
+        window.location.href = '/api/tasks/export';
+    }
+
+    // === FORM MANAGEMENT ===
+
+    function editT(id) {
+        const t = tasks.find(x => x.id == id);
+        if(!t) return;
+
+        // Заполнение полей (ключи соответствуют JSON с сервера)
+        $('#t_id').val(t.id);
+        $('#t_user').val(t.user);
+        $('#t_num').val(t.task_number);
+
+        $('#t_stage').val(t.stage);
+        updateStatuses(); // Обновить зависимый список
+        $('#t_status').val(t.status);
+
+        $('#t_link').val(t.task_url);
+        $('#t_contact').val(t.contact_person);
+        $('#t_wiki').val(t.spec_url);
+        $('#t_date').val(t.deployment_date);
+
+        cmEditor.setValue(t.additional_comment || '');
+
+        window.scrollTo(0,0); // Прокрутка вверх к форме
+        $('#t_num').focus(); // Фокус
+    }
+
+    function clearForm() {
+        $('input').val('');
+        $('#t_id').val(''); // Сброс ID важен для режима "Создание"
+        cmEditor.setValue('');
+        $('#t_stage').prop('selectedIndex', 0);
+        updateStatuses();
+    }
+
+    // === TABLE RENDERING ===
+
+    function renderTable() {
+        const tb = $('#tbody').empty();
+        const q = $('#search_inp').val().toLowerCase().trim();
+
+        // Фильтрация на клиенте
+        const list = tasks.filter(x => {
+            if (!q) return true;
+            const num = (x.task_number || '').toLowerCase();
+            const usr = (x.user || '').toLowerCase();
+            const sts = (x.status || '').toLowerCase();
+            return num.includes(q) || usr.includes(q) || sts.includes(q);
+        });
+
+        if(list.length === 0) {
+            tb.html('<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Задач не найдено</td></tr>');
             return;
         }
-        editTask(task);
-        showPopup("Задача загружена в форму для редактирования");
+
+        // Сортировка по дате обновления (сверху новые) - но сервер уже сортирует
+        // Оставим порядок массива как есть
+
+        list.forEach(t => {
+            // Определение цвета бейджа
+            let bc = 'b-gray';
+            const st = t.status || '';
+            if(st.includes('Новая') || st.includes('Взято')) bc = 'b-blue';
+            else if(st.includes('Готово') || st.includes('Внедрение') || st === 'Закрыто') bc = 'b-green'; // b-prod
+            else if(st.includes('Blocked') || st.includes('Отменено') || st.includes('Приостановлено')) bc = 'b-red';
+            else if(t.stage && t.stage.includes('Тестирование')) bc = 'b-test'; // b-yellow
+
+            const lastUpd = t.last_updated ? t.last_updated : '-';
+
+            // Безопасная вставка (экранирование)
+            const sUser = escapeHtml(t.user);
+            const sNum = escapeHtml(t.task_number);
+            const sLink = t.task_url || '#';
+            const sStage = escapeHtml((t.stage || '').split(':')[0]); // Краткое название этапа
+            const sStatus = escapeHtml(st);
+
+            const contactsHtml = [];
+            if(t.contact_person) contactsHtml.push(`<div>👤 ${escapeHtml(t.contact_person)}</div>`);
+            if(t.spec_url) contactsHtml.push(`<div>📄 <a href="${t.spec_url}" target="_blank">ТЗ / Wiki</a></div>`);
+
+            const html = `
+                <tr>
+                    <td style="font-size:11px; color:#aaa;">${t.id}</td>
+                    <td><b>${sUser}</b></td>
+                    <td>
+                        <a href="${sLink}" target="_blank" style="font-weight:bold; color:#2c3e50; text-decoration:none;">${sNum}</a>
+                    </td>
+                    <td>
+                        <span class="badge-stage">${sStage}</span>
+                        <div style="margin-top:4px;"><span class="badge ${bc}">${sStatus}</span></div>
+                    </td>
+                    <td style="font-size:12px; line-height:1.4;">
+                        ${contactsHtml.join('')}
+                    </td>
+                    <td style="font-size:11px; color:#555;">${lastUpd}</td>
+                    <td style="text-align:right; vertical-align:middle; padding-right:15px;">
+                        <div class="task-actions">
+                            <button class="btn-menu">Меню ▼</button>
+                            <div class="dropdown-content">
+                                <a href="#" onclick="editT(${t.id})">✏️ Редактировать</a>
+                                <a href="#" onclick="cloneDeep(${t.id})">📑 Клонировать (Копия)</a>
+                                <div style="border-top:1px solid #eee; margin:4px 0;"></div>
+
+                                <a href="service-org.html?id=${t.id}">🧩 Интеграционные потоки</a>
+                                <a href="spec_generator.html?task_id=${t.id}">📄 Генератор документации (ТЗ)</a>
+
+                                <div style="border-top:1px solid #eee; margin:4px 0;"></div>
+                                <a href="#" onclick="deleteT(${t.id})" class="danger-action">🗑 Удалить</a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            tb.append(html);
+        });
     }
 
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
+
 </body>
 </html>

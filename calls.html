@@ -3,68 +3,94 @@
 <head>
     <title>Выполнение HTTP вызовов</title>
     <meta charset="UTF-8">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Общие стили -->
     <link rel="stylesheet" href="style.css">
+
     <style>
+        /* Локальные стили */
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
         .main-action-btn {
             background: #007bff;
             color: white;
             border: none;
             padding: 12px 24px;
             font-size: 1.1em;
+            font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
         }
-        .main-action-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-        }
+        .main-action-btn:hover { background: #0056b3; }
+        .main-action-btn:disabled { background: #6c757d; cursor: not-allowed; }
+
         #dataRules-section {
             margin-top: 20px;
-            border: 1px solid #ddd;
+            border: 1px solid #e0e0e0;
             border-radius: 6px;
             padding: 15px;
-            background: #f8f9fa;
+            background: #f9fbfd;
         }
-        #dataRules-section h2 {
-            margin-top: 0;
-            color: #495057;
-        }
+
+        /* Стили полей ввода кода */
         textarea {
             width: 100%;
-            min-height: 100px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.95em;
+            min-height: 120px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
             resize: vertical;
+            box-sizing: border-box;
+            background-color: #fff;
+            color: #333;
         }
+
         .form-row {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             gap: 10px;
         }
         .form-row label {
-            min-width: 180px;
+            min-width: 160px;
             font-weight: 600;
+            font-size: 13px;
+            color: #333;
         }
         .form-row input, .form-row select {
             flex: 1;
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
+            font-size: 13px;
         }
+
         #calls-page-container {
             display: flex;
             flex-direction: column;
             gap: 20px;
+            padding-bottom: 20px;
         }
+
         #calls-page-row {
             display: flex;
             gap: 20px;
             flex-wrap: wrap;
         }
+
         #calls-page-column {
             flex: 1;
             min-width: 300px;
@@ -72,47 +98,71 @@
             flex-direction: column;
             gap: 20px;
         }
+
         .form-section {
             background: white;
-            padding: 15px;
+            padding: 20px;
             border: 1px solid #ddd;
             border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
+        .form-section h2 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
         #log-output {
-            background: #f1f1f1;
-            border: 1px solid #ddd;
+            background: #2d2d2d;
+            color: #f8f8f2;
+            border: 1px solid #444;
             padding: 15px;
-            min-height: 200px;
-            font-family: 'Courier New', monospace;
+            min-height: 300px;
+            font-family: 'Consolas', monospace;
             white-space: pre-wrap;
             border-radius: 6px;
-            margin-top: 10px;
-            color: #333;
+            margin-top: 20px;
+            font-size: 13px;
+            overflow-y: auto;
+            max-height: 600px;
         }
+
+        .error-border { border-color: #e74c3c !important; background-color: #fff5f5; }
     </style>
 </head>
 <body id="calls-page">
-<div class="main-content">
-    <h2>Выполнение множественных HTTP вызовов</h2>
+
+<!-- Скроллируемая область -->
+<div class="main-content scroll-y">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <h2 style="margin: 0; border: none;">Генератор Вызовов</h2>
+    </div>
 
     <div id="calls-page-container">
-        <div class="form-section">
-            <div class="form-row">
-                <label for="config-select">Выберите готовую конфигурацию:</label>
+
+        <!-- Верхняя панель управления пресетами -->
+        <div class="form-section" style="padding: 15px;">
+            <div class="form-row" style="margin-bottom: 0;">
+                <label for="config-select">Быстрые шаблоны:</label>
                 <select id="config-select">
-                    <option value="custom">-- Пользовательская --</option>
-                    <option value="rest">REST/JSON (httpbin.org)</option>
-                    <option value="soap">SOAP/XML (NumberConversion)</option>
+                    <option value="custom">-- Текущая конфигурация --</option>
+                    <option value="rest">REST Example (JSON POST)</option>
+                    <option value="soap">SOAP Example (XML)</option>
                 </select>
-                <button id="clear-state-btn" style="margin-left: 15px; padding: 8px 16px;">Сбросить форму</button>
+                <button id="clear-state-btn" class="secondary" style="margin-left: 15px;">🧹 Очистить форму</button>
             </div>
         </div>
 
         <div id="calls-page-row">
+            <!-- Левая колонка: Основные настройки -->
             <div id="calls-page-column">
                 <div class="form-section">
-                    <div class="form-row"><label for="url">URL сервиса:</label><input type="text" id="url" placeholder="https://example.com/api"></div>
+                    <h2>Настройки соединения</h2>
+                    <div class="form-row"><label for="url">URL Сервиса:</label><input type="text" id="url" placeholder="http://localhost:8080/api/test"></div>
                     <div class="form-row"><label for="method">HTTP Метод:</label>
                         <select id="method">
                             <option value="POST">POST</option>
@@ -122,271 +172,246 @@
                             <option value="DELETE">DELETE</option>
                         </select>
                     </div>
-                    <div class="form-row"><label for="numRequests">Кол-во запросов:</label><input type="number" id="numRequests" value="1" min="1" max="1000"></div>
-                    <div class="form-row"><label for="csName">Имя сценария (CS):</label><input type="text" id="csName" placeholder="Для группировки в истории"></div>
-                    <div class="form-row"><label for="bsName">Имя системы (BS):</label><input type="text" id="bsName" placeholder="Для информации в истории"></div>
-                    <div class="form-row"><label for="interfaceName">Интерфейс:</label><input type="text" id="interfaceName" placeholder="Например: CreateOrder"></div>
+                    <div class="form-row"><label for="numRequests">Кол-во итераций:</label><input type="number" id="numRequests" value="1" min="1" max="100"></div>
+                    <hr style="margin: 15px 0; border:0; border-top:1px solid #eee;">
+                    <div class="form-row"><label for="csName" title="Группа истории">Scenario Name (CS):</label><input type="text" id="csName" placeholder="Группировка в истории"></div>
+                    <div class="form-row"><label for="bsName">System Name (BS):</label><input type="text" id="bsName" placeholder="Например: BS_CRM"></div>
+                    <div class="form-row"><label for="interfaceName">Interface:</label><input type="text" id="interfaceName" placeholder="Например: CreateClient"></div>
                 </div>
 
                 <div class="form-section">
-                    <h2>Управление учетными данными (Basic Auth)</h2>
-                    <div class="form-row">
+                    <div style="display:flex; justify-content:space-between;">
+                        <h2>🔐 Basic Auth</h2>
+                        <span style="font-size:11px; color:#999; align-self:center;">Хранится в БД (SQLite)</span>
+                    </div>
+
+                    <div class="form-row" style="background:#f8f9fa; padding:10px; border-radius:4px; border:1px solid #eee;">
                         <label for="credentials-select">Выбрать сохраненные:</label>
                         <select id="credentials-select"><option value="">-- Новые --</option></select>
-                        <button id="delete-credential-btn" style="margin-left:10px;" disabled>Удалить</button>
                     </div>
-                    <div class="form-row">
-                        <label for="credential-name">Имя для сохранения:</label>
-                        <input type="text" id="credential-name" placeholder="Например: TEST_ENV">
-                        <button id="save-credential-btn" style="margin-left:10px;">Сохранить</button>
+
+                    <div style="margin: 15px 0; padding:0 5px;">
+                        <div class="form-row"><label for="credential-name">Имя для БД:</label><input type="text" id="credential-name" placeholder="TEST_ENV_USER"></div>
+                        <div class="form-row"><label for="login">Логин:</label><input type="text" id="login"></div>
+                        <div class="form-row"><label for="password">Пароль:</label><input type="password" id="password"></div>
                     </div>
-                    <div class="form-row"><label for="login">Логин:</label><input type="text" id="login"></div>
-                    <div class="form-row"><label for="password">Пароль:</label><input type="password" id="password"></div>
+
+                    <div style="display:flex; justify-content: flex-end; gap:10px;">
+                        <button id="delete-credential-btn" class="danger" disabled>Удалить из БД</button>
+                        <button id="save-credential-btn" class="success">Сохранить в БД</button>
+                    </div>
                 </div>
             </div>
 
+            <!-- Правая колонка: Тело и Заголовки -->
             <div id="calls-page-column">
                 <div class="form-section">
-                    <h2>Заголовки (Headers)</h2>
-                    <textarea id="headers" placeholder='{
-  "Content-Type": "application/json",
-  "Accept": "application/json"
-}'>{"Content-Type": "application/json"}</textarea>
+                    <h2>Headers (JSON формат)</h2>
+                    <textarea id="headers" placeholder='{ "Content-Type": "application/json" }'>{"Content-Type": "application/json"}</textarea>
                 </div>
 
                 <div class="form-section" style="flex-grow:1; display:flex; flex-direction:column;">
-                    <h2 style="margin-bottom:10px;">Шаблон тела запроса</h2>
+                    <h2>Template Body</h2>
+                    <div style="font-size:12px; color:#666; margin-bottom:10px;">
+                        Используйте плейсхолдеры ##key## для генерации данных.
+                    </div>
                     <textarea id="template" style="flex-grow:1;" placeholder='{
-  "userId": "##userId##",
-  "name": "##userName##",
-  "transactionId": "##transactionId##"
+  "id": "##req_id##",
+  "name": "##user_name##",
+  "timestamp": "##now##"
 }'></textarea>
                 </div>
             </div>
         </div>
 
+        <!-- Секция правил генерации -->
         <div class="form-section" id="dataRules-section">
-            <h2>Правила генерации данных</h2>
+            <h2>⚙️ Правила генерации данных (Data Generator)</h2>
+            <p style="font-size:12px; color:#666;">Опишите, как заполнять плейсхолдеры в цикле. Формат JSON.</p>
             <textarea id="dataRules" placeholder='{
-  "userId": { "type": "increment", "start": 1001, "step": 1 },
-  "userName": { "type": "random", "values": ["Alice", "Bob", "Charlie"] },
-  "transactionId": { "type": "uuid" }
+  "req_id": { "type": "increment", "start": 1, "step": 1 },
+  "user_name": { "type": "random", "values": ["Ivan", "Maria", "Oleg"] },
+  "uid": { "type": "uuid" },
+  "rnd_val": { "type": "random_number", "min": 10, "max": 99 },
+  "now": { "type": "current_timestamp" }
 }'></textarea>
-            <small style="color:#666; display:block; margin-top:8px;">
-                Поддерживаются: increment, random, uuid, random_number, current_timestamp, from_list
-            </small>
         </div>
     </div>
 
-    <button id="execute-btn" class="main-action-btn" style="margin-top: 20px;">Выполнить вызовы</button>
+    <div style="position: sticky; bottom: 20px; background: rgba(255,255,255,0.9); padding: 10px 0; border-top:1px solid #ddd;">
+        <button id="execute-btn" class="main-action-btn">🚀 Выполнить запрос(ы) на Сервере</button>
+    </div>
 
-    <h3 style="margin-top: 20px;">Логи выполнения:</h3>
-    <pre id="log-output">Готов к запуску. Нажмите «Выполнить вызовы».</pre>
+    <h3 style="margin-top: 20px;">📜 Логи выполнения:</h3>
+    <pre id="log-output">Ожидание запуска...</pre>
 </div>
 
-<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
     $(function() {
+
+        // Список полей, которые мы "помним" в LocalStorage между перезагрузками страницы (UI State)
+        // Сами креды и важные данные храним в базе, но UI поля удобно восстановить при F5.
         const fieldsToSave = [
             '#url', '#method', '#numRequests', '#csName', '#bsName', '#interfaceName',
-            '#login', '#password', '#headers', '#template', '#dataRules',
-            '#config-select', '#credential-name', '#credentials-select'
+            '#headers', '#template', '#dataRules'
         ];
 
-        function loadState() {
+        function loadUIState() {
             fieldsToSave.forEach(selector => {
-                const key = 'calls_' + selector;
-                const value = localStorage.getItem(key);
-                if (value !== null) {
-                    $(selector).val(value);
-                }
+                const val = localStorage.getItem('calls_ui_' + selector);
+                if (val !== null) $(selector).val(val);
             });
 
-            // КРИТИЧЕСКИ ВАЖНО: если dataRules пустые или {}, — оставляем чистое поле
-            const savedRules = localStorage.getItem('calls_#dataRules');
-            if (!savedRules || savedRules.trim() === '' || savedRules === '{}' || savedRules === 'null') {
+            // Креды в inputs не восстанавливаем из LocalStorage для безопасности,
+            // юзер должен выбрать из Select (из БД) или ввести заново.
+
+            // Фикс для dataRules, если там пусто
+            if(!$('#dataRules').val() || $('#dataRules').val() === 'null') $('#dataRules').val('{}');
+        }
+
+        function saveUIState() {
+            fieldsToSave.forEach(selector => {
+                localStorage.setItem('calls_ui_' + selector, $(selector).val());
+            });
+        }
+
+        // Авто-сохранение при вводе
+        $(fieldsToSave.join(', ')).on('change input', saveUIState);
+
+        $('#clear-state-btn').on('click', function() {
+            if (confirm('Очистить всю форму? (Сохраненные в БД креды не удалятся)')) {
+                fieldsToSave.forEach(s => localStorage.removeItem('calls_ui_' + s));
+                $('input, textarea, select').val('');
+                $('#headers').val('{}');
                 $('#dataRules').val('{}');
-            } else {
-                $('#dataRules').val(savedRules);
+                $('#method').val('POST');
+                loadCredentials(); // Перезагрузить список из базы
             }
+        });
 
-            $('#credentials-select').trigger('change');
-        }
-
-        function saveState() {
-            fieldsToSave.forEach(selector => {
-                localStorage.setItem('calls_' + selector, $(selector).val());
-            });
-        }
-
-        function clearState() {
-            if (confirm('Очистить всю форму и сохранённое состояние?')) {
-                fieldsToSave.forEach(selector => {
-                    localStorage.removeItem('calls_' + selector);
-                });
-                window.location.reload();
-            }
-        }
-
-        $(fieldsToSave.join(', ')).on('change input', saveState);
-        $('#clear-state-btn').on('click', clearState);
-
+        // === PRESETS (Статические примеры для удобства) ===
         const presets = {
             rest: {
                 url: 'https://httpbin.org/post',
                 method: 'POST',
-                numRequests: 5,
                 headers: JSON.stringify({"Content-Type":"application/json", "Accept":"application/json"}, null, 4),
                 template: JSON.stringify({
                     user: { id: "##userId##", name: "##userName##" },
-                    transactionId: "##transactionId##"
+                    txId: "##guid##"
                 }, null, 4),
                 dataRules: JSON.stringify({
-                    userId: { type: "increment", start: 1001, step: 1 },
-                    userName: { type: "random", values: ["Alice","Bob","Charlie","David","Eva"] },
-                    transactionId: { type: "uuid" }
+                    userId: { type: "increment", start: 1000, step: 1 },
+                    userName: { type: "random", values: ["Alice","Bob","Eve"] },
+                    guid: { type: "uuid" }
                 }, null, 4)
             },
             soap: {
-                url: 'https://www.dataaccess.com/webservicesserver/NumberConversion.wso',
+                url: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso',
                 method: 'POST',
-                numRequests: 3,
-                headers: JSON.stringify({"Content-Type":"text/xml; charset=utf-8", "SOAPAction": ""}, null, 4),
-                template: `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">
-      <ubiNum>##number##</ubiNum>
-    </NumberToWords>
-  </soap:Body>
-</soap:Envelope>`,
+                headers: JSON.stringify({"Content-Type":"text/xml; charset=utf-8"}, null, 4),
+                template: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://www.oorsprong.org/websamples.countryinfo">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <web:CountryName>
+         <web:sCountryISOCode>##code##</web:sCountryISOCode>
+      </web:CountryName>
+   </soapenv:Body>
+</soapenv:Envelope>`,
                 dataRules: JSON.stringify({
-                    number: { type: "random_number", min: 1, max: 999999 }
+                    code: { type: "random", values: ["US", "DE", "IN", "CN", "RU"] }
                 }, null, 4)
             }
         };
 
-        function applyPreset(name) {
-            const p = presets[name];
-            if (!p) return;
-            $('#url').val(p.url);
-            $('#method').val(p.method);
-            $('#numRequests').val(p.numRequests);
-            $('#headers').val(p.headers);
-            $('#template').val(p.template);
-            $('#dataRules').val(p.dataRules);
-            saveState();
-        }
-
         $('#config-select').on('change', function() {
             const val = $(this).val();
-            if (val === 'custom') return;
-            applyPreset(val);
-        });
-
-        $('#execute-btn').on('click', function() {
-            const btn = $(this);
-            const log = $('#log-output');
-            log.text('Выполнение...');
-            btn.prop('disabled', true).text('Выполняется...');
-
-            try {
-                const headersRaw = $('#headers').val() || '{}';
-                const dataRulesRaw = $('#dataRules').val() || '{}';
-
-                const config = {
-                    url: $('#url').val().trim(),
-                    method: $('#method').val(),
-                    numberOfRequests: parseInt($('#numRequests').val(), 10) || 1,
-                    csName: $('#csName').val().trim(),
-                    bsName: $('#bsName').val().trim(),
-                    interfaceName: $('#interfaceName').val().trim(),
-                    login: $('#login').val(),
-                    password: $('#password').val(),
-                    headers: JSON.parse(headersRaw),
-                    template: $('#template').val(),
-                    dataRules: JSON.parse(dataRulesRaw)
-                };
-
-                if (!config.url) throw new Error("URL обязателен");
-
-                $.ajax({
-                    url: '/api/execute-calls',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(config),
-                    success: function(res) {
-                        log.text(res);
-                    },
-                    error: function(xhr) {
-                        log.text('Ошибка сервера:\n' + (xhr.responseText || xhr.statusText));
-                    },
-                    complete: function() {
-                        btn.prop('disabled', false).text('Выполнить вызовы');
-                    }
-                });
-            } catch (e) {
-                log.text('Ошибка в конфигурации:\n' + e.message);
-                btn.prop('disabled', false).text('Выполнить вызовы');
+            if (val !== 'custom' && presets[val]) {
+                const p = presets[val];
+                $('#url').val(p.url);
+                $('#method').val(p.method);
+                $('#headers').val(p.headers);
+                $('#template').val(p.template);
+                $('#dataRules').val(p.dataRules);
+                saveUIState();
             }
         });
+
+        // === LOGIC: CREDENTIALS (API /api/credentials) ===
 
         function loadCredentials() {
             $.get('/api/credentials/all', function(items) {
                 const select = $('#credentials-select');
-                select.empty().append('<option value="">-- Новые --</option>');
+                select.empty().append('<option value="">-- Новые / Не выбрано --</option>');
+
+                // Server.groovy возвращает массив [{id: 1, name: "PROD"}, ...]
                 items.forEach(item => {
-                    select.append(`<option value="${item.id}">${item.name}</option>`);
+                    select.append(`<option value="${item.id}">${escapeHtml(item.name)}</option>`);
                 });
-                const saved = localStorage.getItem('calls_#credentials-select');
-                if (saved) select.val(saved).trigger('change');
-            });
+            }).fail(() => console.log("Не удалось загрузить credentials"));
         }
 
+        // Выбор кредов из списка
         $('#credentials-select').on('change', function() {
             const id = $(this).val();
-            $('#delete-credential-btn').prop('disabled', !id);
-            if (id) {
+            const hasVal = !!id;
+            $('#delete-credential-btn').prop('disabled', !hasVal);
+
+            if (hasVal) {
                 $.get(`/api/credentials/get?id=${id}`, function(data) {
-                    $('#credential-name').val(data.name);
-                    $('#login').val(data.login);
-                    $('#password').val(data.password);
+                    if(data) {
+                        $('#credential-name').val(data.name);
+                        $('#login').val(data.login);
+                        $('#password').val(data.password);
+                    }
                 });
             } else {
+                // Если выбрали "-- Новые --", чистим поля
                 $('#credential-name, #login, #password').val('');
             }
         });
 
+        // Сохранение кредов (Create / Update)
         $('#save-credential-btn').on('click', function() {
-            const data = {
-                id: $('#credentials-select').val() || null,
-                name: $('#credential-name').val().trim(),
-                login: $('#login').val(),
-                password: $('#password').val()
+            const currentId = $('#credentials-select').val();
+            const name = $('#credential-name').val().trim();
+            const login = $('#login').val();
+            const password = $('#password').val();
+
+            if (!name) return alert('Введите имя для сохранения в базе (например "TEST_USER")');
+
+            const payload = {
+                id: currentId ? parseInt(currentId) : null,
+                name: name,
+                login: login,
+                password: password
             };
-            if (!data.name) return alert('Введите имя для сохранения');
+
             $.ajax({
                 url: '/api/credentials/save',
                 type: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify(data),
-                success: () => {
-                    alert('Учетные данные сохранены');
-                    loadCredentials();
-                }
+                data: JSON.stringify(payload),
+                success: function(res) {
+                    alert('Учетные данные сохранены в БД!');
+                    loadCredentials(); // Обновляем список
+                    // Можно очистить поля паролей из соображений безопасности, но для UX оставим пока.
+                },
+                error: function(x) { alert('Ошибка: ' + x.responseText); }
             });
         });
 
+        // Удаление
         $('#delete-credential-btn').on('click', function() {
             const id = $('#credentials-select').val();
-            if (!id || !confirm('Удалить эти учетные данные?')) return;
+            if (!id || !confirm('Удалить эту запись из БД?')) return;
+
             $.ajax({
                 url: '/api/credentials/delete',
                 type: 'DELETE',
                 contentType: 'application/json',
-                data: JSON.stringify({id: id}),
-                success: () => {
-                    alert('Удалено');
+                data: JSON.stringify({id: parseInt(id)}),
+                success: function() {
+                    alert('Удалено!');
                     loadCredentials();
                     $('#credential-name, #login, #password').val('');
                     $('#delete-credential-btn').prop('disabled', true);
@@ -394,15 +419,88 @@
             });
         });
 
-        // Инициализация
-        loadState();
-        loadCredentials();
+        // === EXECUTION LOGIC (API /api/execute-calls) ===
 
-        // Если форма пустая — подгружаем REST-пресет
-        if (!$('#url').val()) {
-            applyPreset('rest');
-            $('#config-select').val('rest');
+        $('#execute-btn').on('click', function() {
+            const btn = $(this);
+            const logArea = $('#log-output');
+
+            // 1. Валидация
+            $('input, textarea').removeClass('error-border');
+            const url = $('#url').val().trim();
+
+            let headersObj = {};
+            let rulesObj = {};
+
+            try {
+                const hRaw = $('#headers').val().trim() || '{}';
+                headersObj = JSON.parse(hRaw);
+            } catch(e) {
+                $('#headers').addClass('error-border');
+                alert("Ошибка JSON в заголовках!");
+                return;
+            }
+
+            try {
+                const rRaw = $('#dataRules').val().trim() || '{}';
+                rulesObj = JSON.parse(rRaw);
+            } catch(e) {
+                $('#dataRules').addClass('error-border');
+                alert("Ошибка JSON в правилах генерации!");
+                return;
+            }
+
+            if (!url) {
+                $('#url').addClass('error-border');
+                alert("Укажите URL сервиса!");
+                return;
+            }
+
+            // 2. Сбор данных
+            const config = {
+                url: url,
+                method: $('#method').val(),
+                numberOfRequests: parseInt($('#numRequests').val()) || 1,
+                csName: $('#csName').val().trim(),
+                bsName: $('#bsName').val().trim(),
+                interfaceName: $('#interfaceName').val().trim(),
+                login: $('#login').val(),
+                password: $('#password').val(),
+                headers: headersObj,
+                template: $('#template').val(),
+                dataRules: rulesObj
+            };
+
+            // 3. UI Process
+            logArea.text('Отправка задачи на сервер...\n');
+            btn.prop('disabled', true).text('Выполняется...');
+
+            // 4. AJAX Call
+            $.ajax({
+                url: '/api/execute-calls',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(config),
+                success: function(res) {
+                    logArea.text(res); // Server returns plain text logs
+                },
+                error: function(xhr) {
+                    logArea.text('ОШИБКА СЕРВЕРА:\n' + (xhr.responseText || xhr.statusText));
+                },
+                complete: function() {
+                    btn.prop('disabled', false).text('🚀 Выполнить запрос(ы) на Сервере');
+                }
+            });
+        });
+
+        function escapeHtml(text) {
+            if(!text) return '';
+            return $('<div>').text(text).html();
         }
+
+        // Start
+        loadUIState();
+        loadCredentials();
     });
 </script>
 </body>

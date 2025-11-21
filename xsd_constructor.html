@@ -2,67 +2,176 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>XSD Конструктор</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .main { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { margin: 0 0 15px; color: #2c3e50; }
-        .bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center; }
-        button, input, select { padding: 8px 12px; border: none; border-radius: 4px; font-size: 14px; }
-        button { cursor: pointer; }
-        #copy-btn { background: #3498db; color: white; }
-        #gen-btn { background: #9b59b6; color: white; }
-        #save-btn { background: #27ae60; color: white; }
-        #load-btn { background: #2980b9; color: white; }
-        #delete-btn { background: #e74c3c; color: white; }
-        input, select { border: 1px solid #ddd; }
-        .flex { display: flex; height: calc(100vh - 200px); gap: 15px; }
-        .left, .right { width: 50%; display: flex; flex-direction: column; }
-        .left { width: 40%; }
-        .right { width: 60%; }
-        h3 { margin: 0 0 10px; color: #2c3e50; }
-        #tree { flex: 1; border: 1px solid #ddd; background: #fff; padding: 8px; border-radius: 4px; overflow: auto; }
-        #output { flex: 1; background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 4px; font-family: monospace; white-space: pre; overflow: auto; }
-        .note { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: #27ae60; color: white; border-radius: 4px; display: none; z-index: 1000; }
-        .note.error { background: #e74c3c; }
+    <title>XSD Конструктор (DB Mode)</title>
 
-        /* ИКОНКИ */
-        .jstree-themeicon.schema { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect fill="%2395a5a6" x="1" y="1" width="14" height="14"/><rect fill="%23bdc3c7" x="3" y="3" width="10" height="10"/><rect fill="%2395a5a6" x="4" y="4" width="8" height="1"/><rect fill="%2395a5a6" x="4" y="6" width="5" height="1"/><rect fill="%2395a5a6" x="4" y="8" width="5" height="1"/></svg>') !important; }
-        .jstree-themeicon.element { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect fill="%232c3e50" x="3" y="4" width="10" height="1"/><rect fill="%232c3e50" x="3" y="7" width="10" height="1"/><rect fill="%232c3e50" x="3" y="10" width="10" height="1"/></svg>') !important; }
-        .jstree-themeicon.complex { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect fill="%23e67e22" x="1" y="1" width="14" height="5"/><rect fill="%23f39c12" x="2" y="2" width="12" height="3"/><rect fill="%23e67e22" x="1" y="8" width="14" height="5"/><rect fill="%23f39c12" x="2" y="9" width="12" height="3"/></svg>') !important; }
-        .jstree-themeicon.sequence { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect fill="%2327ae60" x="4" y="2" width="1" height="12"/><rect fill="%2327ae60" x="8" y="2" width="1" height="12"/><rect fill="%2327ae60" x="12" y="2" width="1" height="12"/></svg>') !important; }
+    <!-- Библиотеки -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f4f7f9;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .main-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 { margin: 0 0 20px; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+
+        /* Панель инструментов */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+            align-items: center;
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        button, input, select {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        button { cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        button:hover { filter: brightness(95%); }
+
+        .btn-primary { background: #3b82f6; color: white; border: none; }
+        .btn-success { background: #22c55e; color: white; border: none; }
+        .btn-danger { background: #ef4444; color: white; border: none; }
+        .btn-secondary { background: white; color: #334155; }
+
+        .flex-workspace {
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        .panel-left, .panel-right {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panel-left { width: 40%; }
+        .panel-right { width: 60%; }
+
+        h3 { margin: 0 0 10px; color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: 700; }
+
+        #tree {
+            flex: 1;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+
+        #output {
+            flex: 1;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            white-space: pre;
+            overflow: auto;
+            font-size: 13px;
+            border: 1px solid #0f172a;
+        }
+
+        /* Уведомления */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: #334155;
+            color: white;
+            border-radius: 6px;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .toast.error { background: #dc2626; }
+        .toast.success { background: #16a34a; }
+
+        /* Иконки дерева (Inline SVG для автономности) */
+        .jstree-themeicon.schema { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%2394a3b8" d="M1 1h14v14H1z"/><path fill="%23ffffff" d="M3 3h10v10H3z"/><path fill="%23475569" d="M4 4h8v1H4zm0 2h5v1H4zm0 2h5v1H4z"/></svg>') !important; background-size: contain; }
+        .jstree-themeicon.element { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%233b82f6" d="M3 4h10v2H3zm0 3h10v2H3zm0 3h10v2H3z"/></svg>') !important; background-size: contain; }
+        .jstree-themeicon.complex { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%23f59e0b" d="M1 1h14v5H1z"/><path fill="%23d97706" d="M2 2h12v3H2z"/><path fill="%23f59e0b" d="M1 8h14v5H1z"/><path fill="%23d97706" d="M2 9h12v3H2z"/></svg>') !important; background-size: contain; }
+        .jstree-themeicon.sequence { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%2322c55e" d="M4 2h2v12H4zm4 0h2v12H8zm4 0h2v12h-2z"/></svg>') !important; background-size: contain; }
     </style>
 </head>
 <body>
-<div class="main">
-    <h2>XSD Конструктор</h2>
-    <div class="bar">
-        <button id="copy-btn">Копировать XSD</button>
-        <button id="gen-btn">Сгенерировать XSD</button>
-        <input type="text" id="save-name" placeholder="Имя схемы...">
-        <button id="save-btn">Сохранить</button>
-        <select id="load-select"><option value="">Загрузить...</option></select>
-        <button id="load-btn">Загрузить</button>
-        <button id="delete-btn">Удалить</button>
+
+<div class="main-container">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <h2 style="margin:0; border:0;">XSD Конструктор</h2>
+        <button class="btn-secondary" onclick="window.location.href='index.html'">🏠 Домой</button>
     </div>
-    <div class="flex">
-        <div class="left">
-            <h3>Структура</h3>
+
+    <div class="toolbar">
+        <!-- Операции с кодом -->
+        <div style="display:flex; gap:10px; border-right:1px solid #ccc; padding-right:10px;">
+            <button id="gen-btn" class="btn-secondary" title="Обновить предпросмотр XML">🔄 Обновить код</button>
+            <button id="copy-btn" class="btn-secondary" title="Копировать в буфер">📋 Копировать XML</button>
+        </div>
+
+        <!-- Работа с БД -->
+        <div style="display:flex; gap:10px; flex:1; align-items:center;">
+            <label style="font-weight:600; color:#555; font-size:12px; margin-left:5px;">БД (Server.groovy):</label>
+
+            <input type="text" id="save-name" placeholder="Название схемы..." style="width:150px;">
+            <button id="save-btn" class="btn-success">Сохранить</button>
+
+            <div style="flex:1;"></div>
+
+            <select id="load-select" style="width:200px;"><option value="">Загрузить...</option></select>
+            <button id="load-btn" class="btn-primary">Загрузить</button>
+            <button id="delete-btn" class="btn-danger">Удалить</button>
+        </div>
+    </div>
+
+    <div class="flex-workspace">
+        <div class="panel-left">
+            <h3>Дерево элементов (Правая кнопка для меню)</h3>
             <div id="tree"></div>
         </div>
-        <div class="right">
+        <div class="panel-right">
             <h3>Результат (XSD)</h3>
-            <pre id="output"><code></code></pre>
+            <pre id="output"><code><!-- Здесь появится XML --></code></pre>
         </div>
     </div>
 </div>
-<div id="note" class="note"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+<div id="toast" class="toast">Сообщение</div>
+
 <script>
-    let counters = { string: 1, int: 1, boolean: 1, date: 1 };
+    // Счетчик для уникальных имен
+    let counters = { string: 1, int: 1, boolean: 1, date: 1, complex: 1 };
+
+    // Маппинг сокращений на XSD типы
     const TYPE_MAP = {
         string: 'xsd:string',
         int: 'xsd:int',
@@ -70,260 +179,329 @@
         boolean: 'xsd:boolean',
         date: 'xsd:date',
         decimal: 'xsd:decimal',
-        double: 'xsd:double'
+        double: 'xsd:double',
+        long: 'xsd:long'
     };
 
-    // === ИНИЦИАЛИЗАЦИЯ ДЕРЕВА ===
-    $('#tree').jstree({
-        core: { check_callback: true },
-        plugins: ['contextmenu', 'types'],
-        types: {
-            schema: { icon: 'schema', valid_children: ['element'] },
-            element: { icon: 'element', valid_children: ['complex'] },
-            complex: { icon: 'complex', valid_children: ['sequence'] },
-            sequence: { icon: 'sequence', valid_children: ['element'] }
-        },
-        contextmenu: {
-            items: function(node) {
-                const tree = $('#tree').jstree(true);
-                const items = {};
+    // === ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ===
+    $(function() {
 
-                if (node.id === 'root') {
-                    items.refresh = {
-                        label: 'Обновить всё',
-                        action: () => updateAll()
-                    };
-                    items.sep1 = { separator_after: true };
+        // Загрузка списка схем из БД при старте
+        loadSavedList();
+
+        // Настройка JSTree
+        $('#tree').jstree({
+            core: {
+                check_callback: true,
+                themes: { stripes: true }
+            },
+            plugins: ['contextmenu', 'types', 'dnd'],
+            types: {
+                schema: { icon: 'schema', valid_children: ['element', 'complex'] },
+                element: { icon: 'element', valid_children: ['complex'] },
+                complex: { icon: 'complex', valid_children: ['sequence', 'element'] }, // Разрешаем sequence внутри complex
+                sequence: { icon: 'sequence', valid_children: ['element'] }
+            },
+            contextmenu: {
+                items: function(node) {
+                    const tree = $('#tree').jstree(true);
+                    const items = {};
+
+                    if (node.id === 'root') {
+                        items.refresh = { label: 'Обновить XSD', action: () => updateAll() };
+                        items.sep1 = { separator_after: true };
+                    }
+
+                    // Добавление полей (Element)
+                    if (['schema', 'sequence'].includes(node.type)) {
+                        items.add = {
+                            label: 'Добавить Поле',
+                            submenu: {
+                                string: { label: 'String', action: () => addElement(node, 'string') },
+                                int: { label: 'Int', action: () => addElement(node, 'int') },
+                                boolean: { label: 'Boolean', action: () => addElement(node, 'boolean') },
+                                date: { label: 'Date', action: () => addElement(node, 'date') },
+                                decimal: { label: 'Decimal', action: () => addElement(node, 'decimal') }
+                            }
+                        };
+                    }
+
+                    // Элемент может содержать ComplexType
+                    if (node.type === 'element' && !node.children.length) {
+                        items.complex = { label: 'Добавить ComplexType', action: () => addComplex(node) };
+                    }
+
+                    // ComplexType должен содержать Sequence
+                    if (node.type === 'complex' && !node.children.length) {
+                        items.sequence = { label: 'Добавить Sequence', action: () => addSequence(node) };
+                    }
+
+                    // Редактирование
+                    if (node.type === 'element') {
+                        items.rename = { label: 'Изменить (Имя : Тип)', action: () => tree.edit(node) };
+                    }
+
+                    // Удаление
+                    if (node.id !== 'root') {
+                        items.sep2 = { separator_before: true };
+                        items.del = { label: 'Удалить', action: () => tree.delete_node(node) };
+                    }
+
+                    return items;
                 }
-
-                if (node.type === 'schema' || node.type === 'sequence') {
-                    items.add = {
-                        label: 'Добавить Element',
-                        submenu: {
-                            string: { label: 'String', action: () => addElement(node, 'string') },
-                            int: { label: 'Int', action: () => addElement(node, 'int') },
-                            boolean: { label: 'Boolean', action: () => addElement(node, 'boolean') },
-                            date: { label: 'Date', action: () => addElement(node, 'date') },
-                            _sep: { separator_after: true },
-                            close: { label: 'Закрыть', action: () => {} }
-                        }
-                    };
-                }
-
-                if (node.type === 'element' && !node.children.length) {
-                    items.complex = { label: 'Добавить Complex Type', action: () => addComplex(node) };
-                }
-
-                if (node.type === 'complex' && !node.children.length) {
-                    items.sequence = { label: 'Добавить Sequence', action: () => addSequence(node) };
-                }
-
-                if (node.type === 'element') {
-                    items.rename = { label: 'Переименовать', action: () => tree.edit(node) };
-                }
-
-                if (node.id !== 'root') {
-                    items.del = { label: 'Удалить', action: () => tree.delete_node(node) };
-                }
-
-                return items;
             }
-        }
-    })
-        .on('delete_node.jstree', () => updateAll())
-        .on('create_node.jstree move_node.jstree', updateAll)
-        .on('ready.jstree', () => {
-            const tree = $('#tree').jstree(true);
-            tree.create_node('#', { id: 'root', text: 'xsd:schema', type: 'schema', state: { opened: true } }, 'last');
-            addElement(tree.get_node('root'), 'string');
-            loadSavedList();
+        })
+            .on('delete_node.jstree move_node.jstree', updateAll)
+            .on('ready.jstree', () => {
+                // Инициализация базовой структуры при пустом дереве
+                const tree = $('#tree').jstree(true);
+                if (tree.get_json().length === 0) {
+                    tree.create_node('#', { id: 'root', text: 'xsd:schema', type: 'schema', state: { opened: true } }, 'last');
+                    addSequence(tree.get_node('root')); // Пример для корневой sequence
+                }
+                updateAll();
+            });
+
+        // Обработчик переименования
+        $('#tree').on('rename_node.jstree', function(e, data) {
+            if (data.node.type !== 'element') return;
+
+            const input = data.text.trim();
+            // Парсим ввод формата "Имя : Тип"
+            const parts = input.split(':').map(p => p.trim());
+            const newName = parts[0] || 'field';
+            const typePart = parts.length > 1 ? parts[1] : null;
+
+            data.node.data = data.node.data || {};
+            data.node.data.name = newName;
+
+            let newType = data.node.data.type || 'xsd:string';
+
+            if (typePart) {
+                const cleanType = typePart.toLowerCase();
+                if (cleanType.startsWith('xsd:')) {
+                    newType = cleanType; // уже с префиксом
+                } else if (TYPE_MAP[cleanType]) {
+                    newType = TYPE_MAP[cleanType]; // маппинг
+                } else {
+                    newType = `xsd:${cleanType}`; // дефолтный префикс
+                }
+            }
+
+            // Сохраняем в data
+            data.node.data.type = newType;
+            // Обновляем текст узла красиво
+            const hasChildren = data.node.children.length > 0;
+            // Если есть дети (complex), тип не пишем
+            data.instance.set_text(data.node, hasChildren ? newName : `${newName} : ${newType}`);
+
             updateAll();
         });
+    });
 
-    // === ДОБАВЛЕНИЕ ===
-    function addElement(parent, base) {
+    // === ФУНКЦИИ МОДИФИКАЦИИ ДЕРЕВА ===
+
+    function addElement(parent, baseType) {
         const tree = $('#tree').jstree(true);
-        const name = `${base}${counters[base]++}`;
-        const type = TYPE_MAP[base] || 'xsd:string';
-        const node = { text: `${name} : ${type}`, type: 'element', data: { name, type, min: 1, max: 1 } };
+        const count = counters[baseType] || 1;
+        counters[baseType] = count + 1;
+
+        const name = `${baseType}Field${count}`;
+        const xsdType = TYPE_MAP[baseType] || 'xsd:string';
+
+        const node = {
+            text: `${name} : ${xsdType}`,
+            type: 'element',
+            data: { name: name, type: xsdType, min: 1, max: 1 } // Метаданные
+        };
+
         tree.create_node(parent, node, 'last', (newNode) => {
             tree.open_node(parent);
-            tree.edit(newNode);
+            // Сразу даем возможность переименовать
+            setTimeout(() => tree.edit(newNode), 100);
         });
     }
 
-    function addComplex(node) {
+    function addComplex(parent) {
         const tree = $('#tree').jstree(true);
-        tree.create_node(node, { text: 'complexType', type: 'complex' }, 'last', (newNode) => {
-            tree.open_node(node);
+        // Убираем тип из отображения родителя, т.к. он стал Complex
+        const pNode = tree.get_node(parent);
+        if(pNode && pNode.data) {
+            tree.set_text(pNode, pNode.data.name);
+        }
+
+        tree.create_node(parent, { text: 'complexType', type: 'complex' }, 'last', (newNode) => {
+            tree.open_node(parent);
             tree.open_node(newNode);
-            updateAll();
+            addSequence(newNode); // Обычно внутри complex идет sequence
         });
     }
 
-    function addSequence(node) {
+    function addSequence(parent) {
         const tree = $('#tree').jstree(true);
-        tree.create_node(node, { text: 'sequence', type: 'sequence' }, 'last', (newNode) => {
-            tree.open_node(node);
+        tree.create_node(parent, { text: 'sequence', type: 'sequence' }, 'last', (newNode) => {
+            tree.open_node(parent);
             tree.open_node(newNode);
         });
     }
 
-    // === ПОЛНОЕ ОБНОВЛЕНИЕ ===
     function updateAll() {
-        updateDisplay();
         generateXSD();
-        note('Обновлено!');
     }
 
-    // === ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ — ИСПРАВЛЕНО! ===
-    function updateDisplay() {
-        const tree = $('#tree').jstree(true);
-        const nodes = tree.get_json('#', { flat: true });
-        nodes.forEach(n => {
-            // Только element-узлы + проверка на массив
-            if (n.type === 'element' && Array.isArray(n.children)) {
-                const hasComplex = n.children.length > 0;
-                const display = hasComplex ? n.data.name : `${n.data.name} : ${n.data.type}`;
-                tree.set_text(n, display);
-            }
-        });
-    }
+    // === ГЕНЕРАЦИЯ XML (CORE LOGIC) ===
 
-    // === ГЕНЕРАЦИЯ XSD ===
     function generateXSD() {
         const tree = $('#tree').jstree(true);
         let xsd = '<?xml version="1.0" encoding="UTF-8"?>\n';
-        xsd += '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">\n';
+        xsd += '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">\n';
 
-        function build(node, indent) {
+        function buildXmlRecursive(nodeId, indent) {
+            const node = tree.get_node(nodeId);
+            const children = node.children;
+
             if (node.type === 'element') {
-                const d = node.data;
-                const occ = (node.parent !== 'root' && (d.min !== 1 || d.max !== 1))
-                    ? ` minOccurs="${d.min}" maxOccurs="${d.max === 'unbounded' ? 'unbounded' : d.max}"` : '';
-                if (Array.isArray(node.children) && node.children.length) {
-                    xsd += `${indent}<xsd:element name="${d.name}"${occ}>\n`;
-                    node.children.forEach(c => build(tree.get_node(c), indent + '  '));
+                const d = node.data || {};
+                const name = d.name || 'element';
+                const type = d.type || 'xsd:string';
+
+                // Если есть дети, это complex type wrapper
+                if (children && children.length > 0) {
+                    xsd += `${indent}<xsd:element name="${name}">\n`;
+                    children.forEach(childId => buildXmlRecursive(childId, indent + '  '));
                     xsd += `${indent}</xsd:element>\n`;
                 } else {
-                    xsd += `${indent}<xsd:element name="${d.name}" type="${d.type}"${occ}/>\n`;
+                    // Простой элемент
+                    xsd += `${indent}<xsd:element name="${name}" type="${type}"/>\n`;
                 }
-            } else if (node.type === 'complex') {
+            }
+            else if (node.type === 'complex') {
                 xsd += `${indent}<xsd:complexType>\n`;
-                if (Array.isArray(node.children)) {
-                    node.children.forEach(c => build(tree.get_node(c), indent + '  '));
-                }
+                children.forEach(childId => buildXmlRecursive(childId, indent + '  '));
                 xsd += `${indent}</xsd:complexType>\n`;
-            } else if (node.type === 'sequence') {
+            }
+            else if (node.type === 'sequence') {
                 xsd += `${indent}<xsd:sequence>\n`;
-                if (Array.isArray(node.children)) {
-                    node.children.forEach(c => build(tree.get_node(c), indent + '  '));
-                }
+                children.forEach(childId => buildXmlRecursive(childId, indent + '  '));
                 xsd += `${indent}</xsd:sequence>\n`;
+            }
+            else if (node.type === 'schema') {
+                // Для корня просто обходим детей
+                children.forEach(childId => buildXmlRecursive(childId, '  '));
             }
         }
 
-        const root = tree.get_node('root');
-        if (Array.isArray(root.children)) {
-            root.children.forEach(id => build(tree.get_node(id), '  '));
-        }
+        buildXmlRecursive('root', '');
+
         xsd += '</xsd:schema>';
         $('#output code').text(xsd);
     }
 
-    // === ПЕРЕИМЕНОВАНИЕ ===
-    $('#tree').on('rename_node.jstree', function(e, data) {
-        if (data.node.type !== 'element') return;
+    // === API BACKEND INTERACTION (SQLite) ===
 
-        const input = data.text.trim();
-        const parts = input.split(':').map(p => p.trim());
-        const newName = parts[0] || 'elem';
-        const typePart = parts[1];
-
-        data.node.data.name = newName;
-
-        if (Array.isArray(data.node.children) && data.node.children.length > 0) {
-            data.instance.set_text(data.node, newName);
-            updateAll();
-            return;
-        }
-
-        let newType = data.node.data.type;
-        if (typePart) {
-            const clean = typePart.toLowerCase().trim();
-            if (clean.startsWith('xsd:')) {
-                newType = clean;
-            } else if (TYPE_MAP[clean]) {
-                newType = TYPE_MAP[clean];
-            } else {
-                newType = `xsd:${clean}`;
-            }
-        }
-
-        data.node.data.type = newType;
-        data.instance.set_text(data.node, `${newName} : ${newType}`);
-        updateAll();
-    });
-
-    // === КНОПКИ ===
     $('#copy-btn').click(() => {
-        navigator.clipboard.writeText($('#output code').text()).then(
-            () => note('Скопировано!'),
-            () => note('Ошибка', true)
+        const text = $('#output code').text();
+        navigator.clipboard.writeText(text).then(
+            () => showToast('Скопировано в буфер!', 'success'),
+            () => showToast('Ошибка копирования', 'error')
         );
     });
 
     $('#gen-btn').click(() => updateAll());
 
+    // СОХРАНЕНИЕ (POST /api/xsd)
     $('#save-btn').click(() => {
         const name = $('#save-name').val().trim();
-        if (!name) return note('Введите имя', true);
+        if (!name) return alert('Введите имя схемы');
+
         const tree = $('#tree').jstree(true);
-        const data = { tree: tree.get_json('#', { no_state: true }), counters };
-        localStorage.setItem('xsd_' + name, JSON.stringify(data));
-        note('Сохранено!');
-        loadSavedList();
+        // Сериализуем всё состояние дерева для восстановления
+        const treeData = tree.get_json('#', { no_state: true, flat: false });
+
+        const payload = {
+            name: name,
+            content: JSON.stringify({ tree: treeData, counters: counters }) // Оборачиваем метаданные
+        };
+
+        $.ajax({
+            url: '/api/xsd',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: () => {
+                showToast('Схема сохранена в БД', 'success');
+                loadSavedList();
+            },
+            error: (xhr) => showToast('Ошибка сохранения: ' + xhr.responseText, 'error')
+        });
     });
 
-    $('#load-btn').click(() => {
-        const name = $('#load-select').val();
-        if (!name) return;
-        const raw = localStorage.getItem('xsd_' + name);
-        if (!raw) return note('Не найдено', true);
-        const data = JSON.parse(raw);
-        counters = data.counters || counters;
-        const tree = $('#tree').jstree(true);
-        tree.settings.core.data = data.tree;
-        tree.refresh(true);
-        $('#save-name').val(name);
-        setTimeout(updateAll, 50);
-        note('Загружено!');
-    });
-
-    $('#delete-btn').click(() => {
-        const name = $('#load-select').val();
-        if (!name || !confirm('Удалить?')) return;
-        localStorage.removeItem('xsd_' + name);
-        note('Удалено!');
-        loadSavedList();
-    });
-
+    // ЗАГРУЗКА СПИСКА (GET /api/xsd)
     function loadSavedList() {
-        const select = $('#load-select').empty().append('<option value="">Загрузить...</option>');
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('xsd_')) {
-                const name = key.slice(4);
-                select.append(`<option value="${name}">${name}</option>`);
-            }
-        }
+        $.get('/api/xsd', function(list) {
+            const sel = $('#load-select');
+            sel.empty().append('<option value="">Выберите для загрузки...</option>');
+            list.forEach(item => {
+                sel.append(`<option value="${item.id}">${item.name}</option>`);
+            });
+        }).fail(() => console.log('Нет связи с БД'));
     }
 
-    function note(msg, err = false) {
-        const el = $('#note').text(msg).removeClass('error').show();
-        if (err) el.addClass('error');
-        setTimeout(() => el.fadeOut(), 2000);
+    // ЗАГРУЗКА СХЕМЫ (GET /api/xsd/{id})
+    $('#load-btn').click(() => {
+        const id = $('#load-select').val();
+        if (!id) return;
+
+        $.get(`/api/xsd/${id}`, function(responseContent) {
+            // Сервер возвращает JSON-строку в content (или уже объект если Content-Type json)
+            try {
+                // responseContent = { tree: [...], counters: {...} }
+                // Если пришло как строка - парсим, если объект - используем
+                const data = (typeof responseContent === 'string') ? JSON.parse(responseContent) : responseContent;
+
+                const treeInst = $('#tree').jstree(true);
+                treeInst.settings.core.data = data.tree;
+                counters = data.counters || counters;
+
+                treeInst.refresh();
+
+                // Восстанавливаем имя в input
+                const txt = $('#load-select option:selected').text();
+                $('#save-name').val(txt);
+
+                // Ждем рендера, чтобы обновить XML превью
+                setTimeout(updateAll, 200);
+                showToast('Схема загружена', 'success');
+            } catch(e) {
+                console.error(e);
+                showToast('Ошибка парсинга данных', 'error');
+            }
+        }).fail(() => showToast('Ошибка загрузки', 'error'));
+    });
+
+    // УДАЛЕНИЕ (DELETE /api/xsd/{id})
+    $('#delete-btn').click(() => {
+        const id = $('#load-select').val();
+        if (!id || !confirm('Удалить выбранную схему из базы?')) return;
+
+        $.ajax({
+            url: `/api/xsd/${id}`,
+            type: 'DELETE',
+            success: () => {
+                showToast('Схема удалена', 'success');
+                $('#save-name').val('');
+                loadSavedList();
+            },
+            error: (xhr) => showToast('Ошибка удаления', 'error')
+        });
+    });
+
+    function showToast(msg, type) {
+        const t = $('#toast');
+        t.text(msg).removeClass('error success').addClass(type).fadeIn();
+        setTimeout(() => t.fadeOut(), 3000);
     }
+
 </script>
 </body>
 </html>
