@@ -323,7 +323,27 @@ class Server {
         server.createContext("/api/tasks/send"){e->handleRequest(e,"POST"){def s=[:];sql.eachRow("SELECT key,value FROM task_settings"){r->s[r.key]=r.value};def t=sql.rows("SELECT * FROM tasks");String auth="${s.target_user}:${s.target_password?:''}";String enc=Base64.encoder.encodeToString(auth.bytes);def c=HttpClient.newHttpClient();def req=HttpRequest.newBuilder().uri(URI.create(s.target_url)).header("Content-Type","application/json").header("Authorization","Basic "+enc).POST(HttpRequest.BodyPublishers.ofString(MyJsonOutput.toJson(t))).build();def res=c.send(req,HttpResponse.BodyHandlers.ofString());sendResponse(e,MyJsonOutput.toJson([statusCode:res.statusCode(),responseBody:res.body()]),"application/json")}}
         server.createContext("/api/tasks/export"){e->handleRequest(e,"GET"){Workbook wb=new XSSFWorkbook();Sheet s=wb.createSheet("Задачи");Row hr=s.createRow(0);def h=["ID","Пользователь","Номер задачи","URL задачи","Этап","Статус","Дата установки(PROD)","Комментарий","Последнее обновление","Спецификация","Контакт"];h.eachWithIndex{hd,i->hr.createCell(i).setCellValue(hd)};def t=sql.rows("SELECT * FROM tasks ORDER BY id DESC");t.eachWithIndex{tk,i->Row r=s.createRow(i+1);r.createCell(0).setCellValue(tk.id.toString());r.createCell(1).setCellValue(tk.user);r.createCell(2).setCellValue(tk.task_number);r.createCell(3).setCellValue(tk.task_url);r.createCell(4).setCellValue(tk.stage);r.createCell(5).setCellValue(tk.status);r.createCell(6).setCellValue(tk.deployment_date);r.createCell(7).setCellValue(tk.additional_comment);r.createCell(8).setCellValue(tk.last_updated);r.createCell(9).setCellValue(tk.spec_url);r.createCell(10).setCellValue(tk.contact_person)};h.size().times{s.autoSizeColumn(it)};def os=new ByteArrayOutputStream();wb.write(os);wb.close();byte[] b=os.toByteArray();e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"tasks_export.xlsx\"");e.sendResponseHeaders(200,b.length);e.responseBody.withStream{it.write(b)}}}
         server.createContext("/api/labels/all"){e->handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(labelsManager.getAll()),"application/json")}}
-        server.createContext("/api/labels/search"){e->handleRequest(e,"GET"){def p=e.requestURI.query.split('&').collectEntries{pa->def parts=pa.split('=',2);[(URLDecoder.decode(parts[0],"UTF-8")):(parts.length>1)?URLDecoder.decode(parts[1],"UTF-8"):""]};sendResponse(e,MyJsonOutput.toJson(labelsManager.search(p.q,p.categoryId?.toInteger())),"application/json")}}
+
+        server.createContext("/api/labels/search"){ e ->
+            handleRequest(e, "GET") {
+                // Парсинг параметров безопасный к отсутствующим значениям
+                def p = [:]
+                if (e.requestURI.query) {
+                    e.requestURI.query.split('&').each { pa ->
+                        def parts = pa.split('=', 2)
+                        def key = URLDecoder.decode(parts[0], "UTF-8")
+                        def val = (parts.length > 1) ? URLDecoder.decode(parts[1], "UTF-8") : ""
+                        p[key] = val
+                    }
+                }
+
+                // Безопасное преобразование categoryId: если строка пустая или null -> отправляем null
+                Integer catId = (p.categoryId && p.categoryId.isInteger()) ? p.categoryId.toInteger() : null
+
+                sendResponse(e, MyJsonOutput.toJson(labelsManager.search(p.q, catId)), "application/json")
+            }
+        }
+
         server.createContext("/api/labels/category"){e->if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.saveCategory(d)),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.deleteCategory(d.id as int)),"application/json")}}
         server.createContext("/api/labels/label"){e->if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.saveLabel(d)),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.deleteLabel(d.id as int)),"application/json")}}
         server.createContext("/api/labels/increment_usage"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,MyJsonOutput.toJson(labelsManager.incrementUsage(d.id as int)),"application/json")}}

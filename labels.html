@@ -3,50 +3,327 @@
 <head>
   <title>Управление метками</title>
   <meta charset="UTF-8">
+  <!-- Библиотеки -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Общие стили -->
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* === Глобальные стили === */
+    body {
+      background-color: #f4f7f9;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* === ХЕДЕР СТРАНИЦЫ === */
+    .page-header {
+      padding: 20px 20px 5px 20px;
+      background: #f4f7f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    /* === УЛУЧШЕННАЯ ПАНЕЛЬ УПРАВЛЕНИЯ === */
+    .controls {
+      background: #fff;
+      padding: 20px; /* Больше воздуха */
+      margin: 0 20px;
+      border-radius: 8px; /* Закругленные края блока */
+      border: 1px solid #e2e8f0;
+      display: flex;
+      gap: 15px; /* Расстояние между элементами */
+      align-items: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    /* Обертка для поиска с иконкой */
+    .search-wrapper {
+      flex-grow: 1; /* Растягиваем на всё свободное место */
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Иконка внутри инпута */
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      font-size: 16px;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+
+    /* Поле поиска (СДЕЛАЛИ БОЛЬШЕ И УДОБНЕЕ) */
+    #search-input {
+      width: 100%;
+      height: 44px; /* Фиксированная удобная высота */
+      padding: 10px 15px 10px 40px; /* Отступ слева под иконку */
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      background-color: #f8fafc;
+      transition: all 0.2s;
+      box-sizing: border-box; /* Важно для правильного размера */
+    }
+
+    #search-input:focus {
+      background-color: #fff;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* Красивый ореол при фокусе */
+    }
+
+    /* Селект категорий */
+    #category-filter {
+      height: 44px;
+      padding: 0 30px 0 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background-color: white;
+      min-width: 180px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* Кнопка добавления */
+    #add-category-btn {
+      height: 44px;
+      padding: 0 20px;
+      white-space: nowrap;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* --- Основной контейнер --- */
+    #labels-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    /* --- СЕТКА МЕТОК (GRID) --- */
+    .category-block {
+      margin-bottom: 30px;
+    }
+
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+
+    .category-header h3 {
+      margin: 0;
+      font-size: 15px;
+      color: #334155;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .labels-list {
+      display: grid;
+      /* Адаптивность: колонки от 300px */
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    /* Карточка метки */
+    .label-item {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      height: 200px;
+    }
+
+    .label-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      border-color: #cbd5e1;
+    }
+
+    /* Заголовок внутри карточки */
+    .label-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .label-title {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 80%;
+    }
+    .label-title:hover { color: #2563eb; text-decoration: underline; }
+
+    .usage-badge {
+      font-size: 10px;
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* Превью текста */
+    .label-preview {
+      background: #f8fafc;
+      border: 1px solid #f1f5f9;
+      border-radius: 4px;
+      padding: 10px;
+      font-family: 'Consolas', monospace;
+      font-size: 11px;
+      color: #64748b;
+      flex-grow: 1; /* Занять все место */
+      overflow: hidden;
+      margin-bottom: 15px;
+      cursor: pointer;
+      word-break: break-all;
+      /* Эффект угасания текста внизу */
+      mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    }
+    .label-preview:hover { background: #f1f5f9; border-color: #e2e8f0; }
+
+    /* Подвал карточки */
+    .label-footer {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn-copy {
+      flex: 1;
+      background: #eff6ff;
+      color: #3b82f6;
+      border: 1px solid #dbeafe;
+      padding: 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-copy:hover { background: #3b82f6; color: white; }
+
+    .action-icons button {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 5px;
+      border-radius: 4px;
+      color: #94a3b8;
+    }
+    .action-icons button:hover { background: #f1f5f9; color: #334155; }
+    .action-icons button.del:hover { background: #fef2f2; color: #ef4444; }
+
+    /* Модальные окна */
+    .modal {
+      display: none; position: fixed; z-index: 2000; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+      justify-content: center; align-items: center;
+    }
+    .modal-content {
+      background: #fff; padding: 25px; border-radius: 8px; width: 700px; max-width: 95%;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column;
+    }
+    .modal-close { float: right; font-size: 24px; cursor: pointer; color: #aaa; margin-top:-10px; }
+    .modal-close:hover { color: #333; }
+
+    /* Тост уведомления */
+    .notification {
+      position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: white;
+      padding: 12px 20px; border-radius: 6px; font-size: 13px; display: none; z-index: 3000;
+    }
+    .notification.error { background: #ef4444; }
+  </style>
 </head>
 <body>
 
-<div class="main-content">
-  <h2>Управление текстовыми метками</h2>
-
-  <div class="controls">
-    <input type="text" id="search-input" placeholder="Поиск по названию или тексту метки...">
-    <select id="category-filter"><option value="">Все категории</option></select>
-    <button id="add-category-btn">Добавить категорию</button>
+<!-- Заголовок страницы -->
+<div class="page-header">
+  <div style="display:flex; align-items:center; gap:15px;">
+    <button onclick="window.location.href='index.html'" class="secondary">← На главную</button>
+    <h2 style="margin:0; font-size:20px; color:#1e293b;">Управление Метками</h2>
   </div>
-
-  <div id="labels-container"></div>
+  <div style="font-size:12px; color:#64748b;">Хранение: Database</div>
 </div>
 
-<!-- Модальное окно для добавления/редактирования метки -->
+<!-- Панель управления -->
+<div class="controls">
+  <!-- Обертка поиска -->
+  <div class="search-wrapper">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Быстрый поиск по меткам (название или код)...">
+  </div>
+
+  <select id="category-filter">
+    <option value="">Все категории</option>
+  </select>
+
+  <button id="add-category-btn" class="secondary" title="Создать новую группу">+ Категория</button>
+</div>
+
+<!-- Основной контент -->
+<div id="labels-container"></div>
+
+<!-- MODAL: Create/Edit -->
 <div id="label-modal" class="modal">
   <div class="modal-content">
     <span class="modal-close">&times;</span>
-    <h2 id="modal-title">Новая метка</h2>
+    <h2 id="modal-title" style="margin-top:0;">Новая метка</h2>
     <input type="hidden" id="modal-label-id">
     <input type="hidden" id="modal-category-id">
-    <label for="modal-label-title">Название метки</label>
-    <input type="text" id="modal-label-title" placeholder="Краткое описание, например, 'SOAP-запрос для сервиса X'" style="margin-top: 5px;">
-    <label for="modal-label-content" style="margin-top: 15px;">Текст метки (сохраняет форматирование)</label>
-    <textarea id="modal-label-content" style="min-height: 200px; font-family: monospace; margin-top: 5px;"></textarea>
-    <button id="save-label-btn" style="margin-top: 15px;">Сохранить</button>
+
+    <label style="font-weight:600; margin-bottom:5px;">Название метки</label>
+    <input type="text" id="modal-label-title" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px;" placeholder="Пример: Auth Header">
+
+    <label style="font-weight:600; margin-bottom:5px;">Содержимое</label>
+    <textarea id="modal-label-content" style="min-height: 250px; width:100%; padding:10px; font-family:monospace; font-size:12px; border:1px solid #ccc; border-radius:4px; background:#f9fafb;"></textarea>
+
+    <div style="text-align:right; margin-top:15px;">
+      <button class="secondary modal-close-btn" style="margin-right:10px;">Отмена</button>
+      <button id="save-label-btn" class="primary" style="background:#2563eb; color:white; border:none; padding:8px 20px; border-radius:4px;">Сохранить</button>
+    </div>
   </div>
 </div>
 
-<!-- Модальное окно для просмотра метки -->
+<!-- MODAL: View -->
 <div id="view-modal" class="modal">
-  <div class="modal-content">
+  <div class="modal-content" style="width:800px;">
     <span class="modal-close">&times;</span>
-    <h2 id="view-modal-title"></h2>
-    <pre id="view-modal-content" style="white-space: pre-wrap; background: #f4f4f4; padding: 10px; border: 1px solid #ddd; max-height: 60vh; overflow-y: auto;"></pre>
-    <button id="view-modal-copy-btn" style="margin-top: 15px;">Копировать текст</button>
+    <h2 id="view-modal-title" style="margin-top:0;"></h2>
+    <div style="position:relative;">
+      <pre id="view-modal-content" style="background:#f1f5f9; padding:15px; border-radius:6px; overflow:auto; max-height:60vh; font-size:12px; color:#333;"></pre>
+      <button id="view-modal-copy-btn" style="position:absolute; top:10px; right:10px; background:#3b82f6; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer;">📋 Копировать</button>
+    </div>
   </div>
 </div>
 
 <div id="notification" class="notification"></div>
 
-<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
   $(function () {
     let allCategories = [];
@@ -55,153 +332,238 @@
     const labelModal = $('#label-modal');
     const viewModal = $('#view-modal');
 
+    // === LOAD DATA ===
     function loadAllDataAndRender() {
       $.get('/api/labels/all', function(data) {
         allCategories = data.categories || [];
         allLabels = data.labels || [];
-        renderCategories(allCategories);
-        renderLabels(allLabels);
+
+        renderPage(allCategories, allLabels);
         updateCategoryFilter(allCategories);
-      }).fail(() => showNotification("Ошибка загрузки данных.", true));
+      }).fail(() => showNotification("Ошибка загрузки данных с сервера", true));
     }
 
-    function renderCategories(categories) {
+    // === RENDER LOGIC ===
+    function renderPage(categories, labels) {
       const container = $('#labels-container').empty();
+
       if (categories.length === 0) {
-        container.html('<div class="empty-state" style="text-align: center; padding: 40px; background-color: #fff; border-radius: 8px; color: #7f8c8d;"><p>Нет категорий. Начните с создания новой.</p></div>');
+        container.html('<div style="text-align:center; padding:40px; color:#94a3b8;">Нет категорий. Создайте первую!</div>');
         return;
       }
+
       categories.forEach(cat => {
-        container.append(`
-          <div class="category-block" data-category-id="${cat.id}">
-            <div class="category-header">
-                <h3>${escapeHtml(cat.name)}</h3>
-                <div class="category-actions">
-                    <button class="add-label-btn">Добавить метку</button>
-                    <button class="delete-category-btn danger">Удалить категорию</button>
+        // Шапка категории
+        const section = $(`
+              <div class="category-block" data-category-id="${cat.id}">
+                <div class="category-header">
+                    <h3>${escapeHtml(cat.name)}</h3>
+                    <div>
+                        <button class="secondary add-label-btn" style="padding:4px 10px; font-size:11px;">+ Метка</button>
+                        <button class="danger delete-category-btn" style="padding:4px 10px; font-size:11px; color:#ef4444; border-color:#fecaca; background:#fff;">Удалить</button>
+                    </div>
                 </div>
-            </div>
-            <div class="labels-list"></div>
-          </div>`);
+                <div class="labels-list"></div>
+              </div>`);
+        container.append(section);
       });
+
+      // Заполнение меток
+      renderGrid(labels);
     }
 
-    function renderLabels(labels) {
+    function renderGrid(labels) {
+      // Очистка
       $('.labels-list').empty();
+
       labels.forEach(label => {
-        const labelHtml = `
-          <div class="label-item" data-label-id="${label.id}">
-              <span class="label-title">${escapeHtml(label.title)}</span>
-              <div class="label-actions">
-                  <span class="usage-counter" title="Скопировано раз">${label.usage_count || 0}</span>
-                  <button class="view-label-btn" title="Просмотр">👁️</button>
-                  <button class="copy-label-btn" title="Копировать">📋</button>
-                  <button class="delete-label-btn danger" title="Удалить">🗑️</button>
-              </div>
-          </div>`;
-        $(`.category-block[data-category-id="${label.category_id}"] .labels-list`).append(labelHtml);
+        // Создание превью текста
+        let preview = label.content || '';
+        if(preview.length > 150) preview = preview.substring(0, 150) + '...';
+
+        const card = `
+              <div class="label-item" data-label-id="${label.id}">
+                  <div class="label-header">
+                      <span class="label-title view-label-btn" title="${escapeHtml(label.title)}">${escapeHtml(label.title)}</span>
+                      <span class="usage-badge" title="Использований">${label.usage_count || 0}</span>
+                  </div>
+
+                  <div class="label-preview view-label-btn" title="Кликни для просмотра">${escapeHtml(preview)}</div>
+
+                  <div class="label-footer">
+                      <button class="btn-copy copy-label-btn">📋 Копировать</button>
+                      <div class="action-icons">
+                        <button class="edit-label-btn" title="Редактировать">✎</button>
+                        <button class="delete-label-btn del" title="Удалить">🗑</button>
+                      </div>
+                  </div>
+              </div>`;
+
+        $(`.category-block[data-category-id="${label.category_id}"] .labels-list`).append(card);
       });
+
+      // Пустые состояния
       $('.category-block').each(function() {
         if ($(this).find('.label-item').length === 0) {
-          $(this).find('.labels-list').html('<p style="font-style: italic; color: #95a5a6; padding: 15px 0; text-align: center;">Нет меток, соответствующих запросу.</p>');
+          $(this).find('.labels-list').html('<div style="grid-column:1/-1; text-align:center; color:#cbd5e1; padding:20px; border:2px dashed #e2e8f0; border-radius:8px;">В этой категории нет меток</div>');
         }
       });
     }
 
+    // Обновление выпадающего списка
     function updateCategoryFilter(categories) {
       const filter = $('#category-filter');
-      const currentVal = filter.val();
+      const current = filter.val();
       filter.find('option:not(:first)').remove();
       categories.forEach(cat => filter.append(`<option value="${cat.id}">${escapeHtml(cat.name)}</option>`));
-      filter.val(currentVal);
+      if(current) filter.val(current);
     }
 
-    function performSearch() {
-      const query = $('#search-input').val();
-      const categoryId = $('#category-filter').val();
-      $.get('/api/labels/search', { q: query, categoryId: categoryId }, renderLabels)
-              .fail(() => showNotification("Ошибка при выполнении поиска.", true));
-    }
+    // === ACTIONS ===
 
-    $('#search-input').on('keyup', debounce(performSearch, 300));
-    $('#category-filter').on('change', performSearch);
-
+    // Добавление категории
     $('#add-category-btn').on('click', function() {
       const name = prompt("Введите название новой категории:");
-      if (name && name.trim()) {
-        $.ajax({ url: '/api/labels/category', type: 'POST', contentType: 'application/json', data: JSON.stringify({ name: name.trim() }), success: loadAllDataAndRender });
-      }
-    });
-    $('#labels-container').on('click', '.delete-category-btn', function() {
-      if (!confirm("Вы уверены, что хотите удалить эту категорию и ВСЕ метки в ней?")) return;
-      const categoryId = $(this).closest('.category-block').data('category-id');
-      $.ajax({ url: '/api/labels/category', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id: categoryId }), success: loadAllDataAndRender });
-    });
-
-    $('#labels-container').on('click', '.add-label-btn', function() {
-      const categoryId = $(this).closest('.category-block').data('category-id');
-      $('#modal-title').text('Новая метка');
-      $('#modal-label-id').val('');
-      $('#modal-category-id').val(categoryId);
-      $('#modal-label-title').val('');
-      $('#modal-label-content').val('');
-      labelModal.show();
-    });
-
-    $('#save-label-btn').on('click', function() {
-      const labelData = {
-        id: $('#modal-label-id').val() ? parseInt($('#modal-label-id').val()) : null,
-        category_id: parseInt($('#modal-category-id').val()),
-        title: $('#modal-label-title').val().trim(),
-        content: $('#modal-label-content').val()
-      };
-      if (!labelData.title) { alert('Название метки не может быть пустым.'); return; }
-      $.ajax({
-        url: '/api/labels/label', type: 'POST', contentType: 'application/json',
-        data: JSON.stringify(labelData),
-        success: () => { labelModal.hide(); loadAllDataAndRender(); },
-        error: () => showNotification("Ошибка сохранения метки.", true)
-      });
-    });
-
-    $('.modal-close').on('click', () => $('.modal').hide());
-
-    $('#labels-container').on('click', '.view-label-btn, .label-title', function() {
-      const labelId = $(this).closest('.label-item').data('label-id');
-      const label = allLabels.find(l => l.id === labelId);
-      if (label) {
-        $('#view-modal-title').text(label.title);
-        $('#view-modal-content').text(label.content);
-        viewModal.show();
-      }
-    });
-
-    $('#view-modal-copy-btn').on('click', function() {
-      copyToClipboard($('#view-modal-content').text(), "Текст метки скопирован!");
-    });
-
-    $('#labels-container').on('click', '.copy-label-btn', function() {
-      const labelId = $(this).closest('.label-item').data('label-id');
-      const label = allLabels.find(l => l.id === labelId);
-      if (label) {
-        copyToClipboard(label.content, "Текст метки скопирован!").then(() => {
-          $.ajax({ url: '/api/labels/increment_usage', type: 'POST', contentType: 'application/json', data: JSON.stringify({ id: labelId }), success: loadAllDataAndRender });
+      if(name && name.trim()){
+        $.ajax({
+          url: '/api/labels/category', type: 'POST', contentType:'application/json',
+          data: JSON.stringify({name: name.trim()}),
+          success: loadAllDataAndRender
         });
       }
     });
 
-    $('#labels-container').on('click', '.delete-label-btn', function() {
-      if (!confirm("Удалить метку?")) return;
-      const labelId = $(this).closest('.label-item').data('label-id');
-      $.ajax({ url: '/api/labels/label', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({ id: labelId }), success: loadAllDataAndRender });
+    // Удаление категории
+    $('#labels-container').on('click', '.delete-category-btn', function() {
+      if(!confirm('Удалить категорию и ВСЕ её метки?')) return;
+      const cid = $(this).closest('.category-block').data('category-id');
+      $.ajax({
+        url: '/api/labels/category', type: 'DELETE', contentType:'application/json',
+        data: JSON.stringify({id: cid}),
+        success: loadAllDataAndRender
+      });
     });
 
-    function copyToClipboard(text, message) { return navigator.clipboard.writeText(text).then(() => showNotification(message), (err) => showNotification('Ошибка копирования: ' + err, true)); }
-    let notificationTimeout;
-    function showNotification(message, isError = false) { const n = $('#notification'); n.text(message).removeClass('error').show(); if (isError) n.addClass('error'); clearTimeout(notificationTimeout); notificationTimeout = setTimeout(() => n.fadeOut(), 2500); }
-    function escapeHtml(text) { return $('<div>').text(text || '').html(); }
-    function debounce(func, delay) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => func.apply(this, a), delay); }; }
+    // Поиск (с исправлением для сервера)
+    $('#search-input').on('keyup', debounce(doSearch, 300));
+    $('#category-filter').on('change', doSearch);
 
+    function doSearch() {
+      const q = $('#search-input').val();
+      const cid = $('#category-filter').val();
+      const params = { q: q };
+      if(cid) params.categoryId = cid;
+
+      $.get('/api/labels/search', params, function(data) {
+        renderGrid(data); // Обновляем только карточки
+      });
+    }
+
+    // Создание метки
+    $('#labels-container').on('click', '.add-label-btn', function() {
+      const cid = $(this).closest('.category-block').data('category-id');
+      $('#modal-label-id').val('');
+      $('#modal-category-id').val(cid);
+      $('#modal-label-title').val('');
+      $('#modal-label-content').val('');
+      $('#modal-title').text('Новая метка');
+
+      labelModal.css('display','flex').hide().fadeIn(200);
+      $('#modal-label-title').focus();
+    });
+
+    // Редактирование метки
+    $('#labels-container').on('click', '.edit-label-btn', function() {
+      const lid = $(this).closest('.label-item').data('label-id');
+      const label = allLabels.find(l => l.id === lid);
+      if(label){
+        $('#modal-label-id').val(label.id);
+        $('#modal-category-id').val(label.category_id);
+        $('#modal-label-title').val(label.title);
+        $('#modal-label-content').val(label.content);
+        $('#modal-title').text('Редактирование');
+        labelModal.css('display','flex').hide().fadeIn(200);
+      }
+    });
+
+    // Сохранение метки
+    $('#save-label-btn').on('click', function() {
+      const lid = $('#modal-label-id').val();
+      const data = {
+        id: lid ? parseInt(lid) : null,
+        category_id: parseInt($('#modal-category-id').val()),
+        title: $('#modal-label-title').val(),
+        content: $('#modal-label-content').val()
+      };
+      if(!data.title) return alert('Введите название');
+
+      $.ajax({
+        url: '/api/labels/label', type: 'POST', contentType:'application/json',
+        data: JSON.stringify(data),
+        success: () => { labelModal.fadeOut(); loadAllDataAndRender(); showNotification("Сохранено!"); }
+      });
+    });
+
+    // Удаление метки
+    $('#labels-container').on('click', '.delete-label-btn', function() {
+      if(!confirm('Удалить?')) return;
+      const lid = $(this).closest('.label-item').data('label-id');
+      $.ajax({
+        url: '/api/labels/label', type: 'DELETE', contentType:'application/json',
+        data: JSON.stringify({id: lid}),
+        success: loadAllDataAndRender
+      });
+    });
+
+    // Просмотр
+    $('#labels-container').on('click', '.view-label-btn', function() {
+      const lid = $(this).closest('.label-item').data('label-id');
+      const label = allLabels.find(l => l.id === lid);
+      $('#view-modal-title').text(label.title);
+      $('#view-modal-content').text(label.content);
+      $('#view-modal-copy-btn').data('lid', label.id);
+      viewModal.css('display','flex').hide().fadeIn(200);
+    });
+
+    // Копирование (Модалка)
+    $('#view-modal-copy-btn').on('click', function() {
+      const lid = $(this).data('lid');
+      const txt = $('#view-modal-content').text();
+      copyText(txt, lid);
+    });
+
+    // Копирование (Быстрое)
+    $('#labels-container').on('click', '.copy-label-btn', function() {
+      const lid = $(this).closest('.label-item').data('label-id');
+      const label = allLabels.find(l => l.id === lid);
+      copyText(label.content, lid);
+    });
+
+    function copyText(txt, id) {
+      navigator.clipboard.writeText(txt).then(() => {
+        showNotification("Текст скопирован в буфер!");
+        $.post('/api/labels/increment_usage', JSON.stringify({id:id}));
+      });
+    }
+
+    // Закрытие модалок
+    $('.modal-close, .modal-close-btn').click(() => $('.modal').fadeOut(200));
+    $(window).click(e => { if($(e.target).hasClass('modal')) $('.modal').fadeOut(200); });
+
+    // Утилиты
+    function escapeHtml(t) { if(!t) return ''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function showNotification(msg, err) {
+      const n = $('#notification');
+      n.text(msg).removeClass('error').toggle(false);
+      if(err) n.addClass('error');
+      n.fadeIn().delay(1500).fadeOut();
+    }
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); };
+    }
+
+    // Start
     loadAllDataAndRender();
   });
 </script>
