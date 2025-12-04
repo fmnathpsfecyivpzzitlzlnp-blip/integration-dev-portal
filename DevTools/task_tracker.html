@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Ведение задач (DB Mode)</title>
+
+    <!-- Библиотека jQuery (обязательно локально) -->
+    <script src="libs/jquery-3.6.0.min.js"></script>
+
+    <!-- CodeMirror (Редактор кода) -->
+    <!-- Основные стили и скрипты -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <!-- Стили для светлой темы (если есть файл) или фолбэк -->
+    <link rel="stylesheet" href="style.css">
+
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+    <script src="libs/clike.min.js"></script>
+    <!-- Если используете SQL, убедитесь что sql.min.js лежит в папке libs -->
+    <script src="libs/sql.min.js"></script>
+
+    <style>
+        /* === ЛОКАЛЬНЫЕ СТИЛИ ДЛЯ ЭТОЙ СТРАНИЦЫ === */
+
+        /* Фикс высоты редактора кода */
+        .CodeMirror {
+            border: 1px solid #d1d5db;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            height: 180px !important;
+            font-size: 13px;
+            font-family: 'Consolas', monospace;
+        }
+
+        .editor-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border: 1px solid #d1d5db;
+            padding: 5px 10px;
+            border-radius: 4px 4px 0 0;
+        }
+
+        /* Выпадающее меню действий в таблице */
+        .task-table td { overflow: visible; position: relative; }
+
+        .task-actions { position: relative; display: inline-block; }
+
+        .btn-menu {
+            background: #fff;
+            border: 1px solid #d1d5db;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #555;
+            font-size: 12px;
+        }
+        .btn-menu:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 4px;
+            background-color: #fff;
+            min-width: 240px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            z-index: 100;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            text-align: left;
+        }
+
+        .task-actions:hover .dropdown-content { display: block; }
+
+        /* "Мостик" для курсора, чтобы меню не пропадало */
+        .dropdown-content::before {
+            content: ''; position: absolute; top: -10px; left: 0; width: 100%; height: 10px; background: transparent;
+        }
+
+        .dropdown-content a {
+            display: block;
+            padding: 10px 16px;
+            color: #374151;
+            text-decoration: none;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .dropdown-content a:last-child { border-bottom: none; }
+        .dropdown-content a:hover { background-color: #eff6ff; color: #2563eb; }
+
+        .danger-action { color: #dc2626 !important; }
+        .danger-action:hover { background-color: #fef2f2 !important; }
+
+        /* Статусные бейджи */
+        .badge-stage {
+            font-size: 11px; padding: 2px 6px; border-radius: 4px;
+            background: #f3f4f6; color: #64748b; border: 1px solid #e2e8f0; font-weight: 600;
+        }
+
+        .badge { display:inline-block; padding:3px 8px; border-radius:99px; font-size:11px; font-weight:700; border:1px solid transparent; }
+        .b-blue { background:#dbeafe; color:#1e40af; border-color:#bfdbfe; }
+        .b-green { background:#dcfce7; color:#166534; border-color:#86efac; }
+        .b-gray { background:#f3f4f6; color:#4b5563; border-color:#e5e7eb; }
+        .b-red { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+        .b-test { background:#fef9c3; color:#854d0e; border-color:#fde047; } /* Yellow */
+
+        /* Модальные окна */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 10000;
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 8px; width: 600px; max-width: 90%;
+            box-shadow: 0 20px 25px rgba(0,0,0,0.2); position: relative; margin: 10% auto;
+        }
+        .modal-close {
+            position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-content">
+
+    <!-- Верхняя панель навигации -->
+    <div style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="window.top.location.href='index.html'" class="secondary">🏠 На главную</button>
+        <div id="msg_box" style="color:#27ae60; font-weight:bold; display:none; padding: 5px 10px; background: #dcfce7; border-radius: 4px;">✅ Успешно сохранено</div>
+    </div>
+
+    <!-- Секция настроек синхронизации (складная) -->
+    <div class="form-section" style="padding:10px 20px; margin-bottom:15px;">
+        <div onclick="$('#settings_panel').slideToggle()" style="cursor:pointer; font-weight:bold; color:#555; display:flex; align-items:center; user-select: none;">
+            ⚙️ Настройки интеграции / Синхронизация <span style="margin-left:10px; font-size:10px; color:#999;">▼</span>
+        </div>
+        <div id="settings_panel" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #eee;">
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Параметры для пересылки задач на внешний сервер (POST /api/tasks):</p>
+            <div class="form-grid">
+                <div><label>Target URL</label><input id="set_url" placeholder="http://remote-server:8080/api/tasks"></div>
+                <div><label>Basic Auth User</label><input id="set_user"></div>
+                <div><label>Basic Auth Password</label><input type="password" id="set_pass"></div>
+            </div>
+            <div style="margin-top:10px;">
+                <button onclick="saveGlobalSettings()" class="primary">Сохранить настройки</button>
+                <button onclick="syncToRemote()" class="secondary" title="Отправить все локальные задачи на удаленный сервер">📤 Запустить синхронизацию</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ФОРМА РЕДАКТИРОВАНИЯ ЗАДАЧИ -->
+    <div class="form-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+            <h2 style="margin:0; border:none;">📝 Карточка Задачи</h2>
+            <button class="secondary" onclick="clearForm()">Очистить форму (Новая)</button>
+        </div>
+
+        <!-- Скрытое поле ID для режима редактирования (UPDATE) -->
+        <input type="hidden" id="t_id">
+
+        <div class="form-grid">
+            <div>
+                <label class="req-mark">Разработчик (User)</label>
+                <input type="text" id="t_user" placeholder="Ваше Имя / Login">
+            </div>
+            <div>
+                <label class="req-mark">Номер задачи (Key)</label>
+                <input type="text" id="t_num" placeholder="JIRA-123" style="font-weight:bold;">
+            </div>
+
+            <div>
+                <label>Этап (Pipeline)</label>
+                <select id="t_stage" onchange="updateStatuses()">
+                    <!-- Заполняется JS -->
+                </select>
+            </div>
+            <div>
+                <label>Статус</label>
+                <select id="t_status"></select>
+            </div>
+
+            <div><label>Ссылка на задачу (Jira)</label><input type="text" id="t_link" placeholder="https://tracker..."></div>
+            <div><label>Контактное лицо</label><input type="text" id="t_contact" placeholder="Заказчик / Аналитик"></div>
+
+            <!-- ДАТЫ -->
+            <div style="border-left:2px solid #3b82f6; padding-left:10px; background:#f0f9ff;">
+                <label style="font-weight:bold; color:#1e40af;">План оконч. разработки</label>
+                <input type="date" id="t_plan_dev">
+            </div>
+            <div style="border-left:2px solid #22c55e; padding-left:10px; background:#f0fdf4;">
+                <label style="font-weight:bold; color:#15803d;">Дата установки (План/Факт)</label>
+                <input type="text" id="t_date" placeholder="DD.MM.YYYY">
+            </div>
+        </div>
+
+        <!-- Wiki Link отдельно на всю ширину для удобства -->
+        <div class="form-grid-full-width" style="margin-top: 10px;">
+            <label>Ссылка на ТЗ / Wiki</label>
+            <input type="text" id="t_wiki" style="width:100%;">
+        </div>
+
+        <!-- Блок кода / Комментария -->
+        <div class="form-grid-full-width" style="margin-top: 15px;">
+            <div class="editor-bar">
+                <span style="font-weight:600; color:#555; font-size:12px;">Техническое описание / SQL / JSON / Заметки</span>
+                <div>
+                    <select onchange="cmEditor.setOption('mode', this.value)" style="width:auto; padding:2px; height:24px; font-size:11px; border: 1px solid #ccc; border-radius:3px;">
+                        <option value="text/x-java">Java / Groovy</option>
+                        <option value="application/json">JSON</option>
+                        <option value="application/xml">XML</option>
+                        <option value="text/x-sql">SQL</option>
+                        <option value="text/plain">Text (Plain)</option>
+                    </select>
+                    <button class="secondary" onclick="toggleTheme()" id="thm_btn" style="padding:2px 8px; font-size:11px; height: 24px; line-height: 1;">🌙 Dark</button>
+                </div>
+            </div>
+            <textarea id="t_comment"></textarea>
+        </div>
+
+        <div class="button-bar" style="margin-top:20px;">
+            <button onclick="saveTask()" class="success" style="padding:10px 25px;">💾 Сохранить задачу</button>
+
+            <div style="margin-left:auto; display:flex; gap:10px;">
+                <button onclick="exportExcel()" style="background:#17a2b8; color:white;">📊 Скачать Excel</button>
+                <button class="secondary" onclick="$('#infoModal').fadeIn()">ℹ Справка статусов</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ТАБЛИЦА СПИСКА ЗАДАЧ -->
+    <div class="form-section" style="margin-top:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;">Список активных задач (DB)</h3>
+            <button class="secondary" onclick="loadTasksFromDB()">🔄 Обновить список</button>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+            <input id="search_inp" onkeyup="renderTable()" placeholder="🔍 Быстрый поиск по номеру, разработчику или статусу..." style="width: 100%; max-width: 500px; padding: 10px;">
+        </div>
+
+        <div class="table-container" style="min-height: 300px;">
+            <table class="task-table" id="tasks_t">
+                <thead>
+                <tr>
+                    <th width="50">ID</th>
+                    <th width="140">Разработчик</th>
+                    <th width="120">Задача</th>
+                    <th>Этап / Статус</th>
+                    <th>Даты (План)</th>
+                    <th>Информация</th>
+                    <th width="80" style="text-align:right;">Действия</th>
+                </tr>
+                </thead>
+                <tbody id="tbody">
+                <!-- Заполняется JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: СПРАВКА ПО ЦИКЛУ -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="$('#infoModal').fadeOut()">×</span>
+        <h2 style="margin-top:0;">Жизненный цикл задачи</h2>
+        <div id="info_content" style="line-height:1.6; font-size: 13px; max-height:400px; overflow-y:auto;"></div>
+        <div style="text-align:right; margin-top:20px;">
+            <button onclick="$('#infoModal').fadeOut()" class="primary">Понятно</button>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPT LOGIC -->
+<script>
+    // === 1. КОНФИГУРАЦИЯ СТАТУСОВ (PIPELINE) ===
+    const STAGES = {
+        "Этап 1: Очередь (Backlog)": ["Новая", "Взято в работу", "Оценка", "В очереди"],
+        "Этап 2: Аналитика (Analysis)": ["Анализ", "Проектирование / ТЗ", "Согласование ТЗ"],
+        "Этап 3: Разработка (Dev)": ["В разработке", "Code Review", "Исправление замечаний", "Dev Тест пройден"],
+        "Этап 4: Тестирование (Test/UAT)": ["Готово к установке (TEST)", "Установлено (TEST)", "Тестирование", "Приемка (UAT)"],
+        "Этап 5: Внедрение (Prod)": ["Готово к внедрению (PROD)", "Установка (PROD)", "Внедрение завершено"],
+        "Специальные": ["Приостановлено (On Hold)", "Заблокировано (Blocked)", "Отменено"]
+    };
+
+    // Глобальное состояние
+    let tasks = [];
+    let cmEditor;
+    let darkTheme = true; // Тема редактора по умолчанию
+
+    // === 2. ИНИЦИАЛИЗАЦИЯ (ON LOAD) ===
+    $(function() {
+        // Инит редактора
+        cmEditor = CodeMirror.fromTextArea(document.getElementById('t_comment'), {
+            mode: "text/x-java", // Дефолтный режим
+            lineNumbers: true,
+            theme: "dracula",
+            lineWrapping: true,
+            viewportMargin: Infinity
+        });
+
+        // Заполнение Select "Этап"
+        const stg = $('#t_stage');
+        stg.empty();
+        for(let key in STAGES) {
+            stg.append(new Option(key, key));
+        }
+
+        // Событие обновления статусов при смене этапа
+        updateStatuses();
+
+        // Заполнение модалки справки
+        const hlp = $('#info_content');
+        for(let key in STAGES) {
+            hlp.append(`<div style="margin-bottom:8px;"><strong style="color:#333; display:block;">${key}</strong> <span style="color:#666;">${STAGES[key].join(' • ')}</span></div>`);
+        }
+
+        // Авто-заполнение разработчика (User Persistence)
+        const savedUser = localStorage.getItem('last_dev_user');
+        if(savedUser) {
+            $('#t_user').val(savedUser);
+        }
+
+        // Загрузка данных
+        loadSettings();
+        loadTasksFromDB();
+    });
+
+    // === 3. UI HELPER FUNCTIONS ===
+
+    // Обновление второго выпадающего списка
+    window.updateStatuses = function() {
+        const k = $('#t_stage').val();
+        const vals = STAGES[k] || [];
+        const sts = $('#t_status').empty();
+        vals.forEach(v => sts.append(new Option(v, v)));
+    };
+
+    // Переключение темы редактора
+    window.toggleTheme = function() {
+        darkTheme = !darkTheme;
+        cmEditor.setOption('theme', darkTheme ? 'dracula' : 'default'); // default - светлая тема CodeMirror
+        $('#thm_btn').text(darkTheme ? '🌙 Dark' : '☀️ Light');
+    };
+
+    // Очистка формы
+    window.clearForm = function() {
+        // Чистим все инпуты, КРОМЕ поля User (мы его помним)
+        $('input').not('#t_user').val('');
+        $('#t_id').val(''); // Сброс ID означает "Создание новой"
+        $('#t_stage').prop('selectedIndex', 0);
+        updateStatuses();
+        cmEditor.setValue('');
+
+        // Восстановление User из LocalStorage (на случай если пользователь стер и нажал очистить)
+        const saved = localStorage.getItem('last_dev_user');
+        if(saved) $('#t_user').val(saved);
+    };
+
+    // === 4. API (Взаимодействие с сервером) ===
+
+    // Загрузка списка
+    window.loadTasksFromDB = function() {
+        $('#tbody').html('<tr><td colspan="7" style="text-align:center; padding:20px; color:#777;">Загрузка данных...</td></tr>');
+
+        $.get('/api/tasks', function(data) {
+            tasks = data || []; // Ожидается массив
+            renderTable();
+        }).fail(function(xhr) {
+            $('#tbody').html('<tr><td colspan="7" style="text-align:center; color:red; padding:20px;">Ошибка API: Не удалось загрузить задачи.</td></tr>');
+            console.error(xhr);
+        });
+    };
+
+    // Сохранение (Create / Update)
+    window.saveTask = function() {
+        const idStr = $('#t_id').val();
+        const user = $('#t_user').val().trim();
+        const num = $('#t_num').val().trim();
+
+        if(!user || !num) return alert('Ошибка: Поля "Разработчик" и "Номер задачи" обязательны!');
+
+        // 1. Сохраняем имя разработчика в память браузера
+        localStorage.setItem('last_dev_user', user);
+
+        // 2. Сбор данных
+        const payload = {
+            id: idStr ? parseInt(idStr) : null,
+            user: user,
+            task_number: num,
+            stage: $('#t_stage').val(),
+            status: $('#t_status').val(),
+
+            // Ссылки и контакты
+            task_url: $('#t_link').val(),
+            contact_person: $('#t_contact').val(),
+            spec_url: $('#t_wiki').val(),
+
+            // Даты
+            deployment_date: $('#t_date').val(),        // Текстовое поле
+            planned_dev_date: $('#t_plan_dev').val(),   // Date Input (YYYY-MM-DD)
+
+            // Rich Text
+            additional_comment: cmEditor.getValue()
+        };
+
+        // 3. Отправка
+        $.ajax({
+            url: '/api/tasks',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(res) {
+                $('#msg_box').text('Задача сохранена!').fadeIn().delay(1500).fadeOut();
+                clearForm();
+                loadTasksFromDB(); // Рефреш таблицы
+            },
+            error: function(xhr) {
+                alert('Ошибка сохранения: ' + xhr.responseText);
+            }
+        });
+    };
+
+    // Удаление
+    window.deleteT = function(id) {
+        if(!confirm('Удалить эту задачу безвозвратно?')) return;
+        $.ajax({
+            url: '/api/tasks',
+            type: 'DELETE',
+            contentType: 'application/json',
+            data: JSON.stringify({ id: id }),
+            success: function() {
+                loadTasksFromDB();
+            },
+            error: (x) => alert("Ошибка удаления")
+        });
+    };
+
+    // Клонирование (Копировать задачу)
+    window.cloneDeep = function(id) {
+        const origin = tasks.find(x => x.id === id);
+        if(!origin) return;
+        if(!confirm('Создать копию задачи?')) return;
+
+        const copy = { ...origin }; // Shallow copy
+        copy.id = null; // New ID
+        copy.task_number = origin.task_number + "_COPY";
+        copy.status = "Новая"; // Сброс статуса
+
+        $.ajax({
+            url: '/api/tasks',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(copy),
+            success: function() {
+                alert("Копия создана!");
+                loadTasksFromDB();
+            }
+        });
+    };
+
+    // Экспорт в Excel
+    window.exportExcel = function() {
+        window.location.href = '/api/tasks/export';
+    };
+
+    // === 5. РЕДАКТИРОВАНИЕ (Заполнение формы) ===
+
+    window.editT = function(id) {
+        const t = tasks.find(x => x.id === id);
+        if(!t) return;
+
+        // ID & Core
+        $('#t_id').val(t.id);
+        $('#t_user').val(t.user);
+        $('#t_num').val(t.task_number);
+
+        // Status Selects
+        $('#t_stage').val(t.stage);
+        updateStatuses(); // rebuild options
+        $('#t_status').val(t.status);
+
+        // Fields
+        $('#t_link').val(t.task_url);
+        $('#t_contact').val(t.contact_person);
+        $('#t_wiki').val(t.spec_url);
+
+        // Dates
+        $('#t_date').val(t.deployment_date);
+        // Загрузка плановой даты (Server must return 'planned_dev_date')
+        if(t.planned_dev_date) {
+            $('#t_plan_dev').val(t.planned_dev_date); // Format YYYY-MM-DD expected by input date
+        } else {
+            $('#t_plan_dev').val('');
+        }
+
+        // Code
+        cmEditor.setValue(t.additional_comment || '');
+
+        // UI UX
+        window.scrollTo(0,0);
+    };
+
+    // === 6. РЕНДЕРИНГ ТАБЛИЦЫ ===
+
+    window.renderTable = function() {
+        const tbody = $('#tbody').empty();
+        const search = $('#search_inp').val().toLowerCase().trim();
+
+        // Фильтрация
+        const filtered = tasks.filter(t => {
+            if(!search) return true;
+            return (t.task_number||'').toLowerCase().includes(search) ||
+                (t.user||'').toLowerCase().includes(search) ||
+                (t.status||'').toLowerCase().includes(search);
+        });
+
+        if(filtered.length === 0) {
+            tbody.html('<tr><td colspan="7" style="text-align:center; padding:15px; color:#999;">Ничего не найдено</td></tr>');
+            return;
+        }
+
+        filtered.forEach(t => {
+            // Раскраска статуса
+            let colorClass = 'b-gray';
+            const s = (t.status || '').toLowerCase();
+            if (s.includes('работ') || s.includes('взято')) colorClass = 'b-blue';
+            if (s.includes('готово') || s.includes('внедрен') || s.includes('завершено')) colorClass = 'b-green';
+            if (s.includes('test') || s.includes('uat')) colorClass = 'b-test';
+            if (s.includes('cancel') || s.includes('hold') || s.includes('block') || s.includes('отмен')) colorClass = 'b-red';
+
+            // Формирование блока дат
+            // Показываем Dev и Dep даты
+            let datesHtml = '';
+            if(t.planned_dev_date) {
+                datesHtml += `<div title="Плановое окончание разработки" style="color:#1e40af; font-weight:600;">🛠 ${escapeHtml(t.planned_dev_date)}</div>`;
+            }
+            if(t.deployment_date) {
+                datesHtml += `<div title="Дата установки" style="color:#166534;">🚀 ${escapeHtml(t.deployment_date)}</div>`;
+            }
+            if(!datesHtml) datesHtml = '<span style="color:#ccc;">—</span>';
+
+            // Инфо блок
+            let infoHtml = '';
+            if(t.contact_person) infoHtml += `<div>👤 ${escapeHtml(t.contact_person)}</div>`;
+            if(t.spec_url) infoHtml += `<div>📄 <a href="${t.spec_url}" target="_blank">ТЗ / Wiki</a></div>`;
+
+            // Ссылка на трекер
+            const taskLink = t.task_url ? `<a href="${t.task_url}" target="_blank" style="font-weight:bold; color:#2563eb; text-decoration:none;">${escapeHtml(t.task_number)}</a>` : `<b>${escapeHtml(t.task_number)}</b>`;
+
+            const tr = `
+                <tr>
+                    <td style="color:#cbd5e1; font-size:11px;">${t.id}</td>
+                    <td><b style="color:#334155;">${escapeHtml(t.user)}</b></td>
+                    <td>${taskLink}</td>
+                    <td>
+                        <div style="font-size:10px; color:#64748b; margin-bottom:2px;">${escapeHtml((t.stage||'').split(':')[0])}</div>
+                        <span class="badge ${colorClass}">${escapeHtml(t.status || '???')}</span>
+                    </td>
+                    <td style="font-size:11px; white-space:nowrap;">
+                        ${datesHtml}
+                    </td>
+                    <td style="font-size:11px;">${infoHtml}</td>
+                    <td style="text-align:right;">
+                        <div class="task-actions">
+                            <button class="btn-menu">⋮</button>
+                            <div class="dropdown-content">
+                                <a href="#" onclick="editT(${t.id})">✏️ Редактировать</a>
+                                <a href="#" onclick="cloneDeep(${t.id})">📑 Клонировать</a>
+                                <div style="border-top:1px solid #f1f5f9; margin:3px 0"></div>
+                                <a href="service-org.html?id=${t.id}">🧩 Интеграционные потоки</a>
+                                <a href="spec_generator.html?task_id=${t.id}">📄 Генератор ТЗ</a>
+                                <div style="border-top:1px solid #f1f5f9; margin:3px 0"></div>
+                                <a href="#" onclick="deleteT(${t.id})" class="danger-action">🗑 Удалить</a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            tbody.append(tr);
+        });
+    };
+
+    // Экранирование HTML (Безопасность)
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // === 7. SETTINGS LOGIC (GLOBAL) ===
+    function loadSettings() {
+        $.get('/api/tasks/settings', function(data) {
+            if(data.target_url) $('#set_url').val(data.target_url);
+            if(data.target_user) $('#set_user').val(data.target_user);
+        });
+    }
+
+    window.saveGlobalSettings = function() {
+        const s = {
+            target_url: $('#set_url').val(),
+            target_user: $('#set_user').val(),
+            target_password: $('#set_pass').val()
+        };
+        $.ajax({
+            url: '/api/tasks/settings', type: 'POST',
+            contentType: 'application/json', data: JSON.stringify(s),
+            success: () => alert('Настройки сохранены!')
+        });
+    };
+
+    window.syncToRemote = function() {
+        if(!confirm('Запустить синхронизацию? Это может занять время.')) return;
+        const btn = $('button[onclick="syncToRemote()"]');
+        btn.prop('disabled', true).text('⏳ Синхронизация...');
+
+        $.post('/api/tasks/send', {}, function(res) {
+            alert(`Синхронизация завершена.\nКод: ${res.statusCode}\nОтвет: ${res.body}`);
+        }).always(() => {
+            btn.prop('disabled', false).text('📤 Запустить синхронизацию');
+        });
+    };
+
+</script>
+
+</body>
+</html>

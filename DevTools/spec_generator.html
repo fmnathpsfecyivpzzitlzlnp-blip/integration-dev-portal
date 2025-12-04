@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Генератор Спецификации (Полная версия)</title>
+    <!-- Библиотеки -->
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/mermaid.min.js"></script>
+    <!-- Общие стили -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* === СТИЛИ ЛАЯУТА === */
+        body { background:#f4f7f9; margin:0; height:100vh; display:flex; flex-direction:column; overflow:hidden; font-family:'Segoe UI', sans-serif; }
+
+        /* Хедер */
+        .header {
+            background:#2c3e50; height:50px; display:flex; justify-content:space-between; align-items:center;
+            padding:0 20px; color:#fff; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        .btn-nav { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); color:white; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:13px; }
+        .btn-nav:hover { background:rgba(255,255,255,0.3); }
+
+        .header-right { display:flex; gap:10px; align-items: center; }
+
+        /* Кнопки действий */
+        .btn-action { border:none; padding:7px 15px; border-radius:4px; font-weight:600; cursor:pointer; color:white; font-size:13px; transition: all 0.2s; }
+        .btn-action:hover { opacity: 0.9; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transform: translateY(-1px); }
+
+        /* Цвета кнопок */
+        .btn-yellow { background: #f59e0b; }
+        .btn-green  { background: #10b981; }
+        .btn-purple { background: #8b5cf6; }
+        .btn-blue   { background: #3b82f6; }
+
+        .save-status { font-size: 11px; color: #cbd5e1; margin-right: 10px; font-style: italic; }
+
+        /* Основная рабочая область */
+        .workspace { display:flex; flex:1; overflow:hidden; }
+
+        /* Сайдбар */
+        .sidebar { width:500px; min-width:500px; background:#fff; border-right:1px solid #ccc; display:flex; flex-direction:column; z-index:2; box-shadow:2px 0 10px rgba(0,0,0,0.05); }
+        .sb-scroll { flex:1; overflow-y:auto; padding:15px; }
+        .sb-footer { padding:10px; background:#f8f9fa; border-top:1px solid #eee; text-align:center; color:#888; font-size:11px; }
+
+        /* Блоки в сайдбаре */
+        .block { background:#fff; border:1px solid #ddd; border-radius:6px; padding:15px; margin-bottom:15px; }
+        .block-head {
+            font-size:11px; font-weight:bold; color:#95a5a6; text-transform:uppercase;
+            border-bottom:1px solid #eee; padding-bottom:8px; margin-bottom:12px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Контролы ввода */
+        label { display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px; }
+        input, select, textarea { width:100%; padding:8px; font-size:13px; border:1px solid #d1d5db; border-radius:4px; box-sizing:border-box; margin-bottom:8px; font-family:inherit; }
+        input:focus, textarea:focus, select:focus { border-color:#3b82f6; outline:none; }
+
+        textarea.code { font-family:'Consolas', monospace; background:#282c34; color:#abb2bf; font-size:12px; line-height:1.5; resize:vertical; }
+
+        /* Аккордеон разделов */
+        .acc-item { border:1px solid #e5e7eb; background:#fff; border-radius:4px; margin-bottom:8px; overflow:hidden; transition: box-shadow 0.2s; }
+        .acc-head {
+            padding:10px; background:#f9fafb; cursor:pointer; font-weight:500; font-size:13px; display:flex; align-items:center; user-select:none;
+        }
+        .acc-head:hover { background:#f0f9ff; }
+        .acc-body { padding:10px; border-top:1px solid #e5e7eb; display:none; background:#fff; }
+
+        .btn-icon { background:none; border:none; cursor:pointer; font-size:18px; color:#ef4444; margin-left:auto; padding:0 5px; line-height: 1; }
+        .btn-icon:hover { color: #b91c1c; }
+        .drag-h { color:#ccc; margin-right:10px; cursor:grab; font-size:16px; }
+
+        /* Превью документа */
+        .preview-zone { flex:1; background:#525659; overflow-y:auto; display:flex; justify-content:center; padding:40px; }
+        .a4-page {
+            width:210mm; min-height:297mm; background:#fff; padding:20mm;
+            box-shadow:0 0 20px rgba(0,0,0,0.5); box-sizing:border-box;
+            font-family: 'Times New Roman', serif; color:#000; font-size:12pt; line-height:1.5;
+        }
+
+        /* Стили контента внутри A4 */
+        h1 { font-family:Arial,sans-serif; font-size:24pt; color:#1e40af; border-bottom:2px solid #1e40af; margin:0 0 20px 0; padding-bottom: 10px; }
+        h2 { font-family:Arial,sans-serif; font-size:16pt; color:#111827; margin:25px 0 10px 0; font-weight:bold; border-left: 5px solid #1e40af; padding-left: 10px; background: #f3f4f6;}
+        h3 { font-family:Arial,sans-serif; font-size:14pt; color:#374151; margin:20px 0 10px 0; font-weight:bold; }
+        p, li { margin-bottom:8px; text-align:justify; }
+        table { width:100%; border-collapse:collapse; margin-bottom:20px; font-family:Arial,sans-serif; font-size:10pt; }
+        th, td { border:1px solid #333; padding:6px; vertical-align:top; text-align:left; }
+        th { background:#e5e7eb; font-weight:bold; text-align: center;}
+        .mermaid { text-align:center; margin:25px 0; }
+
+        /* Модальное окно версии */
+        .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:999; display:none; align-items:center; justify-content:center; }
+        .modal-win { width:450px; background:#fff; padding:25px; border-radius:8px; box-shadow:0 15px 30px rgba(0,0,0,0.3); }
+
+        /* Облако тегов */
+        .tags-cloud { display:flex; gap:8px; flex-wrap:wrap; margin:15px 0; }
+        .tag {
+            background:#e0f2fe; color:#0369a1; font-size:12px; padding:5px 12px;
+            border-radius:15px; border:1px solid #bae6fd; cursor:pointer; transition: 0.2s;
+        }
+        .tag:hover { background:#0284c7; color:white; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display:flex; align-items:center; gap:15px;">
+        <button class="btn-nav" onclick="window.location.href='task_tracker.html'">← К задаче</button>
+        <h3 style="margin:0;">Генератор ТЗ</h3>
+        <span id="ver_label" style="background:rgba(255,255,255,0.2); padding:3px 8px; font-size:12px; border-radius:4px; font-weight:bold;">v0.0</span>
+    </div>
+    <div class="header-right">
+        <span class="save-status" id="save_indicator">Изменения сохранены</span>
+        <button class="btn-action btn-yellow" onclick="doAutoFill()">⚡ Авто-заполнение из БД</button>
+        <!-- ЯВНАЯ КНОПКА СОХРАНИТЬ -->
+        <button class="btn-action btn-green" onclick="saveToDB(true)">💾 Сохранить</button>
+        <!-- КНОПКА НОВОЙ ВЕРСИИ -->
+        <button class="btn-action btn-purple" onclick="showSave()">🔖 Новая версия</button>
+        <button class="btn-action btn-blue" onclick="dl()">📥 HTML</button>
+    </div>
+</div>
+
+<div class="workspace">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sb-scroll">
+
+            <!-- 1. НАСТРОЙКИ -->
+            <div class="block">
+                <div class="block-head">1. Контекст интеграции</div>
+                <label>Режим (справочный):</label>
+                <select id="in_mode">
+                    <option value="sync">Синхронный (REST/SOAP)</option>
+                    <option value="async">Асинхронный (One-Way)</option>
+                    <option value="multi">Мульти-обмен (Complex)</option>
+                </select>
+
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <div style="flex:1">
+                        <label style="color:#166534;">Отправитель (Sender)</label>
+                        <input type="text" id="in_s" value="SENDER" oninput="updGlobal();">
+                    </div>
+                    <div style="flex:1">
+                        <label style="color:#991b1b;">Получатель (Receiver)</label>
+                        <input type="text" id="in_r" value="RECEIVER" oninput="updGlobal();">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. СТРУКТУРА -->
+            <div class="block">
+                <div class="block-head">
+                    <span>2. Структура документа</span>
+                    <div>
+                        <a href="#" onclick="addSec()" style="font-size:12px; color:#2563eb; margin-right:10px; font-weight: normal;">+ Добавить</a>
+                        <a href="#" onclick="hardReset()" style="font-size:12px; color:#dc2626; font-weight: normal;">Полный сброс</a>
+                    </div>
+                </div>
+                <div id="list_area">
+                    <!-- Здесь рендерится аккордеон -->
+                </div>
+
+                <div style="margin-top:15px; font-size:11px; color:#888; line-height:1.4; background:#f9f9f9; padding:8px; border-radius:4px;">
+                    <i style="margin-right:5px">ℹ</i> Тяните за иконку <b>☰</b>, чтобы менять порядок разделов.
+                    При авто-заполнении новые данные обновляют только соответствующие разделы.
+                </div>
+            </div>
+
+        </div>
+        <div class="sb-footer">Данные сохраняются автоматически в SQLite (Server.groovy)</div>
+    </div>
+
+    <!-- PREVIEW AREA -->
+    <div class="preview-zone">
+        <div class="a4-page" id="doc_output">
+            <!-- Здесь рендерится документ -->
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: VERSION SAVE -->
+<div class="modal-overlay" id="modal_save">
+    <div class="modal-win">
+        <h2 style="margin-top:0; margin-bottom:15px; font-size:18px; border-bottom:1px solid #eee; padding-bottom:10px;">Фиксация новой версии</h2>
+
+        <label>Быстрые комментарии:</label>
+        <div class="tags-cloud">
+            <span class="tag" onclick="setComm('Создание черновика')">📝 Черновик</span>
+            <span class="tag" onclick="setComm('Добавлены диаграммы')">📊 Схемы</span>
+            <span class="tag" onclick="setComm('Заполнены методы')">🔌 API</span>
+            <span class="tag" onclick="setComm('Внесены правки по ревью')">🛠 Правки</span>
+            <span class="tag" onclick="setComm('Документ согласован')">✅ Согласовано</span>
+        </div>
+
+        <label style="margin-top:10px;">Комментарий к версии (отобразится в истории):</label>
+        <textarea id="ver_comment" style="height:80px;" placeholder="Опишите, что изменилось..."></textarea>
+
+        <div style="text-align:right; margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="$('#modal_save').fadeOut()" style="padding:8px 15px; border:1px solid #ccc; background:white; border-radius:4px; cursor:pointer;">Отмена</button>
+            <button onclick="commitVersion()" style="padding:8px 20px; background:#8b5cf6; border:none; color:white; border-radius:4px; font-weight:bold; cursor:pointer;">Зафиксировать версию</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. INIT & CONFIG
+    // ==========================================
+    const urlParams = new URLSearchParams(location.search);
+    const TASK_ID = urlParams.get('task_id');
+    // Уникальное имя документа для БД
+    const DOC_NAME = `SPEC_DOC_TASK_${TASK_ID}`;
+
+    // Запасной шаблон (если справочник пуст)
+    const FALLBACK_STRUCT = [
+        {title:'Паспорт документа', type:'passport', val:''},
+        {title:'Лист изменений', type:'history', val:''},
+        {title:'1. Введение', type:'text', val:'<p>Цель данного документа - описать интеграционное взаимодействие...</p>'},
+        {title:'2. Диаграмма последовательности', type:'mermaid', val:'sequenceDiagram\nSENDER->>RECEIVER: Request\nRECEIVER-->>SENDER: Response'}
+    ];
+
+    // Сюда подгружаем шаблоны из БД
+    let LOADED_TEMPLATES = {};
+
+    // Состояние приложения
+    let state = {
+        ver: '0.0',
+        mode: 'sync',
+        sys: {s:'', r:''},
+        sections: [],
+        content: {},   // key: uid, value: html/text
+        history: []
+    };
+
+    $(function(){
+        if(!TASK_ID) {
+            alert("Ошибка: Нет ID задачи. Откройте страницу через список задач.");
+            return;
+        }
+
+        // Init MermaidJS
+        if(window.mermaid) mermaid.initialize({startOnLoad:false, theme:'default'});
+
+        // Step 1: Загрузить шаблоны из справочника (Settings)
+        loadTemplatesDict(function(){
+            // Step 2: Загрузить сам документ из БД
+            loadDocumentFromDB();
+        });
+    });
+
+    // ==========================================
+    // 2. DATA LOADING LOGIC
+    // ==========================================
+
+    function loadTemplatesDict(cb) {
+        $.ajax({
+            url: '/api/tasks/settings',
+            cache: false, // важно!
+            success: function(data) {
+                try {
+                    if(data && data.doc_structure_templates) {
+                        LOADED_TEMPLATES = JSON.parse(data.doc_structure_templates);
+                        console.log("Шаблоны загружены:", LOADED_TEMPLATES);
+                    }
+                } catch(e){ console.error("Bad templates JSON"); }
+                cb();
+            },
+            error: () => cb()
+        });
+    }
+
+    function loadDocumentFromDB() {
+        $.get('/api/documents', function(docs) {
+            // Ищем наш документ по имени
+            const found = docs.find(d => d.name === DOC_NAME);
+
+            if(found) {
+                // Документ есть, грузим контент
+                $.get('/api/documents/' + found.id, function(jsonStr) {
+                    try {
+                        const loadedState = JSON.parse(jsonStr);
+                        state = loadedState;
+                        initUI();
+                        // === SMART MERGE: Проверка на новые разделы из шаблона ===
+                        checkForNewSections();
+                    } catch(e) {
+                        console.error("JSON Error", e);
+                        // Если json битый, предлагаем сброс
+                        if(confirm("Ошибка чтения документа. Сбросить к шаблону?")) createFromTemplate();
+                    }
+                });
+            } else {
+                // Документа нет, создаем новый из шаблона
+                createFromTemplate(true); // true = сохранить сразу
+            }
+        }).fail(() => createFromTemplate(true));
+    }
+
+    // Создание с нуля
+    function createFromTemplate(autoSave) {
+        const mode = $('#in_mode').val() || 'sync';
+        state.mode = mode;
+        state.sys = {s:'SENDER', r:'RECEIVER'};
+        state.history = [{ver:'0.1', date:new Date().toLocaleDateString(), author:'System', comment:'Создание черновика'}];
+        state.content = {};
+
+        // Берем структуру из справочника или фоллбек
+        const struct = (LOADED_TEMPLATES[mode] && LOADED_TEMPLATES[mode].length > 0)
+            ? LOADED_TEMPLATES[mode]
+            : FALLBACK_STRUCT;
+
+        state.sections = struct.map(t => {
+            const uid = genUID();
+            if(t.val) state.content[uid] = t.val; // дефолтное значение
+            return {
+                uid: uid, // уникальный id для связки с контентом
+                title: t.title,
+                type: t.type || 'text'
+            };
+        });
+        state.ver = '0.1';
+
+        initUI();
+        if(autoSave) saveToDB();
+    }
+
+    // Умное добавление новых разделов (без удаления старых!)
+    function checkForNewSections() {
+        const mode = state.mode;
+        const tpl = LOADED_TEMPLATES[mode] || [];
+        if(tpl.length === 0) return;
+
+        // Собираем текущие заголовки
+        const currentTitles = new Set(state.sections.map(s => s.title));
+        const newItems = [];
+
+        tpl.forEach(tItem => {
+            if(!currentTitles.has(tItem.title)) {
+                newItems.push(tItem);
+            }
+        });
+
+        if(newItems.length > 0) {
+            const names = newItems.map(x => "• " + x.title).join("\n");
+            if(confirm(`В шаблоне "${mode}" появились новые разделы:\n${names}\n\nДобавить их в конец документа?\n(Ваши существующие данные НЕ будут удалены)`)) {
+                newItems.forEach(ni => {
+                    const uid = genUID();
+                    state.sections.push({uid:uid, title:ni.title, type:ni.type});
+                    if(ni.val) state.content[uid] = ni.val;
+                });
+                renderList();
+                renderDoc();
+                saveToDB();
+            }
+        }
+    }
+
+    function initUI() {
+        $('#in_mode').val(state.mode);
+        $('#in_s').val(state.sys.s);
+        $('#in_r').val(state.sys.r);
+        $('#ver_label').text('v'+state.ver);
+        renderList();
+        renderDoc();
+    }
+
+    // Хард резет (удалит всё и применит шаблон)
+    function hardReset() {
+        if(confirm("ВНИМАНИЕ! Это действие УДАЛИТ весь текущий текст и вернет структуру к исходному шаблону. Продолжить?")) {
+            createFromTemplate(true);
+        }
+    }
+
+    // ==========================================
+    // 3. AUTO FILL (Smart Logic)
+    // ==========================================
+    async function doAutoFill() {
+        const btn = $('button[onclick="doAutoFill()"]');
+        const oldTxt = btn.text();
+        btn.prop('disabled',true).text('Загрузка...');
+
+        try {
+            // 1. Получаем потоки из БД
+            const flows = await $.get(`/api/flows?task_id=${TASK_ID}`);
+            if(!flows || flows.length === 0) {
+                alert('Нет сохраненных потоков (Flows) для этой задачи.');
+                return;
+            }
+
+            // 2. Обновляем шапку
+            state.sys.s = flows[0].sender;
+            state.sys.r = flows[flows.length-1].receiver;
+            $('#in_s').val(state.sys.s);
+            $('#in_r').val(state.sys.r);
+
+            // 3. Генерируем контент списка
+            let html = `<p>В рамках интеграционного взаимодействия реализованы следующие потоки данных:</p><ul>`;
+
+            for (const f of flows) {
+                // Грузим детали
+                const d = await $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${f.order_num}`);
+                html += `<li style="margin-bottom:8px;">
+                    <b>${f.sender} &rarr; ${f.receiver}</b>
+                    <br>Протокол: <span>${d.protocol || 'N/A'}</span> (${d.format || 'N/A'})
+                    <br>Тип: ${d.connection_type || 'N/A'}
+                `;
+                if(d.description) html += `<br><i>${d.description}</i>`;
+                html += `</li>`;
+            }
+            html += `</ul>`;
+
+            // 4. Вставка в документ (Без дублей!)
+            // Ищем раздел с заголовком "Сценарии", "Потоки" или создаем "Авто-интеграции"
+            let targetSec = state.sections.find(s => s.title.toLowerCase().includes("сценарии") || s.title.toLowerCase().includes("потоки"));
+
+            if(!targetSec) {
+                // Создаем новый
+                const uid = genUID();
+                targetSec = {uid:uid, title:'Интеграционные потоки (Авто)', type:'text'};
+                // Вставляем после "Введения" (обычно 2-й или 3-й)
+                if(state.sections.length > 2) state.sections.splice(2,0,targetSec);
+                else state.sections.push(targetSec);
+            }
+
+            // ПЕРЕЗАПИСЫВАЕМ контент целевого раздела
+            state.content[targetSec.uid] = html;
+
+            renderList();
+            renderDoc();
+            saveToDB();
+
+            // Визуальное уведомление
+            $('#save_indicator').text('Авто-заполнение успешно!').css('color','green');
+
+        } catch(e) {
+            alert('Ошибка автозаполнения: '+e);
+        } finally {
+            btn.prop('disabled',false).text(oldTxt);
+        }
+    }
+
+    // ==========================================
+    // 4. RENDERING (Список + A4)
+    // ==========================================
+    function renderList() {
+        const c = $('#list_area').empty();
+        state.sections.forEach((sec, idx) => {
+            const uid = sec.uid;
+            const type = (sec.type||'text').toUpperCase();
+            let inputArea = '';
+            const val = state.content[uid] || '';
+
+            if(sec.type === 'mermaid') {
+                inputArea = `<textarea class="code" style="height:100px" oninput="updData('${uid}',this.value)">${val}</textarea>`;
+            } else if (['passport','history'].includes(sec.type)) {
+                inputArea = `<div style="padding:8px; background:#f0fdf4; color:#166534; font-size:11px; text-align:center; border:1px dashed #86efac;">Генерируется автоматически</div>`;
+            } else {
+                // text or table
+                inputArea = `<textarea style="height:80px; font-family:'Segoe UI',sans-serif;" oninput="updData('${uid}',this.value)">${val}</textarea>`;
+            }
+
+            const el = $(`
+                <div class="acc-item" draggable="true" data-index="${idx}">
+                    <div class="acc-head" onclick="$(this).next().slideToggle(150)">
+                        <span class="drag-h">☰</span>
+                        <span style="font-weight:600; color:#333;">${sec.title}</span>
+                        <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#64748b; margin-left:10px;">${type}</span>
+                        <button class="btn-icon" onclick="event.stopPropagation(); removeSec(${idx});">×</button>
+                    </div>
+                    <div class="acc-body">
+                        ${inputArea}
+                    </div>
+                </div>
+            `);
+
+            bindDnD(el[0]); // DND events
+            c.append(el);
+        });
+    }
+
+    function renderDoc() {
+        const out = $('#doc_output').empty();
+        const S = state.sys.s;
+        const R = state.sys.r;
+
+        // Формируем заголовок
+        out.append(`<h1 style="text-align:center">Техническое Задание</h1>`);
+
+        state.sections.forEach(sec => {
+            let contentHtml = '';
+            let raw = state.content[sec.uid] || '';
+
+            if(sec.type === 'passport') {
+                contentHtml = `<table style="width:100%;">
+                    <tr><td width="30%" style="background:#f3f4f6"><b>ID Задачи</b></td><td>${TASK_ID}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>Система-источник</b></td><td>${S}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>Система-приемник</b></td><td>${R}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>Текущая версия</b></td><td>${state.ver}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>Дата формирования</b></td><td>${new Date().toLocaleDateString()}</td></tr>
+                </table>`;
+            }
+            else if (sec.type === 'history') {
+                let rows = state.history.map(h => `<tr><td>${h.ver}</td><td>${h.date}</td><td>${h.author}</td><td>${h.comment}</td></tr>`).join('');
+                contentHtml = `<table width="100%"><thead><tr><th>Версия</th><th>Дата</th><th>Автор</th><th>Комментарий</th></tr></thead><tbody>${rows}</tbody></table>`;
+            }
+            else if (sec.type === 'mermaid') {
+                // Замена плейсхолдеров в диаграмме
+                let diag = raw.replace(/SENDER/g, S).replace(/RECEIVER/g, R);
+                contentHtml = `<div class="mermaid" style="display:flex; justify-content:center;">${diag}</div>`;
+            }
+            else {
+                // Text / HTML / Table generic
+                contentHtml = `<div style="line-height:1.5">${raw}</div>`;
+            }
+
+            out.append(`<div class="doc-section">
+                <h2>${sec.title}</h2>
+                ${contentHtml}
+            </div>`);
+        });
+
+        // Рендер диаграмм
+        if(window.mermaid) {
+            try { mermaid.init(undefined, $('.mermaid')); } catch(e) {}
+        }
+    }
+
+    // ==========================================
+    // 5. USER ACTIONS
+    // ==========================================
+
+    // Реалтайм обновление
+    window.updData = (uid, val) => {
+        state.content[uid] = val;
+        renderDoc(); // перерисовка превью
+        statusChanged(); // индикатор "не сохранено"
+        delayedSave();   // авто-сохранение через 1с
+    }
+
+    window.updGlobal = () => {
+        state.sys.s = $('#in_s').val();
+        state.sys.r = $('#in_r').val();
+        renderDoc();
+        delayedSave();
+    }
+
+    window.addSec = () => {
+        state.sections.push({ uid:genUID(), title:'Новый раздел', type:'text' });
+        renderList(); renderDoc();
+    }
+
+    window.removeSec = (i) => {
+        if(confirm('Удалить этот раздел из документа?')) {
+            state.sections.splice(i, 1);
+            renderList(); renderDoc(); saveToDB();
+        }
+    }
+
+    // === SAVE LOGIC ===
+    let _timer;
+    function delayedSave() {
+        clearTimeout(_timer);
+        _timer = setTimeout(() => saveToDB(), 1500); // Автосейв через 1.5 сек бездействия
+    }
+
+    function statusChanged() {
+        $('#save_indicator').text('... Изменения не сохранены').css('color', '#f59e0b');
+    }
+
+    window.saveToDB = function(manual) {
+        // POST /api/documents
+        const payload = {
+            name: DOC_NAME,
+            content: JSON.stringify(state)
+        };
+
+        $.ajax({
+            url: '/api/documents', type: 'POST', contentType:'application/json',
+            data: JSON.stringify(payload),
+            success: function() {
+                $('#save_indicator').text('Все изменения сохранены').css('color', '#94a3b8');
+                if(manual) alert("Документ успешно сохранен в базе!");
+            },
+            error: function(xhr) {
+                $('#save_indicator').text('Ошибка сохранения!').css('color', 'red');
+                console.error(xhr);
+            }
+        });
+    }
+
+    // === VERSIONING ===
+    window.showSave = () => $('#modal_save').fadeIn();
+    window.setComm = (txt) => $('#ver_comment').val(txt);
+
+    window.commitVersion = function() {
+        const c = $('#ver_comment').val() || 'Minor update';
+
+        // Bump version
+        let v = parseFloat(state.ver);
+        if(isNaN(v)) v = 0.0;
+        state.ver = (v + 0.1).toFixed(1);
+
+        // Add to history
+        state.history.unshift({
+            ver: state.ver,
+            date: new Date().toLocaleDateString(),
+            author: 'User',
+            comment: c
+        });
+
+        // UI Update
+        $('#ver_label').text('v'+state.ver);
+        $('#modal_save').fadeOut();
+
+        renderDoc(); renderList();
+        saveToDB(true);
+    }
+
+    // === DOWNLOAD HTML ===
+    window.dl = () => {
+        const css = `<style>
+            body { font-family: "Times New Roman", serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            h1, h2 { color: #1e40af; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+            td, th { border: 1px solid black; padding: 8px; }
+        </style>`;
+        const content = $('#doc_output').html();
+        const html = `<html><head><meta charset="UTF-8"><title>Spec ${TASK_ID}</title>${css}</head><body>${content}</body></html>`;
+
+        const blob = new Blob([html], {type:'text/html'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Spec_${TASK_ID}_v${state.ver}.html`;
+        a.click();
+    }
+
+    // UTILS
+    function genUID() { return 'sec_' + Math.random().toString(36).substr(2,9); }
+
+    // DRAG AND DROP
+    let dragEl = null;
+    function bindDnD(el) {
+        el.addEventListener('dragstart', function(e){
+            dragEl = this;
+            this.style.opacity = '0.4';
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        el.addEventListener('dragover', function(e){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; });
+        el.addEventListener('dragenter', function(){ this.classList.add('acc-head'); }); // просто визуальный эффект можно через css класс
+        el.addEventListener('drop', function(e){
+            e.stopPropagation();
+            if (dragEl !== this) {
+                const oldI = parseInt(dragEl.dataset.index);
+                const newI = parseInt(this.dataset.index);
+
+                // Move in array
+                const item = state.sections.splice(oldI, 1)[0];
+                state.sections.splice(newI, 0, item);
+
+                renderList(); renderDoc(); delayedSave();
+            }
+            return false;
+        });
+        el.addEventListener('dragend', function(){
+            this.style.opacity = '1';
+        });
+    }
+</script>
+
+</body>
+</html>

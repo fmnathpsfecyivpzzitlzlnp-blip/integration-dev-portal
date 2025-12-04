@@ -1,26 +1,20 @@
 /*
- * Server.groovy - Финальная версия
- * Включены: обход SSL, все улучшения для задач, меток, истории и новый API для XSD конструктора.
+ * Server.groovy - Final Version with SSL Bypass
  */
 import com.sun.net.httpserver.HttpServer
+import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpExchange
 import groovy.xml.XmlSlurper
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-
-import java.net.InetSocketAddress
 import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
 import groovy.json.JsonOutput
 import groovy.xml.XmlParser
 import groovy.xml.MarkupBuilder
 import groovy.sql.Sql
 import java.nio.charset.StandardCharsets
-import java.io.ByteArrayOutputStream
-import java.io.FileInputStream
-import java.io.PrintWriter
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
@@ -28,16 +22,14 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 
 import com.github.javafaker.Faker
-import java.util.Locale
-import java.util.UUID
+
 import java.util.concurrent.TimeUnit
-import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
-import java.util.Base64
 import java.text.SimpleDateFormat
+import java.net.URI
 
 
 class Server {
@@ -66,7 +58,6 @@ class Server {
                 if (pretty) {
                     jsonString = groovy.json.JsonOutput.prettyPrint(jsonString)
                 }
-
 
                 jsonString = jsonString.replaceAll(~'\\\\u([0-9a-fA-F]{4})') { fullMatch, hexCode ->
                     char c = (char) Integer.parseInt(hexCode, 16)
@@ -176,7 +167,150 @@ class Server {
     }
 
     static class XsdToWsdlConverter {
-        String generate(String xsdContent, String xsdFileName, String serviceType) { if (!xsdContent || xsdContent.trim().isEmpty()) throw new IllegalArgumentException("Содержимое XSD не может быть пустым."); if (!xsdFileName || xsdFileName.trim().isEmpty()) throw new IllegalArgumentException("Имя XSD файла не может быть пустым."); if (serviceType != 'synchronous' && serviceType != 'asynchronous') throw new IllegalArgumentException("Неверный тип сервиса."); def baseName = xsdFileName.take(xsdFileName.lastIndexOf('.')); def serviceName = "si_${serviceType == 'synchronous' ? 'so' : 'ao'}_${baseName}"; def portTypeName = serviceName; def bindingName = "${serviceName}Binding"; def serviceInstanceName = "${serviceName}Service"; def targetNamespace = "urn:example.com:${baseName}"; def xsd = new XmlSlurper().parseText(xsdContent); def rootElementName = xsd.element[0].'@name'.text(); if (!rootElementName) throw new IllegalStateException("Не удалось найти корневой элемент (<xsd:element name=...>) в XSD."); def requestMessageName = "mt_${rootElementName}_RQ"; def responseMessageName = "mt_${rootElementName}_RS"; def writer = new StringWriter(); def wsdl = new MarkupBuilder(writer); wsdl.mkp.xmlDeclaration(version: "1.0", encoding: "UTF-8"); wsdl.'wsdl:definitions'( 'xmlns:wsdl': "http://schemas.xmlsoap.org/wsdl/", 'xmlns:soap': "http://schemas.xmlsoap.org/wsdl/soap/", 'xmlns:xsd': "http://www.w3.org/2001/XMLSchema", 'xmlns:tns': targetNamespace, name: serviceName, targetNamespace: targetNamespace) { 'wsdl:types' { 'xsd:schema'(targetNamespace: targetNamespace) { wsdl.mkp.yieldUnescaped(xsdContent) } }; 'wsdl:message'(name: requestMessageName) { 'wsdl:part'(name: 'parameters', element: "tns:${rootElementName}") }; if (serviceType == 'synchronous') { 'wsdl:message'(name: responseMessageName) { 'wsdl:part'(name: 'parameters', element: "tns:${rootElementName}Response") } }; 'wsdl:portType'(name: portTypeName) { 'wsdl:operation'(name: serviceName) { 'wsdl:input'(message: "tns:${requestMessageName}"); if (serviceType == 'synchronous') { 'wsdl:output'(message: "tns:${responseMessageName}") } } }; 'wsdl:binding'(name: bindingName, type: "tns:${portTypeName}") { 'soap:binding'(style: 'document', transport: 'http://schemas.xmlsoap.org/soap/http'); 'wsdl:operation'(name: serviceName) { 'soap:operation'(soapAction: "http://sap.com/xi/WebService/soap1.1"); 'wsdl:input' { 'soap:body'(use: 'literal') }; if (serviceType == 'synchronous') { 'wsdl:output' { 'soap:body'(use: 'literal') } } } }; 'wsdl:service'(name: serviceInstanceName) { 'wsdl:port'(name: 'HTTP_Port', binding: "tns:${bindingName}") { 'soap:address'(location: "http://0.0.0.0:8080/soap/${serviceInstanceName}") }; 'wsdl:port'(name: 'HTTPS_Port', binding: "tns:${bindingName}") { 'soap:address'(location: "https://0.0.0.0:8443/soap/${serviceInstanceName}") } } }; def wsdlOutput = writer.toString(); if (serviceType == 'synchronous') { def responseElement = """\n    <xsd:element name="${rootElementName}Response"><xsd:complexType><xsd:sequence><xsd:element name="Result" type="xsd:string"/></xsd:sequence></xsd:complexType></xsd:element>"""; int lastSchemaTagIndex = wsdlOutput.lastIndexOf("</xsd:schema>"); if(lastSchemaTagIndex != -1) { wsdlOutput = new StringBuilder(wsdlOutput).insert(lastSchemaTagIndex, responseElement).toString() } }; return wsdlOutput }
+        String generate(String xsdContent, String xsdFileName, String serviceType) {
+            println "DEBUG: Начало генерации WSDL. Файл: ${xsdFileName}"
+
+            if (!xsdContent || xsdContent.trim().isEmpty()) throw new IllegalArgumentException("XSD пустой")
+            if (!xsdFileName) throw new IllegalArgumentException("Нет имени файла")
+
+            try {
+                // 1. Очистка от заголовка
+                String cleanXsdBody = xsdContent.replaceAll(/<\?xml.*?\?>/, "").trim()
+
+                // 2. Парсинг для поиска корневого элемента
+                // Используем XmlSlurper в режиме "без неймспейсов" - это работает лучше всего для игнора префиксов
+                def slurper = new XmlSlurper(false, false)
+                def xsdParsed = slurper.parseText(cleanXsdBody)
+
+                // Логика поиска: ищем элемент с именем "element" (без учета неймспейса из-за настроек парсера)
+                // и наличием атрибута "name" на верхнем уровне
+                def rootElementNode
+
+                // Попытка 1: Прямой потомок schema -> element
+                // xsdParsed - это уже корневой узел (<schema>)
+                if (xsdParsed.name().toLowerCase().contains("schema")) {
+                    // Ищем среди детей
+                    xsdParsed.childNodes().find { child ->
+                        // Проверяем имя узла (GPathResult сложно проверить, используем name())
+                        if (child.name() == 'element' && child['@name'] != '') {
+                            rootElementNode = child
+                            return true
+                        }
+                        return false
+                    }
+                }
+
+                // Попытка 2: Глубокий поиск (если структура сложная)
+                if (!rootElementNode) {
+                    rootElementNode = xsdParsed.depthFirst().find {
+                        it.name() == 'element' && it['@name'] != '' && it.parent().name().contains('schema')
+                    }
+                }
+
+                // Попытка 3 (Фоллбек): Просто первый попавшийся элемент с именем
+                if (!rootElementNode) {
+                    rootElementNode = xsdParsed.depthFirst().find { it.name() == 'element' && it['@name'] != '' }
+                }
+
+                if (!rootElementNode) {
+                    // Последний шанс: Regex поиск (если парсер не справился с кривым XML)
+                    def matcher = (cleanXsdBody =~ /:element\s+name=["']([^"']+)["']/)
+                    if (matcher.find()) {
+                        // Нашли через регекс
+                        println "DEBUG: Element found via REGEX"
+                        // Фейковый объект, чтобы код дальше не падал, нам нужно только имя
+                        rootElementNode = [name: { matcher[0][1] }]
+                    } else {
+                        throw new IllegalStateException("Не найден <element name='...'> в XSD. Проверьте структуру.")
+                    }
+                }
+
+                // Получаем имя. Если нашли через парсер - берем атрибут, если через хак - вызываем замыкание
+                String rootElementName = (rootElementNode instanceof Map) ? rootElementNode.name() : rootElementNode['@name'].text()
+
+                println "DEBUG: Найден корневой элемент: ${rootElementName}"
+
+                // 3. ГЕНЕРАЦИЯ WSDL (Без изменений)
+                def baseName = xsdFileName.contains('.') ? xsdFileName.take(xsdFileName.lastIndexOf('.')) : xsdFileName
+                def serviceName = "si_${serviceType == 'synchronous' ? 'so' : 'ao'}_${baseName}"
+                def targetNamespace = "urn:example.com:${baseName}"
+                def requestMsg = "mt_${rootElementName}_RQ"
+                def responseMsg = "mt_${rootElementName}_RS"
+
+                def writer = new StringWriter()
+                writer.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+
+                def wsdl = new MarkupBuilder(writer)
+
+                wsdl.'wsdl:definitions'(
+                        'xmlns:wsdl': "http://schemas.xmlsoap.org/wsdl/",
+                        'xmlns:soap': "http://schemas.xmlsoap.org/wsdl/soap/",
+                        'xmlns:xsd': "http://www.w3.org/2001/XMLSchema",
+                        'xmlns:tns': targetNamespace,
+                        name: serviceName,
+                        targetNamespace: targetNamespace
+                ) {
+                    'wsdl:types' {
+                        'xsd:schema'(targetNamespace: targetNamespace) {
+                            wsdl.mkp.yieldUnescaped(cleanXsdBody)
+                        }
+                    }
+
+                    'wsdl:message'(name: requestMsg) {
+                        'wsdl:part'(name: 'parameters', element: "tns:${rootElementName}")
+                    }
+
+                    if (serviceType == 'synchronous') {
+                        'wsdl:message'(name: responseMsg) {
+                            'wsdl:part'(name: 'parameters', element: "tns:${rootElementName}Response")
+                        }
+                    }
+
+                    'wsdl:portType'(name: serviceName) {
+                        'wsdl:operation'(name: serviceName) {
+                            'wsdl:input'(message: "tns:${requestMsg}")
+                            if (serviceType == 'synchronous') {
+                                'wsdl:output'(message: "tns:${responseMsg}")
+                            }
+                        }
+                    }
+
+                    'wsdl:binding'(name: "${serviceName}Binding", type: "tns:${serviceName}") {
+                        'soap:binding'(style: 'document', transport: 'http://schemas.xmlsoap.org/soap/http')
+                        'wsdl:operation'(name: serviceName) {
+                            'soap:operation'(soapAction: "http://sap.com/xi/WebService/soap1.1")
+                            'wsdl:input' { 'soap:body'(use: 'literal') }
+                            if (serviceType == 'synchronous') {
+                                'wsdl:output' { 'soap:body'(use: 'literal') }
+                            }
+                        }
+                    }
+
+                    'wsdl:service'(name: "${serviceName}Service") {
+                        'wsdl:port'(name: 'HTTP_Port', binding: "tns:${serviceName}Binding") {
+                            'soap:address'(location: "http://localhost:8080/soap/${serviceName}Service")
+                        }
+                    }
+                }
+
+                String resultXml = writer.toString()
+
+                if (serviceType == 'synchronous') {
+                    String fakeResponseXsd = """<xsd:element name="${rootElementName}Response"><xsd:complexType><xsd:sequence><xsd:element name="Response" type="xsd:string"/></xsd:sequence></xsd:complexType></xsd:element>"""
+                    // Пробуем разные варианты вставки
+                    if (resultXml.contains("</xsd:schema>")) resultXml = resultXml.replace("</xsd:schema>", fakeResponseXsd + "</xsd:schema>")
+                    else if (resultXml.contains("</schema>")) resultXml = resultXml.replace("</schema>", fakeResponseXsd + "</schema>")
+                    else if (resultXml.contains("</xs:schema>")) resultXml = resultXml.replace("</xs:schema>", fakeResponseXsd + "</xs:schema>")
+                }
+
+                return resultXml
+
+            } catch (Exception e) {
+                println "ERROR XSD Convert: ${e.message}"
+                e.printStackTrace()
+                throw new RuntimeException("Ошибка: ${e.message}", e)
+            }
+        }
     }
 
     static class LabelsManager {
@@ -222,7 +356,7 @@ class Server {
                     case 'content': wc.add("(LOWER(request) LIKE ? OR LOWER(response) LIKE ? OR LOWER(stack_trace) LIKE ?)");
                     case 'dateFrom': wc.add("datetime(call_date) >= datetime(?)"); qp.add("${v} 00:00:00"); break;
                     case 'dateTo':   wc.add("datetime(call_date) <= datetime(?)"); qp.add("${v} 23:59:59"); break;
-                    3.times{qp.add(nv)}; break;}}}; if (wc) qb.append(" WHERE ").append(wc.join(" AND "));
+                        3.times{qp.add(nv)}; break;}}}; if (wc) qb.append(" WHERE ").append(wc.join(" AND "));
             qb.append(" ORDER BY id DESC"); return sql.rows(qb.toString(), qp)}
 
         def getAllCredentials() { return sql.rows("SELECT id, name FROM credentials ORDER BY name ASC") }
@@ -234,7 +368,14 @@ class Server {
     static void main(String[] args){
         def dbFile = 'editor.db'; def sql = Sql.newInstance("jdbc:sqlite:${dbFile}", "org.sqlite.JDBC")
         sql.execute'''CREATE TABLE IF NOT EXISTS saved_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, content TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
-        sql.execute'''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, task_url TEXT, task_number TEXT, stage TEXT, status TEXT, deployment_date TEXT, additional_comment TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
+        // 1. Tasks Table Update for 'planned_dev_date'
+        sql.execute'''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, task_url TEXT, task_number TEXT, stage TEXT, status TEXT, deployment_date TEXT, planned_dev_date TEXT, additional_comment TEXT, contact_person TEXT, spec_url TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
+
+        // Migration for existing tables without new columns
+        try { sql.execute("ALTER TABLE tasks ADD COLUMN planned_dev_date TEXT") } catch(e){}
+        try { sql.execute("ALTER TABLE tasks ADD COLUMN contact_person TEXT") } catch(e){}
+        try { sql.execute("ALTER TABLE tasks ADD COLUMN spec_url TEXT") } catch(e){}
+
         sql.execute'''CREATE TABLE IF NOT EXISTS task_settings (key TEXT PRIMARY KEY, value TEXT)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS labels_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, display_order INTEGER DEFAULT 99)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS labels (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, content TEXT, usage_count INTEGER DEFAULT 0, date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP, title TEXT, FOREIGN KEY(category_id) REFERENCES labels_categories(id))'''
@@ -303,6 +444,8 @@ class Server {
         try { sql.firstRow("SELECT spec_url FROM tasks LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE tasks ADD COLUMN spec_url TEXT") }
         try { sql.firstRow("SELECT contact_person FROM tasks LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE tasks ADD COLUMN contact_person TEXT") }
         try { sql.firstRow("SELECT title FROM labels LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE labels ADD COLUMN title TEXT") }
+        try { sql.firstRow("SELECT planned_dev_date FROM tasks LIMIT 1") } catch (Exception e) { sql.execute("ALTER TABLE tasks ADD COLUMN planned_dev_date TEXT") }
+
 
         def server = HttpServer.create(new InetSocketAddress(8080), 0); println "Сервер запущен на http://localhost:8080"
         def historyManager = new CallHistoryManager(sql); def converter = new DataConverter(); def excelExporter = new ExcelExporter(); def exampleGenerator = new ExampleGenerator(); def multiRequestExecutor = new MultiRequestExecutor(historyManager); def xsdToWsdlConverter = new XsdToWsdlConverter(); def labelsManager = new LabelsManager(sql)
@@ -318,10 +461,10 @@ class Server {
         server.createContext("/api/documents"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(sql.rows("SELECT id, name FROM saved_documents ORDER BY name ASC")),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);def doc=sql.firstRow("SELECT id FROM saved_documents WHERE name=?",[d.name]);if(doc){sql.execute("UPDATE saved_documents SET content=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",[d.content,doc.id])}else{sql.execute("INSERT INTO saved_documents (name,content) VALUES (?,?)",[d.name,d.content])};sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
         server.createContext("/api/documents/"){e->def id=e.requestURI.path.split('/').last();if(e.requestMethod=="GET")handleRequest(e,"GET"){def d=sql.firstRow("SELECT content FROM saved_documents WHERE id=?",[id]);if(d)sendResponse(e,d.content,"text/plain")else sendResponse(e,"", "text/plain", 404)}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){sql.execute("DELETE FROM saved_documents WHERE id=?",[id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
         server.createContext("/api/xsd-to-wsdl"){e->handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);sendResponse(e,xsdToWsdlConverter.generate(d.xsdContent,d.xsdFileName,d.serviceType),"application/xml")}}
-        server.createContext("/api/tasks/settings"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def s=[:];sql.eachRow("SELECT key,value FROM task_settings"){r->s[r.key]=r.value};sendResponse(e,MyJsonOutput.toJson(s),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);d.each{k,v->sql.execute("UPDATE task_settings SET value=? WHERE key=?",[v,k])};sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
-        server.createContext("/api/tasks"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def t=sql.rows("SELECT * FROM tasks ORDER BY last_updated DESC");sendResponse(e,MyJsonOutput.toJson(t),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def t=new JsonSlurper().parse(e.requestBody);if(t.id)sql.execute("UPDATE tasks SET user=?,task_url=?,task_number=?,stage=?,status=?,deployment_date=?,additional_comment=?,spec_url=?,contact_person=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",[t.user,t.task_url,t.task_number,t.stage,t.status,t.deployment_date,t.additional_comment,t.spec_url,t.contact_person,t.id])else sql.execute("INSERT INTO tasks (user,task_url,task_number,stage,status,deployment_date,additional_comment,spec_url,contact_person) VALUES (?,?,?,?,?,?,?,?,?)",[t.user,t.task_url,t.task_number,t.stage,t.status,t.deployment_date,t.additional_comment,t.spec_url,t.contact_person]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sql.execute("DELETE FROM tasks WHERE id = ?",[d.id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/tasks/settings"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def s=[:];sql.eachRow("SELECT key,value FROM task_settings"){r->s[r.key]=r.value};sendResponse(e,MyJsonOutput.toJson(s),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def d=new JsonSlurper().parse(e.requestBody);d.each{k,v->sql.execute("INSERT OR REPLACE INTO task_settings (key, value) VALUES (?, ?)",[k, v])};sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
+        server.createContext("/api/tasks"){e->if(e.requestMethod=="GET")handleRequest(e,"GET"){def t=sql.rows("SELECT * FROM tasks ORDER BY last_updated DESC");sendResponse(e,MyJsonOutput.toJson(t),"application/json")}else if(e.requestMethod=="POST")handleRequest(e,"POST"){def t=new JsonSlurper().parse(e.requestBody);if(t.id)sql.execute("UPDATE tasks SET user=?,task_url=?,task_number=?,stage=?,status=?,deployment_date=?,planned_dev_date=?,additional_comment=?,spec_url=?,contact_person=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",[t.user,t.task_url,t.task_number,t.stage,t.status,t.deployment_date,t.planned_dev_date,t.additional_comment,t.spec_url,t.contact_person,t.id])else sql.execute("INSERT INTO tasks (user,task_url,task_number,stage,status,deployment_date,planned_dev_date,additional_comment,spec_url,contact_person) VALUES (?,?,?,?,?,?,?,?,?,?)",[t.user,t.task_url,t.task_number,t.stage,t.status,t.deployment_date,t.planned_dev_date,t.additional_comment,t.spec_url,t.contact_person]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}else if(e.requestMethod=="DELETE")handleRequest(e,"DELETE"){def d=new JsonSlurper().parse(e.requestBody);sql.execute("DELETE FROM tasks WHERE id = ?",[d.id]);sendResponse(e,MyJsonOutput.toJson([status:"OK"]),"application/json")}}
         server.createContext("/api/tasks/send"){e->handleRequest(e,"POST"){def s=[:];sql.eachRow("SELECT key,value FROM task_settings"){r->s[r.key]=r.value};def t=sql.rows("SELECT * FROM tasks");String auth="${s.target_user}:${s.target_password?:''}";String enc=Base64.encoder.encodeToString(auth.bytes);def c=HttpClient.newHttpClient();def req=HttpRequest.newBuilder().uri(URI.create(s.target_url)).header("Content-Type","application/json").header("Authorization","Basic "+enc).POST(HttpRequest.BodyPublishers.ofString(MyJsonOutput.toJson(t))).build();def res=c.send(req,HttpResponse.BodyHandlers.ofString());sendResponse(e,MyJsonOutput.toJson([statusCode:res.statusCode(),responseBody:res.body()]),"application/json")}}
-        server.createContext("/api/tasks/export"){e->handleRequest(e,"GET"){Workbook wb=new XSSFWorkbook();Sheet s=wb.createSheet("Задачи");Row hr=s.createRow(0);def h=["ID","Пользователь","Номер задачи","URL задачи","Этап","Статус","Дата установки(PROD)","Комментарий","Последнее обновление","Спецификация","Контакт"];h.eachWithIndex{hd,i->hr.createCell(i).setCellValue(hd)};def t=sql.rows("SELECT * FROM tasks ORDER BY id DESC");t.eachWithIndex{tk,i->Row r=s.createRow(i+1);r.createCell(0).setCellValue(tk.id.toString());r.createCell(1).setCellValue(tk.user);r.createCell(2).setCellValue(tk.task_number);r.createCell(3).setCellValue(tk.task_url);r.createCell(4).setCellValue(tk.stage);r.createCell(5).setCellValue(tk.status);r.createCell(6).setCellValue(tk.deployment_date);r.createCell(7).setCellValue(tk.additional_comment);r.createCell(8).setCellValue(tk.last_updated);r.createCell(9).setCellValue(tk.spec_url);r.createCell(10).setCellValue(tk.contact_person)};h.size().times{s.autoSizeColumn(it)};def os=new ByteArrayOutputStream();wb.write(os);wb.close();byte[] b=os.toByteArray();e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"tasks_export.xlsx\"");e.sendResponseHeaders(200,b.length);e.responseBody.withStream{it.write(b)}}}
+        server.createContext("/api/tasks/export"){e->handleRequest(e,"GET"){Workbook wb=new XSSFWorkbook();Sheet s=wb.createSheet("Задачи");Row hr=s.createRow(0);def h=["ID","Пользователь","Номер задачи","URL задачи","Этап","Статус","Дата установки(PROD)","Плановая дата DEV","Комментарий","Последнее обновление","Спецификация","Контакт"];h.eachWithIndex{hd,i->hr.createCell(i).setCellValue(hd)};def t=sql.rows("SELECT * FROM tasks ORDER BY id DESC");t.eachWithIndex{tk,i->Row r=s.createRow(i+1);r.createCell(0).setCellValue(tk.id.toString());r.createCell(1).setCellValue(tk.user);r.createCell(2).setCellValue(tk.task_number);r.createCell(3).setCellValue(tk.task_url);r.createCell(4).setCellValue(tk.stage);r.createCell(5).setCellValue(tk.status);r.createCell(6).setCellValue(tk.deployment_date);r.createCell(7).setCellValue(tk.planned_dev_date);r.createCell(8).setCellValue(tk.additional_comment);r.createCell(9).setCellValue(tk.last_updated.toString());r.createCell(10).setCellValue(tk.spec_url);r.createCell(11).setCellValue(tk.contact_person)};h.size().times{s.autoSizeColumn(it)};def os=new ByteArrayOutputStream();wb.write(os);wb.close();byte[] b=os.toByteArray();e.responseHeaders.add("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");e.responseHeaders.add("Content-Disposition","attachment; filename=\"tasks_export.xlsx\"");e.sendResponseHeaders(200,b.length);e.responseBody.withStream{it.write(b)}}}
         server.createContext("/api/labels/all"){e->handleRequest(e,"GET"){sendResponse(e,MyJsonOutput.toJson(labelsManager.getAll()),"application/json")}}
 
         server.createContext("/api/labels/search"){ e ->
@@ -363,48 +506,48 @@ class Server {
 
         // === API: Получить все потоки по задаче ===
         server.createContext("/api/flows") { e ->
-        if (e.requestMethod == "GET") {
-            handleRequest(e, "GET") {
-                def query = e.requestURI.query
-                if (!query || !query.contains("task_id=")) {
-                    sendResponse(e, MyJsonOutput.toJson([error: "Параметр task_id обязателен"]), "application/json", 400)
-                    return
+            if (e.requestMethod == "GET") {
+                handleRequest(e, "GET") {
+                    def query = e.requestURI.query
+                    if (!query || !query.contains("task_id=")) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Параметр task_id обязателен"]), "application/json", 400)
+                        return
+                    }
+                    def taskId = query.split("task_id=")[1].split("&")[0]
+                    def flows = sql.rows("SELECT id, sender, receiver, order_num FROM integration_flows WHERE task_id = ? ORDER BY order_num ASC", [taskId as Integer])
+                    sendResponse(e, MyJsonOutput.toJson(flows), "application/json")
                 }
-                def taskId = query.split("task_id=")[1].split("&")[0]
-                def flows = sql.rows("SELECT id, sender, receiver, order_num FROM integration_flows WHERE task_id = ? ORDER BY order_num ASC", [taskId as Integer])
-                sendResponse(e, MyJsonOutput.toJson(flows), "application/json")
             }
-        }
-        else if (e.requestMethod == "POST") {
-            handleRequest(e, "POST") {
-                def data = new JsonSlurper().parse(e.requestBody)
-                def taskId = data.task_id
-                def newFlows = data.flows as List<Map>
+            else if (e.requestMethod == "POST") {
+                handleRequest(e, "POST") {
+                    def data = new JsonSlurper().parse(e.requestBody)
+                    def taskId = data.task_id
+                    def newFlows = data.flows as List<Map>
 
-                if (!taskId || !(newFlows instanceof List)) {
-                    sendResponse(e, MyJsonOutput.toJson([error: "Неверный формат: нужен task_id и flows[]"]), "application/json", 400)
-                    return
-                }
+                    if (!taskId || !(newFlows instanceof List)) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Неверный формат: нужен task_id и flows[]"]), "application/json", 400)
+                        return
+                    }
 
-                // Удаляем старые потоки
-                sql.execute("DELETE FROM integration_flows WHERE task_id = ?", [taskId as Integer])
+                    // Удаляем старые потоки
+                    sql.execute("DELETE FROM integration_flows WHERE task_id = ?", [taskId as Integer])
 
-                // Вставляем новые с правильной нумерацией
-                newFlows.eachWithIndex { flow, idx ->
-                    def sender = flow.sender?.toString() ?: ""
-                    def receiver = flow.receiver?.toString() ?: ""
-                    if (sender && receiver) {
-                        sql.execute("""
+                    // Вставляем новые с правильной нумерацией
+                    newFlows.eachWithIndex { flow, idx ->
+                        def sender = flow.sender?.toString() ?: ""
+                        def receiver = flow.receiver?.toString() ?: ""
+                        if (sender && receiver) {
+                            sql.execute("""
                                 INSERT INTO integration_flows (task_id, sender, receiver, order_num)
                                 VALUES (?, ?, ?, ?)
                             """, [taskId as Integer, sender, receiver, idx + 1])
+                        }
                     }
-                }
 
-                sendResponse(e, MyJsonOutput.toJson([status: "OK", saved: newFlows.size()]), "application/json")
+                    sendResponse(e, MyJsonOutput.toJson([status: "OK", saved: newFlows.size()]), "application/json")
+                }
             }
         }
-    }
 
         // === API: Справочник систем ===
         server.createContext("/api/systems") { e ->

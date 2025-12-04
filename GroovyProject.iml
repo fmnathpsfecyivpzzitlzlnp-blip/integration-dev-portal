@@ -11,5 +11,6 @@
     <orderEntry type="library" name="sqlite-jdbc-3.50.3.0" level="project" />
     <orderEntry type="library" name="lib" level="project" />
     <orderEntry type="library" name="libs" level="project" />
+    <orderEntry type="library" name="jquery-3.6.0" level="application" />
   </component>
 </module>
