@@ -375,6 +375,9 @@ class Server {
         try { sql.execute("ALTER TABLE tasks ADD COLUMN planned_dev_date TEXT") } catch(e){}
         try { sql.execute("ALTER TABLE tasks ADD COLUMN contact_person TEXT") } catch(e){}
         try { sql.execute("ALTER TABLE tasks ADD COLUMN spec_url TEXT") } catch(e){}
+        try { sql.execute("ALTER TABLE flow_details ADD COLUMN target_description TEXT") } catch(e){}
+        try { sql.execute("ALTER TABLE flow_details ADD COLUMN protocol_out TEXT") } catch(e){}
+        try { sql.execute("ALTER TABLE flow_details ADD COLUMN format_out TEXT") } catch(e){}
 
         sql.execute'''CREATE TABLE IF NOT EXISTS task_settings (key TEXT PRIMARY KEY, value TEXT)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS labels_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, display_order INTEGER DEFAULT 99)'''
@@ -607,19 +610,26 @@ class Server {
                     def flowOrder = data.flow_order as Integer
 
                     def existing = sql.firstRow("SELECT id FROM flow_details WHERE task_id = ? AND flow_order = ?", [taskId, flowOrder])
+
                     if (existing) {
+                        // ОБНОВЛЕННЫЙ UPDATE: Добавлены target_description, protocol_out, format_out
                         sql.executeUpdate("""UPDATE flow_details SET 
-                            protocol=?, format=?, connection_type=?, file_path=?, description=?,
-                            operation_name=?, service_description=?
-                            WHERE task_id=? AND flow_order=?""",
+                protocol=?, format=?, connection_type=?, file_path=?, description=?,
+                operation_name=?, service_description=?,
+                target_description=?, protocol_out=?, format_out=?
+                WHERE task_id=? AND flow_order=?""",
                                 [data.protocol, data.format, data.connection_type, data.file_path, data.description,
-                                 data.operation_name, data.service_description, taskId, flowOrder])
+                                 data.operation_name, data.service_description,
+                                 data.target_description, data.protocol_out, data.format_out, // <--- Новые поля
+                                 taskId, flowOrder])
                     } else {
+                        // ОБНОВЛЕННЫЙ INSERT: Добавлены поля
                         sql.executeInsert("""INSERT INTO flow_details 
-                            (task_id, flow_order, protocol, format, connection_type, file_path, description, operation_name, service_description)
-                            VALUES (?,?,?,?,?,?,?,?,?)""",
+                (task_id, flow_order, protocol, format, connection_type, file_path, description, operation_name, service_description, target_description, protocol_out, format_out)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                                 [taskId, flowOrder, data.protocol, data.format, data.connection_type, data.file_path, data.description,
-                                 data.operation_name, data.service_description])
+                                 data.operation_name, data.service_description,
+                                 data.target_description, data.protocol_out, data.format_out]) // <--- Новые поля
                     }
                     sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
                 }

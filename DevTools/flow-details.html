@@ -2,389 +2,548 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Детали потока</title>
+    <title>Детали потока интеграции</title>
+    <!-- Библиотека jQuery -->
     <script src="libs/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        .req-mark::after { content:"*"; color:red; font-weight:bold; margin-left:2px;}
-
-        .toggle-group { display:inline-flex; background:#eef2ff; padding:4px; border-radius:4px; border:1px solid #dae1fb; margin-bottom:10px; }
-        .toggle-btn { padding:8px 16px; border-radius:4px; border:none; background:transparent; cursor:pointer; font-size:13px; color: #555; }
-        .toggle-btn:hover { background: rgba(0,0,0,0.05); }
-
-        /* Активная кнопка */
-        .toggle-btn.active { background: #4f46e5; color:white; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
-
-        #parsed-preview-area {
-            background:#fafafa; border:1px dashed #ccc; padding:15px; margin-top:10px; border-radius:4px;
-            font-family:'Consolas', monospace; font-size:12px; max-height:200px; overflow:auto; color:#333; white-space: pre-wrap;
+        /* === ЛОКАЛЬНЫЕ СТИЛИ === */
+        body {
+            background: #f4f7f9;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
         }
-        .generated-badge {
-            color:#27ae60;
-            background: #dcfce7;
+
+        /* Шапка */
+        .page-header {
+            height: 60px;
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.25); }
+
+        /* Визуализация потока (Стрелка) */
+        .flow-visual {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            justify-content: center;
+            background: white;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
+        }
+        .flow-badge {
+            font-size: 16px;
+            font-weight: bold;
+            color: #334155;
+            padding: 8px 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* Основная рабочая область (Скролл) */
+        .main-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .two-cols {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .system-card {
+            flex: 1;
+            min-width: 400px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+
+        .card-head {
+            padding: 12px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #eee;
+            font-weight: bold;
+            font-size: 14px;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Цветовое кодирование */
+        .sender-head { border-top: 4px solid #10b981; }   /* Зеленый */
+        .receiver-head { border-top: 4px solid #3b82f6; } /* Синий */
+
+        .card-body { padding: 20px; }
+
+        /* Элементы формы */
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 12px; color: #333; }
+
+        select, input[type="text"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-size: 13px;
+        }
+        select:focus, input:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+
+        /* Текстовая область для кода/структур */
+        .code-area {
+            width: 100%;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            min-height: 250px;
+            padding: 10px;
+            resize: vertical;
+            border: 1px solid #ccc;
+            background: #fafafa;
+            color: #333;
+            border-radius: 4px;
+            box-sizing: border-box;
+            line-height: 1.5;
+        }
+
+        /* Footer Action Bar */
+        .footer-bar {
+            background: #fff;
+            border-top: 1px solid #ccc;
+            padding: 15px 30px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 30px;
+            flex-shrink: 0;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 100%;
+        }
+
+        /* Кнопки */
+        button.save-btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex; align-items: center; gap: 8px;
+            transition: background 0.2s;
+        }
+        button.save-btn:hover { background: #15803d; }
+        button.save-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        button.mapper-btn {
+            background: #ffffff;
+            border: 2px solid #3b82f6;
+            color: #3b82f6;
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex; align-items: center; gap: 8px;
+            transition: all 0.2s;
+        }
+        button.mapper-btn:hover { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+
+        /* Кастомная кнопка загрузки файла */
+        .file-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .file-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .upload-label {
+            display: inline-block;
+            background: #e2e8f0;
+            color: #475569;
             padding: 5px 10px;
             border-radius: 4px;
-            font-weight:bold;
-            font-size:12px;
-            display:none;
-            align-items:center;
-            gap:5px;
-            margin-top:5px;
-            border: 1px solid #86efac;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid #cbd5e1;
+            transition: 0.2s;
         }
+        .upload-label:hover { background: #cbd5e1; }
+
     </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div style="height:60px; background:#2c3e50; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0;">
-    <div style="display:flex; align-items:center; gap:15px;">
-        <button id="back-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:5px 12px; border-radius:4px; cursor:pointer;">&larr; Назад</button>
-        <h3 style="margin:0; border:none; color:#fff;">Настройка параметров интеграции</h3>
-    </div>
-    <div style="font-size:12px; color:#aaa;">Task ID: <span id="tid-disp"></span> | Flow #<span id="disp_order"></span></div>
+<!-- 1. HEADER -->
+<div class="page-header">
+    <button class="back-btn" onclick="goBack()">← Назад к списку потоков</button>
+    <div style="font-size:16px; font-weight:600;">Конфигурация Потока Данных</div>
+    <div style="font-size:12px; color:#ccc;">Task ID: <span id="tid" style="color:white;font-weight:bold;">...</span></div>
 </div>
 
-<div class="main-content">
-    <div class="form-section" style="max-width: 800px; margin: 0 auto;">
+<!-- 2. FLOW VISUAL HEADER -->
+<div class="flow-visual">
+    <div style="margin-right: 30px;">
+        <label style="margin-bottom: 5px;">Общий тип взаимодействия:</label>
+        <select id="in_type" style="width: 250px; margin-bottom: 0;">
+            <option value="sync">Синхронный (REST / SOAP)</option>
+            <option value="async">Асинхронный (JMS / Kafka)</option>
+            <option value="file">Файловый обмен (SFTP / S3)</option>
+            <option value="db">База данных (ETL / JDBC)</option>
+        </select>
+    </div>
 
-        <!-- Flow Header Info -->
-        <div style="text-align:center; margin-bottom:25px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
-            <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Маршрут данных</div>
-            <div style="font-size:1.6em; font-weight:bold; color:#34495e; margin-top:5px; display: flex; align-items: center; justify-content: center; gap: 15px;">
-                <span id="disp_s" style="background: #f1f5f9; padding: 5px 15px; border-radius: 6px;">...</span>
-                <span style="color: #cbd5e1;">&rarr;</span>
-                <span id="disp_r" style="background: #f1f5f9; padding: 5px 15px; border-radius: 6px;">...</span>
-            </div>
+    <div style="display:flex; align-items:center; gap:15px;">
+        <div class="flow-badge" id="disp_s">Sender</div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <span style="font-size:24px; color:#cbd5e1; line-height:1;">&rarr;</span>
         </div>
+        <div class="flow-badge" id="disp_r">Receiver</div>
+    </div>
+</div>
 
-        <!-- BLOCK 1: CORE PARAMS -->
-        <div class="form-grid" style="border-bottom:1px solid #eee; padding-bottom:20px; margin-bottom:20px;">
-            <div>
-                <label class="req-mark">Тип взаимодействия</label>
-                <select id="in_type">
-                    <option value="">-- Выберите --</option>
-                    <option value="sync">Синхронный (Request/Response)</option>
-                    <option value="async">Асинхронный (One-Way)</option>
-                    <option value="multi">Мульти (Сложный обмен)</option>
-                </select>
-            </div>
-            <div>
-                <label class="req-mark">Протокол / Технология</label>
-                <input type="text" id="in_proto" list="proto_list" placeholder="Например: REST">
-                <datalist id="proto_list">
-                    <option value="REST (HTTP/JSON)">
-                    <option value="SOAP (HTTP/XML)">
-                    <option value="JMS (IBM MQ)">
-                    <option value="Kafka (Topic)">
-                    <option value="PostgreSQL">
-                    <option value="SFTP (File)">
-                </datalist>
-            </div>
-        </div>
+<!-- 3. MAIN CONTENT -->
+<div class="main-scroll-area">
+    <div class="two-cols">
 
-        <!-- BLOCK 2: DATA CONTRACT -->
-        <div class="form-section" style="background:#fdfdfd; border:1px solid #e1e4e8;">
-            <h3 style="margin-top:0; font-size:14px; color:#555; border-bottom: none; margin-bottom: 10px;">Контракт (Структура данных)</h3>
-
-            <!-- Toggle Source -->
-            <div class="toggle-group">
-                <button class="toggle-btn active" onclick="switchSrc('file')">Загрузить файл (Пример)</button>
-                <button class="toggle-btn" onclick="switchSrc('link')">Ссылка на Wiki/Swagger</button>
-            </div>
-
-            <!-- URL Mode -->
-            <div id="mode_link" style="display:none; padding: 10px; background: #fff;">
-                <label>URL Спецификации:</label>
-                <input type="text" id="in_link" placeholder="http://confluence/...">
-                <div style="font-size:11px; color:#888; margin-top:5px;">
-                    Ссылка будет сохранена в поле "File Path / Link" в базе данных.
+        <!-- ЛЕВАЯ КОЛОНКА: ОТПРАВИТЕЛЬ -->
+        <div class="system-card sender-head">
+            <div class="card-head">
+                <span>📤 ОТПРАВИТЕЛЬ (Source)</span>
+                <!-- File Upload -->
+                <div class="file-btn-wrapper">
+                    <span class="upload-label">📂 Загрузить файл</span>
+                    <input type="file" onchange="loadFile(this, '#struct_in', '#fmt_in')">
                 </div>
             </div>
-
-            <!-- File Mode -->
-            <div id="mode_file" style="padding: 10px; background: #fff;">
-                <label>Распознать структуру из файла (.json, .xml):</label>
-                <div style="display:flex; gap:10px; margin-bottom: 10px;">
-                    <input type="file" id="file_input" accept=".json,.xml,.xsd,.wsdl" onchange="parseFile(this)">
-                    <button class="secondary" onclick="clearFile()">Очистить</button>
+            <div class="card-body">
+                <div style="display:flex; gap:15px;">
+                    <div style="flex:1">
+                        <label>Протокол (Outbound)</label>
+                        <select id="proto_in">
+                            <option value="">-- Выберите --</option>
+                            <optgroup label="Web Services">
+                                <option value="REST">REST / HTTP</option>
+                                <option value="SOAP">SOAP / XML</option>
+                                <option value="GRAPHQL">GraphQL</option>
+                            </optgroup>
+                            <optgroup label="Messaging / Event">
+                                <option value="KAFKA">Apache Kafka</option>
+                                <option value="IBM_MQ">IBM MQ / JMS</option>
+                                <option value="RABBIT">RabbitMQ</option>
+                                <option value="ACTIVEMQ">ActiveMQ</option>
+                            </optgroup>
+                            <optgroup label="Data Storage">
+                                <option value="POSTGRES">PostgreSQL</option>
+                                <option value="ORACLE">Oracle DB</option>
+                                <option value="MSSQL">MS SQL Server</option>
+                                <option value="SFTP">SFTP / FTP</option>
+                                <option value="S3">S3 Object Storage</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div style="flex:1">
+                        <label>Формат данных</label>
+                        <input type="text" id="fmt_in" placeholder="Авто (напр. JSON)">
+                    </div>
                 </div>
 
-                <!-- Preview Parser -->
-                <div id="parsed_res">
-                    <div class="generated-badge" id="gen_badge">✅ Структура успешно распознана и готова к сохранению</div>
+                <label>Структура данных (Payload / DDL):</label>
+                <textarea id="struct_in" class="code-area" placeholder='Вставьте JSON пример, XML схему или SQL DDL...'></textarea>
+                <div style="text-align:right; font-size:11px; color:#999; margin-top:4px;">*Загрузится в левую часть Маппера</div>
+            </div>
+        </div>
 
-                    <!-- Скрытое поле, где хранится готовая текстовая таблица для ТЗ. Сохраняется в 'service_description' -->
-                    <textarea id="struct_hidden" style="display:none;"></textarea>
-
-                    <div id="parsed-preview-area">Здесь отобразится табличная структура полей...</div>
+        <!-- ПРАВАЯ КОЛОНКА: ПОЛУЧАТЕЛЬ -->
+        <div class="system-card receiver-head">
+            <div class="card-head">
+                <span>📥 ПОЛУЧАТЕЛЬ (Target)</span>
+                <div class="file-btn-wrapper">
+                    <span class="upload-label">📂 Загрузить файл</span>
+                    <input type="file" onchange="loadFile(this, '#struct_out', '#fmt_out')">
                 </div>
             </div>
+            <div class="card-body">
+                <div style="display:flex; gap:15px;">
+                    <div style="flex:1">
+                        <label>Протокол (Inbound)</label>
+                        <select id="proto_out">
+                            <option value="">-- Выберите --</option>
+                            <optgroup label="Web Services">
+                                <option value="REST">REST / HTTP</option>
+                                <option value="SOAP">SOAP / XML</option>
+                            </optgroup>
+                            <optgroup label="Messaging">
+                                <option value="KAFKA">Apache Kafka</option>
+                                <option value="IBM_MQ">IBM MQ / JMS</option>
+                            </optgroup>
+                            <optgroup label="Data Storage">
+                                <option value="POSTGRES">PostgreSQL</option>
+                                <option value="ORACLE">Oracle DB</option>
+                                <option value="SFTP">SFTP / FTP</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div style="flex:1">
+                        <label>Формат данных</label>
+                        <input type="text" id="fmt_out" placeholder="Авто (напр. JSON)">
+                    </div>
+                </div>
 
-            <div class="form-grid-full-width" style="margin-top: 15px;">
-                <label>Формат данных:</label>
-                <input type="text" id="in_format" placeholder="JSON, XML, CSV...">
+                <label>Целевая структура данных:</label>
+                <textarea id="struct_out" class="code-area" placeholder='Вставьте ожидаемый JSON или структуру таблицы...'></textarea>
+                <div style="text-align:right; font-size:11px; color:#999; margin-top:4px;">*Загрузится в правую часть Маппера</div>
             </div>
         </div>
 
-        <!-- BLOCK 3: DESCRIPTION -->
-        <div class="form-grid-full-width" style="margin-top: 20px;">
-            <label>Техническое описание (Маппинг, Триггеры, Ошибки):</label>
-            <textarea id="in_desc" style="height: 100px; width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Опишите особенности интеграции для данного потока."></textarea>
-        </div>
+    </div>
+</div>
 
-        <div style="margin-top:25px;">
-            <button onclick="saveFlow()" style="width:100%; background:#27ae60; padding:12px; color:white; font-size:16px; font-weight:bold; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;">💾 Сохранить параметры</button>
-        </div>
+<!-- 4. FOOTER ACTIONS -->
+<div class="footer-bar">
+    <div style="flex:1;">
+        <label style="margin-bottom:5px; display:block;">Техническое описание (Комментарии, триггеры, расписание):</label>
+        <input type="text" id="desc" placeholder="Например: Поток запускается по таймеру каждые 10 минут..." style="margin:0; width:100%;">
+    </div>
+
+    <div class="action-btns">
+        <!-- Открыть Маппер -->
+        <button onclick="openMapper()" class="mapper-btn" title="Перейти к настройке связей полей">
+            <span style="font-size:16px;">🔗</span> Открыть Маппер
+        </button>
+
+        <!-- Сохранить -->
+        <button onclick="saveFlow()" id="btn-save" class="save-btn">
+            <span style="font-size:16px;">💾</span> Сохранить
+        </button>
     </div>
 </div>
 
 <script>
-    // Параметры URL
-    const params = new URLSearchParams(location.search);
-    const TASK_ID = params.get('task_id');
-    const FLOW_ORDER = params.get('flow_order');
+    // === INIT & PARAMS ===
+    const p = new URLSearchParams(location.search);
+    const TASK_ID = p.get('task_id');
+    const FLOW_ORDER = p.get('flow_order');
 
-    // Проверка
-    if(!TASK_ID || !FLOW_ORDER) {
-        $('body').html('<div style="padding:20px; text-align:center;"><h3>Ошибка параметров</h3><a href="task_tracker.html">На главную</a></div>');
-    } else {
-        $('#disp_order').text(FLOW_ORDER);
-        $('#tid-disp').text(TASK_ID);
-    }
+    $(function(){
+        // Проверка параметров
+        if(!TASK_ID || !FLOW_ORDER) {
+            $('body').html('<div style="padding:40px;text-align:center;color:#dc2626;"><h3>Ошибка: Неверная ссылка.</h3><p>Нет ID задачи или номера потока. Вернитесь к списку задач.</p></div>');
+            return;
+        }
 
-    // === ЗАГРУЗКА ===
-    $(function() {
-        // Навигация назад
-        $('#back-btn').click(() => location.href=`service-org.html?id=${TASK_ID}`);
-
-        loadInitialData();
+        $('#tid').text(TASK_ID);
+        loadFlowInfo();
+        loadFlowDetails();
     });
 
-    function loadInitialData() {
-        // 1. Получаем имена Отправителя и Получателя из таблицы потоков (api/flows)
-        // Это нужно только для отображения в шапке (Context)
-        $.get(`/api/flows?task_id=${TASK_ID}`, function(flows) {
-            // Ищем нужный поток по order_num. Индекс в массиве = order - 1
-            const idx = parseInt(FLOW_ORDER) - 1;
-            if(flows && flows[idx]) {
-                $('#disp_s').text(flows[idx].sender);
-                $('#disp_r').text(flows[idx].receiver);
-            } else {
-                $('#disp_s').text("?");
-                $('#disp_r').text("?");
-            }
-        });
+    // === LOADING DATA ===
 
-        // 2. Получаем детали из таблицы flow_details
-        $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`, function(data) {
-            if (data && !data.error) {
-                // Заполняем форму значениями из БД
-                $('#in_type').val(data.connection_type || '');
-                $('#in_proto').val(data.protocol || '');
-                $('#in_format').val(data.format || '');
-                $('#in_desc').val(data.description || '');
-
-                // Логика переключения вкладки "Файл" / "Ссылка"
-                // Если file_path похоже на http link -> режим Link, иначе (или если есть service_description) -> File mode
-                if(data.file_path && (data.file_path.startsWith('http') || data.file_path.startsWith('www'))) {
-                    switchSrc('link');
-                    $('#in_link').val(data.file_path);
+    function loadFlowInfo() {
+        // Загружаем имена систем для заголовка
+        $.get(`/api/flows?task_id=${TASK_ID}`, function(list) {
+            if(list && list.length) {
+                const idx = parseInt(FLOW_ORDER) - 1;
+                if(list[idx]) {
+                    $('#disp_s').text(list[idx].sender);
+                    $('#disp_r').text(list[idx].receiver);
                 } else {
-                    switchSrc('file');
-                    // Если в service_description лежит распарсенная таблица, покажем её
-                    if(data.service_description) {
-                        $('#struct_hidden').val(data.service_description);
-                        $('#parsed-preview-area').html(convertToHtml(data.service_description));
-                        $('#gen_badge').fadeIn();
-                    }
+                    $('#disp_s').text('Неизвестно');
+                    $('#disp_r').text('Неизвестно');
                 }
             }
         });
     }
 
-    // === ЛОГИКА ИНТЕРФЕЙСА ===
-
-    // Переключатель табов
-    window.switchSrc = function(mode) {
-        $('.toggle-btn').removeClass('active');
-        if(mode === 'link') {
-            $('#mode_link').show();
-            $('#mode_file').hide();
-            $('.toggle-btn').eq(1).addClass('active');
-        } else {
-            $('#mode_link').hide();
-            $('#mode_file').show();
-            $('.toggle-btn').eq(0).addClass('active');
-        }
-    };
-
-    window.clearFile = function() {
-        $('#file_input').val('');
-        $('#parsed-preview-area').text('Здесь отобразится структура полей...');
-        $('#gen_badge').hide();
-        $('#struct_hidden').val('');
-        // Не стираем формат, если он уже введен вручную
-    }
-
-    // Парсинг файла
-    window.parseFile = function(input) {
-        const file = input.files[0];
-        if(!file) return;
-
-        // Автоопределение формата по расширению
-        if(file.name.toLowerCase().endsWith('.json')) $('#in_format').val('JSON');
-        else if(file.name.toLowerCase().endsWith('.xml') || file.name.toLowerCase().endsWith('.xsd')) $('#in_format').val('XML');
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const text = e.target.result;
-            let structureLines = "";
-            let htmlPrev = "";
-
-            try {
-                if(file.name.toLowerCase().endsWith('.json')) {
-                    const obj = JSON.parse(text);
-                    structureLines = parseJsonToTable(obj);
-                } else {
-                    // Упрощенный парсер XML для превью
-                    const tags = text.match(/<([a-zA-Z0-9_:-]+)[^>]*>/g) || [];
-                    // Убираем дубликаты тегов
-                    const uniqueTags = [...new Set(tags.map(t => t.replace(/[<>]/g, '').split(' ')[0].replace('/','')))];
-                    structureLines = uniqueTags.filter(t => !t.startsWith('?')).map(t => `1 | ${t} | Element | 1..1 | XML Tag`).join('\n');
-                }
-
-                // Преобразование в HTML для показа юзеру
-                htmlPrev = convertToHtml(structureLines);
-
-                // Сохраняем "сырой" вид таблицы для БД (разделитель |)
-                $('#struct_hidden').val(structureLines);
-
-                // Показываем результат
-                $('#parsed-preview-area').html(htmlPrev);
-                $('#gen_badge').fadeIn();
-
-            } catch(err) {
-                alert('Ошибка разбора файла: ' + err);
+    function loadFlowDetails() {
+        $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`, function(d) {
+            if(!d || !d.id) {
+                console.log("Данных нет, форма чистая.");
+                return;
             }
-        };
-        reader.readAsText(file);
-    }
 
-    // Рекурсивный парсинг JSON
-    function parseJsonToTable(obj, prefix="") {
-        let res = "";
-        for(let k in obj) {
-            const val = obj[k];
-            const type = Array.isArray(val) ? "Array" : (val === null ? "null" : typeof val);
+            // Заполняем поля формы данными из БД
+            $('#in_type').val(d.connection_type);
+            $('#desc').val(d.description);
 
-            // Строка таблицы: Путь | Тип | Описание
-            // Можно добавить колонку Required или Пример значения
-            res += `${prefix ? prefix+'.'+k : k} | ${type} | \n`;
+            // SENDER
+            $('#proto_in').val(d.protocol);
+            $('#fmt_in').val(d.format);
+            $('#struct_in').val(d.service_description); // Используем это поле для Source Struct
 
-            if(type === 'object' && val !== null && !Array.isArray(val)) {
-                res += parseJsonToTable(val, prefix ? prefix+'.'+k : k);
-            } else if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object') {
-                res += parseJsonToTable(val[0], prefix ? prefix+'.'+k+'[]' : k+'[]');
-            }
-        }
-        return res;
-    }
-
-    // Конвертация текстовой таблицы (aaa | bbb) в HTML таблицу
-    function convertToHtml(strLines) {
-        if(!strLines) return '';
-        let h = '<table style="width:100%; border-collapse:collapse; font-family:sans-serif;">';
-        h += `<thead><tr style="background:#eee;">
-                <th style="border:1px solid #ccc; padding:4px; width:40%;">Поле / Тег</th>
-                <th style="border:1px solid #ccc; padding:4px; width:20%;">Тип</th>
-                <th style="border:1px solid #ccc; padding:4px;">Описание</th>
-              </tr></thead><tbody>`;
-
-        strLines.split('\n').forEach(l => {
-            if(!l.trim()) return;
-            const cols = l.split('|');
-            // Если формат "Уровень | Имя | Тип ..." пропускаем
-            if (cols.length >= 2) {
-                h += `<tr>
-                    <td style="border:1px solid #eee; padding:4px; word-break:break-all;">${cols[0] || ''}</td>
-                    <td style="border:1px solid #eee; padding:4px; color:#0056b3;">${cols[1]||''}</td>
-                    <td style="border:1px solid #eee; padding:4px; color:#666;">${cols[2]||''}</td>
-                </tr>`;
-            }
+            // RECEIVER
+            // Убедитесь, что ваш Server.groovy поддерживает новые колонки (protocol_out и т.д.)
+            if(d.protocol_out) $('#proto_out').val(d.protocol_out);
+            if(d.format_out) $('#fmt_out').val(d.format_out);
+            if(d.target_description) $('#struct_out').val(d.target_description);
         });
-        h += '</tbody></table>';
-        return h;
     }
 
-    // === СОХРАНЕНИЕ В БД ===
+    // === SAVE ACTION ===
 
-    window.saveFlow = () => {
-        const type = $('#in_type').val();
-        const proto = $('#in_proto').val();
+    function saveFlow() {
+        const btn = $('#btn-save');
+        const oldHtml = btn.html();
+        btn.prop('disabled',true).text('Сохранение...');
 
-        if(!type || !proto) {
-            if(!type) $('#in_type').css('border-color', '#e74c3c');
-            if(!proto) $('#in_proto').css('border-color', '#e74c3c');
-            return alert('Ошибка: "Тип взаимодействия" и "Протокол" обязательны.');
-        }
-
-        // Определяем, какой режим активен для Link/Path
-        const isLinkMode = $('#mode_link').is(':visible');
-        // Если режим ссылки - берем инпут ссылки
-        // Если режим файла - пытаемся не сохранять локальный путь (безопасность браузера не даст),
-        // но структуру мы сохранили в struct_hidden.
-        // Поле file_path в базе используем для ссылки.
-        const pathVal = isLinkMode ? $('#in_link').val() : "Файл загружен локально";
-
+        // 1. Собираем данные из формы
         const payload = {
             task_id: parseInt(TASK_ID),
             flow_order: parseInt(FLOW_ORDER),
+            connection_type: $('#in_type').val(),
+            description: $('#desc').val(),
 
-            // Маппинг на поля таблицы flow_details в SQLite
-            connection_type: type,
-            protocol: proto,
-            format: $('#in_format').val(),
-            description: $('#in_desc').val(), // Техническое описание
+            // Sender config
+            protocol: $('#proto_in').val(),
+            format: $('#fmt_in').val(),
+            service_description: $('#struct_in').val(),
 
-            file_path: pathVal, // Ссылка на Wiki/Repo
-
-            // Важный момент: в поле service_description мы сохраняем
-            // "распарсенную" структуру данных (текстовую таблицу),
-            // чтобы генератор ТЗ мог её подхватить.
-            service_description: $('#struct_hidden').val(),
-
-            operation_name: 'Auto-Gen' // Заглушка или расширить UI позже
+            // Receiver config
+            protocol_out: $('#proto_out').val(),
+            format_out: $('#fmt_out').val(),
+            target_description: $('#struct_out').val()
         };
 
-        // Блокируем кнопку
-        const btn = $('button[onclick="saveFlow()"]');
-        const oldText = btn.text();
-        btn.text('Сохранение...').prop('disabled', true);
+        // 2. ВАЖНЫЙ МОМЕНТ:
+        // Поле 'file_path' используется Mapper.html для хранения координат связей (JSON).
+        // Если мы просто сохраним payload выше, то поле 'file_path' на сервере затрется null-ом (если сервер делает полный UPDATE).
+        // Поэтому, чтобы НЕ потерять нарисованный маппинг при сохранении настроек,
+        // мы сначала спрашиваем у сервера "А что там сейчас в file_path?", и добавляем это в payload.
 
+        $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`)
+            .done(function(existingData) {
+                // Если уже есть сохраненный маппинг, добавляем его в наш запрос сохранения
+                if(existingData && existingData.file_path) {
+                    payload.file_path = existingData.file_path;
+                }
+
+                // Теперь безопасно отправляем всё на сервер
+                sendSaveRequest(payload, btn, oldHtml);
+            })
+            .fail(function() {
+                // Если записи нет (первое сохранение), то маппинга тоже нет, просто сохраняем
+                sendSaveRequest(payload, btn, oldHtml);
+            });
+    }
+
+    function sendSaveRequest(payload, btn, oldHtml) {
         $.ajax({
             url: '/api/flow-details',
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(payload),
-            success: function(response) {
-                alert('Успешно сохранено в базе данных!');
-                $('#back-btn').click(); // Возврат к списку
+            success: function() {
+                btn.html('✅ Сохранено');
+                setTimeout(() => {
+                    btn.html(oldHtml).prop('disabled', false);
+                }, 1500);
             },
             error: function(xhr) {
-                alert('Ошибка при сохранении: ' + (xhr.responseJSON?.error || xhr.responseText));
-            },
-            complete: function() {
-                btn.text(oldText).prop('disabled', false);
+                alert('Ошибка сохранения: ' + xhr.responseText);
+                btn.html(oldHtml).prop('disabled', false);
             }
         });
+    }
+
+    // === MAPPER ===
+
+    function openMapper() {
+        // Сохраняем JSON-ы локально для быстрого подхвата маппером при открытии
+        const src = $('#struct_in').val();
+        const trg = $('#struct_out').val();
+
+        localStorage.setItem('mapper_source', src || '{}');
+        localStorage.setItem('mapper_target', trg || '{}');
+
+        // Открываем маппер в новой вкладке, передавая параметры для работы с БД
+        window.open(`mapper.html?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`, '_blank');
+    }
+
+    // === FILE LOADING UTILS ===
+
+    window.loadFile = function(input, targetAreaId, fmtInputId) {
+        const file = input.files[0];
+        if (!file) return;
+
+        // Пробуем угадать формат по расширению
+        const ext = file.name.split('.').pop().toUpperCase();
+        $(fmtInputId).val(ext);
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let content = e.target.result;
+
+            // Если это JSON, сделаем его красивым (pretty print)
+            if (ext === 'JSON') {
+                try {
+                    const o = JSON.parse(content);
+                    content = JSON.stringify(o, null, 4);
+                } catch(err) {
+                    // Если невалидный JSON, оставляем как текст
+                    console.warn("JSON format error, inserting as text");
+                }
+            }
+
+            $(targetAreaId).val(content);
+        };
+        reader.readAsText(file);
+
+        // Сбрасываем input, чтобы можно было выбрать тот же файл снова
+        input.value = '';
     };
 
-    // Убираем красный бордер при вводе
-    $('select, input').on('change input', function() {
-        $(this).css('border-color', '#ccc');
-    });
+    function goBack() {
+        location.href = `service-org.html?id=${TASK_ID}`;
+    }
 
 </script>
+
 </body>
 </html>

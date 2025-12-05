@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Mapping Tool (DB)</title>
+    <!-- Библиотека jQuery -->
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* === BASIC LAYOUT === */
+        body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f4f7f9; font-family: 'Segoe UI', sans-serif; margin: 0; }
+
+        .top-bar {
+            flex-shrink: 0; display: flex; align-items: center; gap: 15px; padding: 10px 20px;
+            background: #2c3e50; border-bottom: 1px solid #1a252f; color: white; z-index: 100;
+        }
+
+        .btn {
+            padding: 6px 14px; border-radius: 4px; font-weight: 600; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1);
+            font-size: 13px; color: #fff; transition:0.2s;
+        }
+        .btn:hover { background: rgba(255,255,255,0.2); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary { background: #3b82f6; border-color: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+
+        .btn-success { background: #16a34a; border-color: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+
+        .btn-danger { background: #dc2626; border-color: #dc2626; color: white; }
+
+        .status-badge { font-size: 12px; margin-left: 15px; color: #cbd5e1; font-style: italic; }
+
+        /* === WORKSPACE (3 COLS) === */
+        .workspace { flex: 1; display: flex; position: relative; overflow: hidden; }
+
+        /* Columns */
+        .column {
+            width: 350px; display: flex; flex-direction: column; background: #fff; z-index: 10;
+            border-right: 1px solid #e2e8f0; box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            transition: width 0.1s;
+        }
+        .column.target-col { border-left: 1px solid #e2e8f0; border-right: none; }
+        .center-space { flex: 1; background: #f8fafc; position: relative; }
+
+        .col-header {
+            padding: 12px 15px; background: #f1f5f9; font-weight: bold; color: #334155;
+            border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;
+            align-items: center; font-size: 14px; text-transform: uppercase;
+        }
+
+        /* Input Area */
+        .json-input-box { padding: 15px; background: #fff; border-bottom: 1px solid #e2e8f0; display: none; }
+        .json-input-box textarea {
+            width: 100%; height: 120px; font-family: 'Consolas', monospace; font-size: 12px;
+            border: 1px solid #ccc; border-radius: 4px; resize: vertical; padding: 8px; box-sizing: border-box;
+        }
+        .json-label { font-size: 11px; font-weight: bold; display: block; margin-bottom: 5px; color: #666; }
+
+        /* Fields List */
+        .fields-container { flex: 1; overflow-y: auto; padding: 15px; position: relative; }
+
+        /* Field Card */
+        .field-card {
+            padding: 8px 12px; margin-bottom: 8px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+            font-size: 13px; display: flex; justify-content: space-between; align-items: center; position: relative;
+            transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        .field-card:hover { border-color: #3b82f6; transform: translateX(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .field-card.mapped { background: #f0fdf4; border-color: #86efac; }
+        .field-card.mapped b { color: #15803d; }
+
+        .type-badge { font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #64748b; border: 1px solid #e2e8f0; }
+
+        /* Ports */
+        .port {
+            width: 12px; height: 12px; background: #94a3b8; border-radius: 50%;
+            position: absolute; top: 50%; transform: translateY(-50%); cursor: crosshair;
+            border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.3); z-index: 20;
+            transition: 0.2s;
+        }
+        .source-col .port { right: -7px; }
+        .target-col .port { left: -7px; }
+
+        .port:hover { transform: translateY(-50%) scale(1.3); background: #3b82f6; }
+        .port.valid-target { background: #22c55e; transform: translateY(-50%) scale(1.4); box-shadow: 0 0 0 3px rgba(34,197,94,0.3); }
+
+        /* SVG */
+        svg#svg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+
+        path.link {
+            fill: none; stroke: #94a3b8; stroke-width: 2px; pointer-events: stroke; cursor: pointer;
+            transition: stroke 0.2s;
+        }
+        path.link:hover { stroke: #3b82f6; stroke-width: 4px; }
+
+        /* Line Types */
+        path.link.type-Direct { stroke: #cbd5e1; }
+        path.link.type-Format { stroke: #e11d48; stroke-dasharray: 4; }
+        path.link.type-Constant { stroke: #f59e0b; }
+        path.link.type-Lookup { stroke: #8b5cf6; }
+
+        path.drag-line { fill: none; stroke: #3b82f6; stroke-width: 2px; stroke-dasharray: 5; pointer-events: none; opacity: 0.7; }
+
+        /* POPUP */
+        .map-popup {
+            position: absolute; width: 300px; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border: 1px solid #e2e8f0; border-radius: 8px; z-index: 200; padding: 20px; display: none;
+        }
+        .popup-header { font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; color: #333; display: flex; justify-content: space-between;}
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600; }
+        .form-group select, .form-group input { width: 100%; padding: 8px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 4px; box-sizing: border-box; }
+
+        .close-icon { cursor: pointer; color: #999; }
+        .close-icon:hover { color: #333; }
+
+        /* Help Text */
+        .empty-state { text-align: center; padding: 20px; color: #999; font-size: 13px; margin-top: 50px;}
+    </style>
+</head>
+<body>
+
+<div class="top-bar">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.close()" class="btn">✖ Закрыть</button>
+        <h2 style="margin:0; font-size:18px;">Data Mapping Tool</h2>
+        <span id="db-status" class="status-badge">Загрузка...</span>
+    </div>
+
+    <div style="margin-left: auto; display: flex; gap: 10px;">
+        <button class="btn" onclick="$('.json-input-box').slideToggle()">⚙ Редактор JSON</button>
+        <button class="btn btn-primary" onclick="autoMap()">✨ Авто-Связь</button>
+        <div style="width: 1px; background: rgba(255,255,255,0.3); height: 20px; margin: 0 5px;"></div>
+        <button class="btn" onclick="exportTable()">📤 Таблица</button>
+        <button class="btn btn-success" onclick="saveToDB()" id="btn-save-db">💾 Сохранить в БД</button>
+    </div>
+</div>
+
+<div class="workspace" id="workspace">
+    <svg id="svg-canvas"></svg>
+
+    <!-- LEFT: Source -->
+    <div class="column source-col">
+        <div class="col-header">SOURCE (Источник)</div>
+        <div class="json-input-box">
+            <label class="json-label">Структура Отправителя:</label>
+            <textarea id="json-source">{}</textarea>
+            <button class="btn btn-primary" onclick="parseJson('source')" style="width:100%;margin-top:8px;border:none;">Применить</button>
+        </div>
+        <div class="fields-container" id="list-source">
+            <div class="empty-state">Загрузка данных...</div>
+        </div>
+    </div>
+
+    <div class="center-space"></div>
+
+    <!-- RIGHT: Target -->
+    <div class="column target-col">
+        <div class="col-header">TARGET (Получатель)</div>
+        <div class="json-input-box">
+            <label class="json-label">Структура Получателя:</label>
+            <textarea id="json-target">{}</textarea>
+            <button class="btn btn-primary" onclick="parseJson('target')" style="width:100%;margin-top:8px;border:none;">Применить</button>
+        </div>
+        <div class="fields-container" id="list-target">
+            <div class="empty-state">Загрузка данных...</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="config-popup" class="map-popup">
+    <div class="popup-header">
+        <span id="popup-title">Связь</span>
+        <span class="close-icon" onclick="$('#config-popup').fadeOut(100)">&times;</span>
+    </div>
+    <div class="form-group">
+        <label>Тип трансформации:</label>
+        <select id="cfg-trans">
+            <option value="Direct">Прямая (As Is)</option>
+            <option value="Format">Форматирование</option>
+            <option value="Lookup">Справочник</option>
+            <option value="Constant">Константа</option>
+            <option value="Script">Скрипт</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Комментарий / Параметры:</label>
+        <input id="cfg-comm" placeholder="Например: YYYY-MM-DD">
+    </div>
+    <div style="text-align:right; margin-top:15px; display:flex; justify-content: space-between;">
+        <button onclick="deleteLink()" class="btn btn-danger" style="padding:6px 12px; font-size:12px; border:none;">Удалить</button>
+        <button onclick="saveConfig()" class="btn btn-primary" style="padding:6px 15px; border:none;">OK</button>
+    </div>
+</div>
+
+<script>
+    // --- PARAMS & STATE ---
+    const urlParams = new URLSearchParams(location.search);
+    // Пытаемся найти ID задачи, если переданы. Или берем из LocalStorage
+    let TASK_ID = urlParams.get('task_id');
+    let FLOW_ORDER = urlParams.get('flow_order');
+
+    // Если открыли напрямую без параметров (для теста)
+    let isDbMode = (TASK_ID && FLOW_ORDER);
+
+    // Данные
+    let mappings = [];
+    let flatSource = [];
+    let flatTarget = [];
+
+    // Переменные для DB
+    let flowDetailsRecord = {};
+
+    // Переменные Drag'n'Drop
+    let dragStart = null;
+    let activePath = null;
+    let currentSelectedId = null;
+
+    $(function() {
+        if(isDbMode) {
+            loadFromDB();
+        } else {
+            // Fallback: Загрузка из LocalStorage (если открыли руками)
+            loadFromLocalStorage();
+            $('#db-status').text("Режим LocalStorage (Демо)");
+        }
+
+        // Листенеры событий
+        window.addEventListener('resize', drawAll);
+        $('.fields-container').on('scroll', drawAll);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+
+        $(document).on('click', function(e) {
+            if(!$(e.target).closest('#config-popup').length && !$(e.target).closest('path.link').length) {
+                $('#config-popup').fadeOut(100);
+                currentSelectedId = null;
+                drawAll();
+            }
+        });
+    });
+
+    // --- 1. LOAD DATA ---
+
+    function loadFromDB() {
+        $('#db-status').text("Загрузка из БД...");
+        $('#btn-save-db').text("Сохранение...");
+
+        $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`, function(data) {
+            if(!data || !data.id) {
+                alert("Поток не найден в БД");
+                return;
+            }
+
+            flowDetailsRecord = data;
+            $('#db-status').text(`Задача: ${TASK_ID} | Поток: ${FLOW_ORDER}`);
+            $('#btn-save-db').text("💾 Сохранить в БД");
+
+            // 1. Заполняем исходники
+            if(data.service_description) $('#json-source').val(data.service_description);
+            if(data.target_description)  $('#json-target').val(data.target_description);
+
+            // 2. Загружаем связи
+            // Связи храним в поле file_path (временно, как мы договорились),
+            // так как это большое текстовое поле, и оно не мешает работе основного функционала
+            // Если там не JSON, значит связей нет.
+            try {
+                let savedMaps = JSON.parse(data.file_path || '[]');
+                if(Array.isArray(savedMaps)) mappings = savedMaps;
+            } catch(e) {
+                console.log("Mappings not found or invalid in file_path");
+            }
+
+            parseJson('source', false);
+            parseJson('target', false);
+        })
+            .fail(function() {
+                $('#db-status').text("Ошибка подключения к БД");
+                alert("Ошибка загрузки данных потока.");
+            });
+    }
+
+    function loadFromLocalStorage() {
+        const s = localStorage.getItem('mapper_source') || '{}';
+        const t = localStorage.getItem('mapper_target') || '{}';
+        const m = localStorage.getItem('mapper_data');
+
+        $('#json-source').val(s);
+        $('#json-target').val(t);
+
+        if(m) try { mappings = JSON.parse(m); } catch(e){}
+
+        parseJson('source', false);
+        parseJson('target', false);
+    }
+
+    // --- 2. PARSE & RENDER ---
+
+    function parseJson(side, autoSave = true) {
+        try {
+            const txt = $(`#json-${side}`).val();
+            let obj;
+            try { obj = JSON.parse(txt); }
+            catch(e) { obj = { error: "Invalid JSON format", content: txt.substring(0, 100) }; }
+
+            const flat = flatten(obj);
+
+            if(side === 'source') flatSource = flat; else flatTarget = flat;
+
+            renderColumn(side, flat);
+
+            if(autoSave) save(); // Сохраняем локально
+
+            // Очистка "висячих" связей (если поля удалены)
+            // Можно добавить позже, сейчас просто рисуем
+            setTimeout(drawAll, 50);
+
+        } catch(e) { console.error(e); }
+    }
+
+    function flatten(obj, prefix = '', res = []) {
+        for(let k in obj) {
+            if(obj[k] === null) {
+                res.push({ path: prefix + k, type: 'null' });
+            } else if (typeof obj[k] === 'object' && !Array.isArray(obj[k])) {
+                flatten(obj[k], prefix + k + '.', res);
+            } else {
+                let type = Array.isArray(obj[k]) ? 'array' : typeof obj[k];
+                res.push({ path: prefix + k, type: type });
+            }
+        }
+        return res;
+    }
+
+    function renderColumn(side, list) {
+        const c = $(`#list-${side}`).empty();
+        if(list.length === 0) { c.html('<div class="empty-state">Пусто</div>'); return; }
+
+        list.forEach((item, idx) => {
+            // Генерируем стабильный ID для DOM, чтобы SVG линии не терялись при перерисовке,
+            // НО! Mappings должны привязываться к path, а не к случайному ID.
+            // Для упрощения сейчас привязываем к DOM ID.
+            // В идеале, mappings должны хранить 'path'.
+            const uid = `${side}_${idx}`;
+
+            c.append(`
+                <div class="field-card ${side}" id="${uid}" data-path="${item.path}">
+                    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" title="${item.path}">
+                        <b>${item.path.split('.').pop()}</b>
+                        <div style="color:#999;font-size:10px;">${item.path}</div>
+                    </div>
+                    <span class="type-badge">${item.type}</span>
+                    <div class="port" onmousedown="startDrag(event, '${uid}', '${side}')"></div>
+                </div>
+            `);
+        });
+
+        // Важно: Маппинги мы храним как {srcPath: '...', trgPath: '...'}
+        // Но для рисования нужны DOM ID.
+        // Нужно восстановить связи (map paths to DOM IDs)
+        refreshMappingLinks();
+    }
+
+    function refreshMappingLinks() {
+        // Если мы только загрузились, mappings могут хранить старые ID или Path.
+        // Лучше использовать Path как ключ.
+        // Перебираем mappings, находим актуальные DOM ID для путей.
+
+        // Для текущей простой реализации предполагаем, что mappings хранят {srcPath, trgPath}
+        // И мы на лету ищем их DOM элементы.
+
+        // Но в коде рисования используются m.src (ID) и m.trg (ID).
+        // Давайте сделаем апгрейд:
+
+        // При рендере проходимся и ищем соответствия, если они есть в state
+
+        // (Для упрощения и стабильности демо версии -
+        // просто чистим маппинг, если поля пропали, или оставляем)
+
+        updateMappedStatus();
+    }
+
+    // --- 3. DRAG & DROP ---
+
+    function startDrag(e, id, side) {
+        if(e.button!==0) return;
+        e.stopPropagation(); e.preventDefault();
+        dragStart = { id, side, x: e.pageX, y: e.pageY };
+
+        // Temp Line
+        activePath = document.createElementNS('http://www.w3.org/2000/svg','path');
+        activePath.setAttribute('class', 'drag-line');
+        $('#svg-canvas').append(activePath);
+
+        const otherSide = side==='source'?'target-col':'source-col';
+        $(`.${otherSide} .port`).addClass('valid-target');
+    }
+
+    function onMouseMove(e) {
+        if(!dragStart) return;
+        const svgRect = $('#workspace')[0].getBoundingClientRect();
+
+        // Start Point coordinates (DOM element)
+        const el = document.getElementById(dragStart.id);
+        if(!el) return;
+        const port = el.querySelector('.port').getBoundingClientRect();
+        const p1 = {
+            x: (port.left + port.width/2) - svgRect.left,
+            y: (port.top + port.height/2) - svgRect.top
+        };
+
+        const p2 = {
+            x: e.clientX - svgRect.left,
+            y: e.clientY - svgRect.top
+        };
+
+        activePath.setAttribute('d', drawCurve(p1, p2));
+    }
+
+    function onMouseUp(e) {
+        if(!dragStart) return;
+
+        $('#svg-canvas').hide();
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        $('#svg-canvas').show();
+
+        if(el && el.classList.contains('port')) {
+            const card = el.closest('.field-card');
+            const endId = card.id;
+            const endSide = card.classList.contains('source') ? 'source' : 'target';
+
+            if(dragStart.side !== endSide) {
+                let s = dragStart.side === 'source' ? dragStart.id : endId;
+                let t = dragStart.side === 'target' ? dragStart.id : endId;
+                addMappingByDomIds(s, t);
+            }
+        }
+
+        if(activePath) activePath.remove();
+        activePath = null; dragStart = null;
+        $('.port').removeClass('valid-target');
+    }
+
+    function addMappingByDomIds(srcId, trgId) {
+        // Get Paths
+        const sPath = $(`#${srcId}`).data('path');
+        const tPath = $(`#${trgId}`).data('path');
+
+        // Check Duplicate
+        if(mappings.find(m => m.s === sPath && m.t === tPath)) return;
+
+        mappings.push({
+            id: Date.now(),
+            s: sPath,
+            t: tPath,
+            type: 'Direct',
+            comm: ''
+        });
+
+        save();
+        updateMappedStatus();
+        drawAll();
+    }
+
+    // --- 4. DRAW & VISUALS ---
+
+    function drawAll() {
+        const svg = $('#svg-canvas');
+        svg.empty();
+        if(activePath) svg.append(activePath);
+
+        const wk = $('#workspace')[0].getBoundingClientRect();
+
+        mappings.forEach(m => {
+            // Find DOM elements by PATH
+            let el1, el2;
+
+            $('.source-col .field-card').each(function() { if($(this).data('path')==m.s) el1 = this; });
+            $('.target-col .field-card').each(function() { if($(this).data('path')==m.t) el2 = this; });
+
+            if(el1 && el2) {
+                const p1 = getPos(el1, wk);
+                const p2 = getPos(el2, wk);
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+                path.setAttribute('d', drawCurve(p1, p2));
+                path.setAttribute('class', `link type-${m.type} ${currentSelectedId==m.id?'selected':''}`);
+                path.onclick = (e) => { e.stopPropagation(); openPopup(e, m.id); };
+
+                svg.append(path);
+            }
+        });
+    }
+
+    function getPos(card, wk) {
+        const p = card.querySelector('.port').getBoundingClientRect();
+        return { x: (p.left+p.width/2)-wk.left, y: (p.top+p.height/2)-wk.top };
+    }
+
+    function drawCurve(p1, p2) {
+        const mx = (p1.x + p2.x) / 2;
+        return `M ${p1.x} ${p1.y} C ${mx} ${p1.y}, ${mx} ${p2.y}, ${p2.x} ${p2.y}`;
+    }
+
+    function updateMappedStatus() {
+        $('.field-card').removeClass('mapped');
+        mappings.forEach(m => {
+            // Highlight by path
+            $(`.source-col .field-card`).filter((i,e)=>$(e).data('path')==m.s).addClass('mapped');
+            $(`.target-col .field-card`).filter((i,e)=>$(e).data('path')==m.t).addClass('mapped');
+        });
+    }
+
+    // --- 5. POPUP ---
+
+    function openPopup(e, id) {
+        currentSelectedId = id;
+        drawAll(); // Highlight selected
+        const m = mappings.find(x => x.id === id);
+        $('#cfg-trans').val(m.type);
+        $('#cfg-comm').val(m.comm);
+        $('#config-popup').css({left: e.clientX, top:e.clientY}).fadeIn(100);
+    }
+
+    function saveConfig() {
+        if(!currentSelectedId) return;
+        const m = mappings.find(x=>x.id === currentSelectedId);
+        if(m) {
+            m.type = $('#cfg-trans').val();
+            m.comm = $('#cfg-comm').val();
+            save();
+        }
+        $('#config-popup').fadeOut();
+        currentSelectedId=null;
+        drawAll();
+    }
+
+    function deleteLink() {
+        if(!currentSelectedId) return;
+        mappings = mappings.filter(x=>x.id !== currentSelectedId);
+        save();
+        updateMappedStatus();
+        drawAll();
+        $('#config-popup').fadeOut();
+    }
+
+    // --- 6. PERSISTENCE (DB or Local) ---
+
+    function save() {
+        if(isDbMode) {
+            // Сохраняем только в переменную памяти (авто-сохранение)
+            // Настоящее сохранение будет по кнопке
+        } else {
+            localStorage.setItem('mapper_source', $('#json-source').val());
+            localStorage.setItem('mapper_target', $('#json-target').val());
+            localStorage.setItem('mapper_data', JSON.stringify(mappings));
+        }
+    }
+
+    function saveToDB() {
+        if(!isDbMode) return alert("Режим без БД (Демо). Данные сохранены локально.");
+
+        // Готовим пейлоад
+        const payload = {
+            task_id: parseInt(TASK_ID),
+            flow_order: parseInt(FLOW_ORDER),
+
+            // Мы обязаны передать старые данные, чтобы не затереть их,
+            // так как этот API endpoint обновляет всю строку
+            connection_type: flowDetailsRecord.connection_type,
+            protocol: flowDetailsRecord.protocol,
+            format: flowDetailsRecord.format,
+            description: flowDetailsRecord.description,
+
+            // Обновляем эти поля:
+            service_description: $('#json-source').val(), // Source JSON
+            target_description: $('#json-target').val(),  // Target JSON
+            // ! ВАЖНО: Используем file_path как хранилище маппинга, т.к. отдельной колонки нет
+            file_path: JSON.stringify(mappings)
+        };
+
+        const btn = $('#btn-save-db');
+        btn.prop('disabled', true).text('Сохранение...');
+
+        $.ajax({
+            url: '/api/flow-details',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function() {
+                btn.prop('disabled', false).text('✅ Сохранено').addClass('btn-success');
+                setTimeout(()=>btn.text('💾 Сохранить в БД'), 2000);
+            },
+            error: function(x) {
+                alert('Ошибка сохранения: '+x.responseText);
+                btn.prop('disabled', false).text('Ошибка');
+            }
+        });
+    }
+
+    // --- 7. UTILS ---
+
+    function autoMap() {
+        let count = 0;
+        $('.source-col .field-card').each(function() {
+            const sPath = $(this).data('path');
+            const sName = sPath.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'');
+
+            $('.target-col .field-card').each(function() {
+                const tPath = $(this).data('path');
+                const tName = tPath.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'');
+
+                // Simple Match
+                if (sName === tName || (sName.includes(tName) && tName.length>3)) {
+                    if(!mappings.find(m => m.s===sPath && m.t===tPath)) {
+                        mappings.push({ id: Date.now()+count, s:sPath, t:tPath, type:'Direct', comm:'Auto' });
+                        count++;
+                    }
+                }
+            });
+        });
+        if(count) { updateMappedStatus(); drawAll(); save(); alert('Найдено: '+count); }
+        else alert('Нет совпадений');
+    }
+
+    function exportTable() {
+        let h = `<table border="1" cellpadding="5" style="border-collapse:collapse;width:100%">
+            <tr style="background:#eee"><th>Source</th><th>Rule</th><th>Target</th><th>Desc</th></tr>`;
+        mappings.forEach(m => {
+            h+=`<tr><td>${m.s}</td><td>${m.type}</td><td>${m.t}</td><td>${m.comm}</td></tr>`;
+        });
+        h+='</table>';
+        let w = window.open();
+        w.document.write('<h3>Mapping</h3>'+h);
+    }
+
+    function clearAll() {
+        if(confirm('Очистить?')) {
+            mappings=[]; updateMappedStatus(); drawAll(); save();
+        }
+    }
+</script>
+</body>
+</html>
