@@ -7,12 +7,12 @@
     <script src="libs/jquery-3.6.0.min.js"></script>
 
     <!-- CodeMirror (Редактор) -->
-    <link rel="stylesheet" href="libs/codemirror.min.css">
-    <link rel="stylesheet" href="libs/dracula.min.css">
+<!--    <link rel="stylesheet" href="libs/codemirror.min.css">-->
+<!--    <link rel="stylesheet" href="libs/dracula.min.css">-->
 
-    <script src="libs/codemirror.min.js"></script>
-    <script src="libs/xml.min.js"></script>
-
+<!--    <script src="libs/codemirror.min.js"></script>-->
+<!--    <script src="libs/xml.min.js"></script>-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
     <!-- Общие стили -->
     <link rel="stylesheet" href="style.css">
 
@@ -113,6 +113,9 @@
         .CodeMirror {
             flex: 1; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; height: auto;
         }
+        .tox-tinymce-aux {
+            z-index: 99999 !important;
+        }
     </style>
 </head>
 <body>
@@ -196,63 +199,66 @@
 </div>
 
 <script>
-    // State
+    // --- Глобальные переменные ---
     let DATA_TPL = {};
     let editIdx = -1;
-    let cmEditor;
 
     $(function(){
-        loadData();
+        // 1. Инициализация редактора TinyMCE
+        tinymce.init({
+            selector: '#m_content',
+            language: 'ru',
+            height: 400,
+            menubar: false,
+            // Плагины и тулбар
+            plugins: 'table lists link image fullscreen code help',
+            toolbar: 'undo redo | bold italic link | alignleft aligncenter alignright | bullist numlist | table | fullscreen code',
+            // Исправление для модальных окон
+            setup: function(editor) {
+                editor.on('change', function () {
+                    editor.save(); // Синхронизация с textarea
+                });
+            }
+        });
 
-        // Инициализация редактора
-        if(document.getElementById('m_content')) {
-            cmEditor = CodeMirror.fromTextArea(document.getElementById('m_content'), {
-                mode: 'xml', lineNumbers: true, lineWrapping: true, theme: 'default'
-            });
-        }
+        // 2. Загрузка данных
+        loadData();
     });
 
+    // --- Функция загрузки настроек ---
     function loadData() {
-        // Добавляем timestamp, чтобы избежать кэширования
         $.ajax({
             url: '/api/tasks/settings',
             cache: false,
             success: function(data) {
-                console.log("Загрузка сырых данных:", data);
                 try {
                     if (data && data.doc_structure_templates) {
                         DATA_TPL = JSON.parse(data.doc_structure_templates);
                     } else {
-                        DATA_TPL = {}; // Если поле пустое или null
+                        DATA_TPL = {};
                     }
+                    // Защита: если после парсинга получился null
+                    if (!DATA_TPL) DATA_TPL = {};
                 } catch(e) {
-                    console.error("Ошибка парсинга JSON настроек:", e);
+                    console.error("Ошибка парсинга JSON:", e);
                     DATA_TPL = {};
                 }
-
-                // Проверка: Если нет шаблонов по умолчанию для Sync, создадим базовый
-                const mode = $('#mode_sel').val();
-                if (!DATA_TPL[mode] || DATA_TPL[mode].length === 0) {
-                    console.log("Шаблон пуст, создаем тестовую структуру...");
-                    // Раскомментируйте, если нужно авто-создание первого пункта
-                    // if (!DATA_TPL[mode]) DATA_TPL[mode] = [];
-                    // DATA_TPL[mode].push({title: 'Общие сведения', type:'text', val:'Опишите интеграцию'});
-                }
-
                 renderList();
             },
             error: function(xhr) {
                 console.error("Ошибка API:", xhr);
-                alert("Не удалось загрузить настройки. Проверьте сервер.");
+                alert("Не удалось загрузить настройки.");
             }
         });
     }
 
-    // Render Drag&Drop List
+    // --- Отрисовка списка (Render List) ---
     window.renderList = function() {
         const m = $('#mode_sel').val();
-        // Используем пустой массив, если данные еще не инициализированы
-        const list = (DATA_TPL && DATA_TPL[m]) ? DATA_TPL[m] : [];
+        // Если для этого режима нет массива, создаем пустой
+        if (!DATA_TPL[m]) DATA_TPL[m] = [];
+
+        const list = DATA_TPL[m];
         const ul = $('#tpl_list').empty();
 
         if(!list.length) {
@@ -271,20 +277,22 @@
                     <button class="btn-rem" onclick="delItem(${i})" title="Удалить">&times;</button>
                 </li>
             `);
-            bindDnD(li[0]); // Привязка событий сразу после создания
+            bindDnD(li[0]);
             ul.append(li);
         });
     }
 
-    // Logic Functions
+    // --- Логика работы со списком ---
     window.updateTitle = (i, v) => {
         const m = $('#mode_sel').val();
-        if(DATA_TPL[m]) DATA_TPL[m][i].title = v;
+        if(DATA_TPL[m] && DATA_TPL[m][i]) {
+            DATA_TPL[m][i].title = v;
+        }
     }
 
     window.addItem = () => {
         const m = $('#mode_sel').val();
-        if(!DATA_TPL[m]) DATA_TPL[m] = []; // Инициализируем массив, если его нет
+        if(!DATA_TPL[m]) DATA_TPL[m] = [];
         DATA_TPL[m].push({ id: 's_'+Date.now(), title: 'Новый раздел', type: 'text', val: '' });
         renderList();
     }
@@ -297,7 +305,7 @@
         }
     }
 
-    // Modal Editor Functions
+    // --- Работа с модальным окном (TinyMCE) ---
     window.openEditor = (i) => {
         editIdx = i;
         const m = $('#mode_sel').val();
@@ -306,60 +314,60 @@
         $('#m_head_title').text('Настройка: ' + item.title);
         $('#m_type').val(item.type || 'text');
 
-        // CodeMirror needs actual value or empty string
-        cmEditor.setValue(item.val || '');
+        // Устанавливаем значение в TinyMCE
+        const content = item.val || '';
+        if (tinymce.get('m_content')) {
+            tinymce.get('m_content').setContent(content);
+        } else {
+            $('#m_content').val(content);
+        }
 
-        $('#modal_edit').fadeIn(200, () => {
-            cmEditor.refresh(); // Важный фикс отрисовки CodeMirror
-        });
+        $('#modal_edit').fadeIn(200);
     }
 
+    // --- СОХРАНЕНИЕ ИЗ МОДАЛКИ (ВАЖНО!) ---
     window.saveModal = () => {
         const m = $('#mode_sel').val();
+
+        // Проверка на корректность индекса
+        if (!DATA_TPL[m] || !DATA_TPL[m][editIdx]) {
+            console.error("Ошибка: элемент не найден");
+            $('#modal_edit').fadeOut(200);
+            return;
+        }
+
         const item = DATA_TPL[m][editIdx];
 
         item.type = $('#m_type').val();
-        item.val = cmEditor.getValue();
+
+        // Забираем данные из TinyMCE
+        if (tinymce.get('m_content')) {
+            item.val = tinymce.get('m_content').getContent();
+        } else {
+            item.val = $('#m_content').val();
+        }
 
         $('#modal_edit').fadeOut(200);
-        renderList();
+        renderList(); // Обновляем список (на всякий случай)
     }
 
-    // Utils
-    window.toggleFull = () => {
-        $('#modal_win_inner').toggleClass('fullscreen');
-        setTimeout(() => cmEditor.refresh(), 300);
-    }
-
-    window.pasteExcel = () => {
-        const t = prompt("Вставьте ячейки (Ctrl+V):", "");
-        if(!t) return;
-        let h = '<table border="1" style="border-collapse:collapse;width:100%">\n';
-        t.split('\n').forEach((row, ri) => {
-            if(!row.trim()) return;
-            h += '  <tr>\n';
-            row.split('\t').forEach(c => {
-                let tag = ri===0?'th':'td';
-                h+=`    <${tag} style="border:1px solid #ccc;padding:5px;">${escapeHtml(c.trim())}</${tag}>\n`;
-            });
-            h += '  </tr>\n';
-        });
-        h += '</table>';
-        cmEditor.replaceRange(h, cmEditor.getCursor());
-    }
-
+    // --- Глобальное сохранение настроек ---
     window.saveSettings = function() {
-        console.log("Сохранение:", DATA_TPL);
-        const p = { doc_structure_templates: JSON.stringify(DATA_TPL) };
+        // Формируем объект для отправки
+        // JSON.stringify нужен, чтобы превратить объект в строку, которую примет сервер
+        const payload = {
+            doc_structure_templates: JSON.stringify(DATA_TPL)
+        };
+
         const btn = $('#btn-save');
         const oldText = btn.text();
         btn.text('Сохранение...').prop('disabled', true);
 
         $.ajax({
             url: '/api/tasks/settings',
-            type:'POST',
-            contentType:'application/json',
-            data: JSON.stringify(p),
+            type: 'POST',
+            contentType: 'application/json; charset=utf-8', // Явно указываем кодировку!
+            data: JSON.stringify(payload),
             success: () => {
                 btn.text('✅ Сохранено');
                 setTimeout(()=>btn.text(oldText).prop('disabled',false), 1500);
@@ -371,18 +379,17 @@
         });
     }
 
-    function escapeHtml(t) { return t ? t.replace(/&/g,'&amp;').replace(/</g,'&lt;') : ''; }
+    function escapeHtml(t) { return t ? t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g, '&quot;') : ''; }
 
-    // === Drag & Drop (Native JS) ===
+    // --- Drag & Drop (Без изменений) ---
     let dragEl = null;
-
     function bindDnD(el) {
         el.addEventListener('dragstart', function(e) {
             this.style.opacity = '0.4';
             this.classList.add('dragging');
             dragEl = this;
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', this.getAttribute('data-index')); // Fix Firefox dnd
+            e.dataTransfer.setData('text/plain', this.getAttribute('data-index'));
         });
         el.addEventListener('dragover', function(e) {
             e.preventDefault();
@@ -397,14 +404,10 @@
                 const m = $('#mode_sel').val();
                 const fromIdx = parseInt(dragEl.getAttribute('data-index'));
                 const toIdx = parseInt(this.getAttribute('data-index'));
-
                 const arr = DATA_TPL[m];
-
-                // Перестановка элементов массива
                 const [movedItem] = arr.splice(fromIdx, 1);
                 arr.splice(toIdx, 0, movedItem);
-
-                renderList(); // Полная перерисовка
+                renderList();
             }
             return false;
         });

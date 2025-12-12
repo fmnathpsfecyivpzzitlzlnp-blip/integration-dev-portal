@@ -12,5 +12,6 @@
     <orderEntry type="library" name="lib" level="project" />
     <orderEntry type="library" name="libs" level="project" />
     <orderEntry type="library" name="jquery-3.6.0" level="application" />
+    <orderEntry type="library" name="tinymce" level="application" />
   </component>
 </module>
