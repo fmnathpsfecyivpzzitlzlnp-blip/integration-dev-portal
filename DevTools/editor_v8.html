@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid Editor v8.0 (Bulletproof & Full)</title>
+    <style>
+        /* ============================
+           1. БАЗОВЫЕ СТИЛИ
+           ============================ */
+        body {
+            margin: 0; padding: 0;
+            display: flex; height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #eef1f5;
+            color: #333; overflow: hidden;
+        }
+
+        button, select, input { font-family: inherit; }
+
+        /* ============================
+           2. ЛЕВАЯ ПАНЕЛЬ (КОНСТРУКТОР)
+           ============================ */
+        #sidebar {
+            width: 600px;
+            background: #fff;
+            border-right: 1px solid #ccc;
+            display: flex; flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        /* --- ШАПКА --- */
+        .header {
+            background: #2c3e50; color: white; padding: 12px 15px;
+            font-weight: 600; font-size: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid #1a252f;
+        }
+
+        .header-buttons { display: flex; gap: 10px; }
+        .head-btn {
+            background: rgba(255,255,255,0.2); color: white;
+            border: 1px solid rgba(255,255,255,0.4);
+            padding: 5px 12px; border-radius: 4px; font-size: 12px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .head-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* --- ГЛОБАЛЬНЫЕ НАСТРОЙКИ --- */
+        .settings-box {
+            background: #ecf0f1; padding: 10px 15px; border-bottom: 1px solid #bdc3c7;
+            display: flex; gap: 10px; align-items: center;
+        }
+        .settings-box select { padding: 6px; border-radius: 4px; border: 1px solid #bdc3c7; outline: none; flex: 1; cursor: pointer; }
+        .settings-box label { font-size: 13px; display: flex; gap: 6px; align-items: center; user-select: none; cursor: pointer;}
+
+        /* --- ЗАГОЛОВКИ РАЗДЕЛОВ --- */
+        .section-label {
+            background: #dfe6e9; padding: 8px 15px; font-weight: bold; color: #2d3436;
+            border-bottom: 1px solid #b2bec3; border-top: 1px solid #b2bec3;
+            font-size: 12px; text-transform: uppercase;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .scroll-area { overflow-y: auto; padding: 10px; background: #fff; flex: 1; }
+
+        /* --- СПИСОК СИСТЕМ --- */
+        .participant-item { display: flex; gap: 5px; margin-bottom: 6px; }
+        .participant-item input { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; outline:none; transition: border 0.2s;}
+        .participant-item input:focus { border-color: #3498db; }
+
+        .participant-item input.alias { width: 70px; font-weight: bold; text-align: center; background: #e8f0fe; color: #1967d2; }
+        .participant-item input.name { flex: 1; }
+
+        .btn-ctrl {
+            width: 26px; height: 26px; border: none; border-radius: 4px;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 14px; transition: 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .btn-add-sys { background: #3498db; color: white; width: auto; padding: 0 10px; }
+        .btn-add-sys:hover { background: #2980b9; }
+
+        .btn-del-sys { background: #e74c3c; color: white; }
+        .btn-del-sys:hover { background: #c0392b; }
+
+        /* --- КНОПКИ ДОБАВЛЕНИЯ ШАГОВ --- */
+        .action-bar { padding: 10px; display: flex; gap: 10px; background: #eee; border-bottom: 1px solid #ddd; }
+        .btn-big {
+            flex: 1; padding: 10px; border: none; border-radius: 4px; color: white;
+            font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.2s;
+        }
+        .btn-big:active { transform: translateY(1px); box-shadow: none; }
+
+        .btn-msg { background: #27ae60; }
+        .btn-msg:hover { background: #219150; }
+        .btn-loop { background: #e67e22; }
+        .btn-loop:hover { background: #d35400; }
+
+        /* --- КАРТОЧКИ ШАГОВ (UI) --- */
+        .step-container { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+
+        /* Кружок номера слева */
+        .step-num {
+            width: 26px; height: 26px; background: #34495e; color: white; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold;
+            margin-top: 8px; flex-shrink: 0; box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        .step-num.icon { background: #f39c12; border-radius: 4px; }
+
+        /* Сама карточка */
+        .step-card {
+            flex: 1; background: #fff; border: 1px solid #ddd; border-left: 5px solid #ccc;
+            border-radius: 4px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .step-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); transform: translateX(2px); }
+
+        .step-card.msg { border-left-color: #3498db; }
+        .step-card.loop { border-left-color: #f39c12; background: #fffcf5; }
+        .step-card.end { border-left-color: #95a5a6; background: #fdfdfd; border-left-style: dashed; }
+        .step-card.error { background: #fff0f0; border-color: #e74c3c; }
+
+        .row { display: flex; gap: 5px; margin-bottom: 6px; align-items: center; }
+        .step-card select, .step-card input { padding: 5px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; width: 100%; box-sizing: border-box; }
+
+        /* Фиолетовое поле (Activation) */
+        .act-select {
+            font-weight: bold;
+            color: #8e44ad;
+            border: 1px solid #d2b4de !important;
+            background: #fdfafec9;
+            cursor: pointer;
+        }
+
+        .card-controls { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+        .c-btn { width: 24px; height: 24px; border: 1px solid #ccc; background: #fff; border-radius: 3px; cursor: pointer; color: #555; transition: 0.2s;}
+        .c-btn:hover { background: #eee; }
+        .c-btn.del { background: #e74c3c; border-color: #e74c3c; color: white; }
+        .c-btn.del:hover { background: #c0392b; }
+
+        .footer-note { padding: 10px; background: #f0f0f0; font-size: 11px; color: #666; border-top: 1px solid #ccc; }
+
+        /* ============================
+           3. ПРАВАЯ ПАНЕЛЬ (RENDER)
+           ============================ */
+        #preview-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: white; position: relative; }
+
+        #error-bar {
+            height: 0; background: #e74c3c; color: white; font-size: 13px;
+            text-align: center; line-height: 40px; overflow: hidden; transition: 0.3s; font-weight: bold;
+        }
+
+        #graph-container { flex: 1; overflow: auto; padding: 20px; text-align: center; }
+
+        /* Окно исходного кода */
+        #code-area {
+            height: 180px; background: #282c34; padding: 10px; display: none;
+            flex-direction: column; border-top: 1px solid #444;
+        }
+        #code-text { width: 100%; height: 100%; background: transparent; border: none; color: #abb2bf; font-family: 'Consolas', monospace; resize: none; font-size: 12px; outline: none; }
+
+        /* ============================
+           4. СПРАВКА И СКРОЛЛБАРЫ
+           ============================ */
+        #modal-help {
+            position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);
+            z-index:999; display:none; justify-content:center; align-items:center;
+            backdrop-filter: blur(2px);
+        }
+        .modal-box { background:white; width:650px; max-width:90%; padding:25px; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.3); position:relative; max-height: 90vh; overflow-y:auto;}
+        .modal-box h2 { margin-top:0; color:#2c3e50; border-bottom:2px solid #3498db; padding-bottom:10px; }
+        .close-btn { position:absolute; top:20px; right:20px; cursor:pointer; font-size:24px; color:#999; line-height: 1;}
+        .close-btn:hover { color: #e74c3c; }
+
+        .help-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:15px; margin-bottom: 20px;}
+        .help-table td, .help-table th { border:1px solid #ddd; padding:8px; text-align: left; }
+        .help-table th { background:#f9f9f9; font-weight: bold; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        /* ============================
+           !!! ЗАЩИТА ОТ БОМБ (Anti-Bomb CSS) !!!
+           ============================
+           Принудительно скрываем стандартный вывод ошибок Mermaid.
+        */
+        div[id^="dmermaid"].error-icon,
+        svg[id^="dmermaid"].error-icon,
+        .error-icon {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        /* Убираем SVG, которые генерируются вне контейнера */
+        body > svg[id^="dmermaid"] {
+            display: none !important;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- 1. МОДАЛЬНОЕ ОКНО ПОМОЩИ -->
+<div id="modal-help">
+    <div class="modal-box">
+        <span class="close-btn" onclick="toggleView('modal-help')">×</span>
+        <h2>Справка: Возможности v8.0</h2>
+
+        <h3>1. Типы стрелок</h3>
+        <table class="help-table">
+            <tr><td><b>->></b></td><td>Синхронный (ждем ответ).</td></tr>
+            <tr><td><b>-->></b></td><td>Ответ на вызов.</td></tr>
+            <tr><td><b>-)</b></td><td>Асинхронный (Fire & Forget).</td></tr>
+            <tr><td><b>x-)</b></td><td>Потеря сообщения.</td></tr>
+        </table>
+
+        <h3>2. Столбики активации</h3>
+        <p>Управление серыми прямоугольниками активности:</p>
+        <table class="help-table">
+            <tr>
+                <td><b style="color:#8e44ad">(+) Старт</b></td>
+                <td>Включает столбик в системе Получателе (Target).</td>
+            </tr>
+            <tr>
+                <td><b style="color:#8e44ad">(-) Стоп</b></td>
+                <td>Заканчивает столбик в системе Отправителе (Source).</td>
+            </tr>
+        </table>
+        <p style="background:#fff3cd; padding:10px; border-radius:5px;">
+            <b>Примечание:</b> Если вы видите сообщение об ошибке, значит где-то нарушен порядок циклов или активаций. Safe Mode автоматически починит очевидные проблемы.
+        </p>
+    </div>
+</div>
+
+<!-- 2. ЛЕВАЯ ПАНЕЛЬ -->
+<div id="sidebar">
+    <div class="header">
+        Mermaid Editor v8.0
+        <div class="header-buttons">
+            <button class="head-btn" onclick="toggleView('code-area')">Код</button>
+            <button class="head-btn" onclick="enableImport()">📥 Импорт</button>
+            <button class="head-btn" onclick="toggleView('modal-help')">? Справка</button>
+        </div>
+    </div>
+
+    <div class="settings-box">
+        <select id="themeSelect" onchange="redraw()">
+            <option value="default">Тема: Default</option>
+            <option value="forest">Тема: Forest</option>
+            <option value="dark">Тема: Dark</option>
+            <option value="neutral">Тема: Neutral</option>
+            <option value="base">Тема: Base</option>
+        </select>
+        <label><input type="checkbox" id="chkNum" checked onchange="redraw()"> Нумерация</label>
+    </div>
+
+    <!-- Systems -->
+    <div class="section-label">
+        <span>1. Системы (Participants)</span>
+        <button class="btn-ctrl btn-add-sys" onclick="addSys()" title="Добавить">+</button>
+    </div>
+    <div class="scroll-area" style="flex: 0 0 160px; border-bottom: 2px solid #ccc;">
+        <div id="list-sys"></div>
+    </div>
+
+    <!-- Steps -->
+    <div class="section-label">2. Сценарий</div>
+    <div class="action-bar">
+        <button class="btn-big btn-msg" onclick="addMsg()">➜ Сообщение</button>
+        <button class="btn-big btn-loop" onclick="addLoop()">↺ Группа / Цикл</button>
+    </div>
+    <div class="scroll-area" id="list-steps"></div>
+
+    <!-- Footer -->
+    <div class="footer-note">
+        <label title="Включает защиту от сбоев и скрывает иконки ошибок">
+            <input type="checkbox" id="autofix" checked onchange="redraw()"> <b>Auto-Fix & Anti-Bomb</b>
+        </label>
+    </div>
+</div>
+
+<!-- 3. ПРАВАЯ ПАНЕЛЬ -->
+<div id="preview-wrap">
+    <div id="error-bar"></div>
+    <div id="graph-container"></div>
+    <!-- Замените блок id="code-area" на этот -->
+    <div id="code-area">
+        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <span style="color:#aaa; font-size:11px; font-weight:bold;">Mermaid Code:</span>
+            <!-- Кнопка применения изменений -->
+            <button id="btn-apply" onclick="applyCode()" style="display:none; padding:2px 8px; font-size:11px; cursor:pointer; background:#27ae60; color:white; border:none; border-radius:3px;">
+                ✔ ПРИМЕНИТЬ ИЗМЕНЕНИЯ
+            </button>
+        </div>
+        <textarea id="code-text" readonly></textarea>
+    </div>
+</div>
+
+<script src="libs/mermaid.min.js"></script>
+
+<script>
+    // ================= CONFIG & DATA =================
+    let sysCounter = 1;
+    // Данные для демо
+    let systems = [
+        { id:'s1', alias:'DBO', name:'BS_DBOCORP' },
+        { id:'s2', alias:'ESB', name:'FACTOR - ESB' },
+        { id:'s3', alias:'ATH', name:'BS_ATHENA' }
+    ];
+
+    let steps = [
+        { type:'msg', f:'s1', t:'s2', arr:'->>', act:'+', txt:'SOAP: Reservation' },
+        { type:'loop_start', text:'Validate', sub:'loop' },
+        { type:'msg', f:'s2', t:'s2', arr:'->>', act:'', txt:'Check Format' },
+        { type:'loop_end' },
+        { type:'msg', f:'s2', t:'s3', arr:'->>', act:'+', txt:'JDBC: Insert' },
+        { type:'msg', f:'s3', t:'s3', arr:'->', act:'', txt:'Processing' },
+        { type:'msg', f:'s3', t:'s2', arr:'-->>', act:'-', txt:'Result OK' },
+        { type:'loop_start', text:'Alt Case', sub:'alt' },
+        { type:'msg', f:'s2', t:'s3', arr:'->', act:'', txt:'Notify' },
+        { type:'loop_end' },
+        { type:'msg', f:'s2', t:'s1', arr:'-->>', act:'-', txt:'Response' }
+    ];
+
+    window.onload = function() {
+        renderSys();
+        renderSteps();
+        redraw();
+    }
+
+    // ================= FUNCTIONS =================
+
+    function toggleView(id) {
+        let el = document.getElementById(id);
+        el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function getSys(id) { return systems.find(s => s.id === id); }
+    function opts(sel) {
+        return systems.map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${s.alias}</option>`).join('');
+    }
+
+    // --- Systems Operations ---
+    function renderSys() {
+        const div = document.getElementById('list-sys');
+        let html = '';
+        systems.forEach((s, i) => {
+            html += `
+            <div class="participant-item">
+                <input class="alias" value="${s.alias}" oninput="updSys(${i},'alias',this.value)" title="Короткий ID">
+                <input class="name" value="${s.name}" oninput="updSys(${i},'name',this.value)">
+                <button class="btn-ctrl btn-del-sys" onclick="delSys(${i})">×</button>
+            </div>`;
+        });
+        div.innerHTML = html;
+    }
+    function addSys() {
+        sysCounter++;
+        systems.push({ id: 's' + Date.now(), alias: 'SYS' + sysCounter, name: 'System' });
+        renderSys(); renderSteps(); redraw();
+    }
+    function delSys(i) {
+        if (!confirm("Удалить?")) return;
+        systems.splice(i, 1);
+        renderSys(); renderSteps(); redraw();
+    }
+    function updSys(i, k, v) { systems[i][k] = v; redraw(); }
+
+    // === 1. ОБНОВЛЕННЫЙ RENDER (Поддержка CMD шагов) ===
+    function renderSteps() {
+        const div = document.getElementById('list-steps');
+        const chkNum = document.getElementById('chkNum').checked;
+        let html = '';
+        let msgNum = 0;
+
+        steps.forEach((s, i) => {
+            let badge = `<div style="width:26px;"></div>`;
+
+            // Если это Сообщение
+            if (s.type === 'msg') {
+                if(chkNum) { msgNum++; badge = `<div class="step-num">${msgNum}</div>`; }
+                let errClass = (!getSys(s.f) || !getSys(s.t)) ? 'error' : '';
+
+                html += `
+                <div class="step-container">${badge}
+                    <div class="step-card msg ${errClass}">
+                        <div class="row">
+                            <select onchange="updStep(${i},'f',this.value)">${opts(s.f)}</select>
+                            <select style="width:75px; font-weight:bold;" onchange="updStep(${i},'arr',this.value)">
+                                 <option value="->>" ${s.arr=='->>'?'selected':''}>->> (Sync)</option>
+                                 <option value="-)"  ${s.arr=='-)' ?'selected':''}>-) (Async)</option>
+                                 <option value="-->>" ${s.arr=='-->>'?'selected':''}>-->> (Ret)</option>
+                                 <option value="--)" ${s.arr=='--)'?'selected':''}>--) (Dotted)</option>
+                            </select>
+                            <select onchange="updStep(${i},'t',this.value)">${opts(s.t)}</select>
+                        </div>
+                        <div class="row">
+                            <input style="flex:2" value="${s.txt}" oninput="updStep(${i},'txt',this.value)" placeholder="Текст...">
+                            <select class="act-select" style="flex:1" onchange="updStep(${i},'act',this.value)" title="Авто-активация получателя">
+                                <option value="" ${s.act==''?'selected':''}>-</option>
+                                <option value="+" ${s.act=='+'?'selected':''}>[+] On (Target)</option>
+                                <option value="-" ${s.act=='-'?'selected':''}>[-] Off (Source)</option>
+                            </select>
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            // Если это отдельная КОМАНДА (Activate/Note и т.д.)
+            else if (s.type === 'cmd') {
+                html += `
+                <div class="step-container">
+                    <div class="step-num icon" style="background:#8e44ad;">⚡</div>
+                    <div class="step-card" style="border-left-color:#8e44ad; background:#fbf6ff;">
+                        <div class="row">
+                            <input style="font-family:monospace; font-weight:bold; color:#8e44ad;" value="${s.txt}" oninput="updStep(${i},'txt',this.value)">
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            // Если это Группы/Циклы
+            else if (s.type === 'loop_start') {
+                html += `
+                <div class="step-container"><div class="step-num icon">↳</div>
+                    <div class="step-card loop">
+                        <div class="row">
+                            <select style="width:80px; font-weight:bold" onchange="updStep(${i},'sub',this.value)">
+                                <option value="loop" ${s.sub=='loop'?'selected':''}>Loop</option>
+                                <option value="alt" ${s.sub=='alt'?'selected':''}>Alt</option>
+                                <option value="opt" ${s.sub=='opt'?'selected':''}>Opt</option>
+                                <option value="rect" ${s.sub=='rect'?'selected':''}>Rect</option>
+                            </select>
+                            <input value="${s.text}" oninput="updStep(${i},'text',this.value)">
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            else if (s.type === 'loop_end') {
+                html += `<div class="step-container"><div style="width:26px"></div><div class="step-card end" style="padding:4px; text-align:center; font-size:10px; color:#aaa;">END BLOCK ${ctrl(i)}</div></div>`;
+            }
+        });
+        div.innerHTML = html;
+    }
+
+    function ctrl(i) {
+        return `<div class="card-controls">
+                <button class="c-btn" onclick="movStep(${i},-1)">▲</button>
+                <button class="c-btn" onclick="movStep(${i},1)">▼</button>
+                <button class="c-btn del" onclick="delStep(${i})">×</button>
+               </div>`;
+    }
+
+    function addMsg() {
+        if(!systems.length) return alert('Создайте системы!');
+        steps.push({ type: 'msg', f: systems[0].id, t: (systems[1] ? systems[1].id : systems[0].id), arr: '->>', act: '', txt: 'Msg' });
+        renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
+    }
+    function addLoop() {
+        steps.push({ type: 'loop_start', text: 'If...', sub: 'alt' });
+        steps.push({ type: 'loop_end' });
+        renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
+    }
+    function delStep(i) { steps.splice(i,1); renderSteps(); redraw(); }
+    function movStep(i, d) {
+        if(i+d < 0 || i+d >= steps.length) return;
+        [steps[i], steps[i+d]] = [steps[i+d], steps[i]];
+        renderSteps(); redraw();
+    }
+    function updStep(i, k, v) { steps[i][k] = v; redraw(); }
+
+    // ================= MAIN RENDER ENGINE (Bulletproof v8) =================
+    // === "БРОНЕБОЙНЫЙ" ГЕНЕРАТОР КОДА (v9.0 Final) ===
+    async function redraw() {
+        const theme = document.getElementById('themeSelect').value;
+        const chkNum = document.getElementById('chkNum').checked;
+        const autoFix = document.getElementById('autofix').checked;
+
+        // 1. Очистка прошлых ошибок
+        const err = document.getElementById('error-bar');
+        err.style.height = '0';
+        document.querySelectorAll('div[id^="dmermaid"], svg[id^="dmermaid"], .error-icon').forEach(el => el.remove());
+
+        // 2. Инициализация Mermaid
+        mermaid.initialize({ startOnLoad: false, theme: theme, securityLevel: 'loose' });
+
+        let code = "sequenceDiagram\n";
+        if (chkNum) code += "    autonumber\n";
+
+        // 3. Формируем участников
+        // actState хранит текущее состояние: включен (+) или выключен (0)
+        let actState = {};
+
+        systems.forEach(s => {
+            // Очищаем ID и имя от кавычек и спецсимволов для безопасности
+            let safeId = s.id.trim();
+            let safeAlias = (s.alias || safeId).replace(/[^a-zA-Z0-9а-яА-Я_]/g, '_');
+            let safeName = (s.name || '').replace(/"/g, "'"); // Меняем двойные кавычки на одинарные
+
+            code += `    participant ${safeId} as ${safeAlias}<br>${safeName}\n`;
+            actState[safeId] = false; // Изначально все выключены
+        });
+        code += "\n";
+
+        // Вспомогательная функция для проверки валидности ID
+        const isSys = (id) => systems.find(s => s.id === id);
+
+        // 4. Проходим по шагам и генерируем код
+        let loopDepth = 0;
+
+        steps.forEach(s => {
+            // --- A. Сообщение (Message) ---
+            if (s.type === 'msg') {
+                if (isSys(s.f) && isSys(s.t)) {
+                    // Логика авто-фикса для плюсов и минусов
+                    let suffix = '';
+
+                    if (s.act === '+') {
+                        // Включаем Target, если он еще не включен (или если Autofix выключен)
+                        if (!autoFix || !actState[s.t]) {
+                            suffix = '+';
+                            actState[s.t] = true;
+                        }
+                    } else if (s.act === '-') {
+                        // Выключаем Source, ТОЛЬКО если он сейчас включен
+                        if (!autoFix || actState[s.f]) {
+                            suffix = '-';
+                            actState[s.f] = false;
+                        }
+                    }
+                    code += `    ${s.f}${s.arr}${suffix}${s.t}: ${s.txt}\n`;
+                }
+            }
+
+            // --- B. Команда (CMD) - Activate/Deactivate/Note ---
+            else if (s.type === 'cmd') {
+                // Магия очистки: разбиваем строку на части
+                let cleanTxt = s.txt.trim();
+
+                // Проверяем, это activate или deactivate?
+                const cmdMatch = cleanTxt.match(/^(activate|deactivate)\s+([^\s]+)(.*)?$/);
+
+                if (cmdMatch) {
+                    const type = cmdMatch[1];      // activate
+                    const targetSys = cmdMatch[2]; // ZUP
+                    const comment = cmdMatch[3];   // "мой текст"
+
+                    // Пропускаем, если ID системы не существует в списке участников
+                    // (Это предотвращает падение, если удалили участника)
+                    if (isSys(targetSys)) {
+                        let shouldWrite = true;
+
+                        // Логика защиты от дублей
+                        if (autoFix) {
+                            if (type === 'activate') {
+                                if (actState[targetSys]) shouldWrite = false; // Уже включен - не пишем
+                                else actState[targetSys] = true;
+                            } else {
+                                if (!actState[targetSys]) shouldWrite = false; // Уже выключен - не пишем
+                                else actState[targetSys] = false;
+                            }
+                        }
+
+                        if (shouldWrite) {
+                            // Если есть лишний текст, превращаем его в комментарий %%
+                            let tail = comment && comment.trim() ? ` %% ${comment.trim()}` : '';
+                            code += `    ${type} ${targetSys}${tail}\n`;
+                        }
+                    } else {
+                        // Если системы нет в списке, просто пишем как коммент, чтобы не ломать график
+                        code += `    %% Unknown system command: ${cleanTxt}\n`;
+                    }
+                } else {
+                    // Если это Note или что-то другое, пишем как есть
+                    code += `    ${cleanTxt}\n`;
+                }
+            }
+
+            // --- C. Группы/Циклы ---
+            else if (s.type === 'loop_start') {
+                let kw = s.sub.startsWith('rect') ? 'rect rgb(240,240,240)' : s.sub;
+                // Защита от пустого текста (крашит mermaid)
+                let safeTxt = s.text.trim() || 'group';
+                code += `    ${kw} ${safeTxt}\n`;
+                loopDepth++;
+            }
+            else if (s.type === 'loop_end') {
+                code += `    end\n`; loopDepth--;
+            }
+        });
+
+        // Autofix: закрываем незакрытые циклы
+        if (autoFix && loopDepth > 0) {
+            while(loopDepth > 0) { code += `    end\n`; loopDepth--; }
+        }
+
+        // Вывод исходного кода
+        document.getElementById('code-text').value = code;
+
+        // 5. Рендер диаграммы
+        const box = document.getElementById('graph-container');
+        try {
+            box.innerHTML = '';
+            // Генерируем уникальный ID для SVG, чтобы кэш браузера не тупил
+            const uniqueId = 'graph_' + Math.floor(Math.random() * 10000);
+            const { svg } = await mermaid.render(uniqueId, code);
+            box.innerHTML = svg;
+        } catch(e) {
+            console.error(e);
+            box.innerHTML = '';
+
+            // Красивый вывод ошибки
+            let msg = e.message.split('\n')[0]; // берем только первую строку ошибки
+            if(msg.includes('Parse error')) msg = "Ошибка синтаксиса (проверьте циклы/скобки)";
+            if(msg.includes('destroy')) msg = "Логическая ошибка в mermaid destroy";
+
+            err.innerText = "Ошибка отрисовки: " + msg;
+            err.style.height = '40px';
+        }
+    }
+
+    // ================= IMPORT / PARSING LOGIC =================
+
+    // 1. Включает режим редактирования кода
+    function enableImport() {
+        const area = document.getElementById('code-area');
+        const txt = document.getElementById('code-text');
+        const btn = document.getElementById('btn-apply');
+
+        // Показываем окно кода, если скрыто
+        area.style.display = 'flex';
+        // Разрешаем редактирование
+        txt.removeAttribute('readonly');
+        txt.style.background = '#1e2127';
+        txt.style.color = '#fff';
+        txt.placeholder = "Вставьте сюда код Mermaid и нажмите 'Применить'...";
+
+        // Показываем кнопку "Применить"
+        btn.style.display = 'block';
+
+        // Фокус
+        txt.focus();
+        txt.select();
+    }
+
+    // 2. Применяет код и перестраивает диаграмму
+    function applyCode() {
+        const rawCode = document.getElementById('code-text').value;
+        if(!rawCode.trim()) return;
+
+        // Парсим код
+        const parsed = parseMermaid(rawCode);
+
+        if (parsed.systems.length === 0 && parsed.steps.length === 0) {
+            alert("Не удалось распознать код. Убедитесь, что это корректный sequenceDiagram.");
+            return;
+        }
+
+        // Обновляем данные редактора
+        systems = parsed.systems;
+        steps = parsed.steps;
+        sysCounter = systems.length + 1;
+
+        // Перерисовываем UI
+        renderSys();
+        renderSteps();
+        redraw();
+
+        // Возвращаем режим "только чтение"
+        const txt = document.getElementById('code-text');
+        const btn = document.getElementById('btn-apply');
+        txt.setAttribute('readonly', true);
+        txt.style.background = 'transparent';
+        btn.style.display = 'none';
+
+        // Скрываем окно кода (по желанию)
+        // document.getElementById('code-area').style.display = 'none';
+    }
+
+    // 3. ПАРСЕР v3 (С поддержкой отступов и буфера активаций)
+    // === 3. НОВЫЙ ПАРСЕР v3 (Честная обработка команд) ===
+    function parseMermaid(code) {
+        const lines = code.split('\n');
+        const newSys = [];
+        const newSteps = [];
+        const sysMap = {};
+
+        const addSys = (id, alias, name) => {
+            const safeId = id.trim();
+            if (!sysMap[safeId]) {
+                newSys.push({ id: safeId, alias: alias || safeId, name: name || safeId });
+                sysMap[safeId] = true;
+            }
+        };
+
+        lines.forEach(line => {
+            let sLine = line.trim();
+            // Игнор пустот и комментов (кроме title, который тут не поддерживаем, но не суть)
+            if (!sLine || sLine.startsWith('%%') || sLine.startsWith('sequenceDiagram') || sLine.startsWith('autonumber')) return;
+
+            // 1. PARTICIPANT
+            if (sLine.startsWith('participant')) {
+                const body = sLine.replace(/^participant\s+/, '');
+                const asIndex = body.indexOf(' as ');
+                let id = (asIndex > -1) ? body.substring(0, asIndex).trim() : body.trim();
+                let rest = (asIndex > -1) ? body.substring(asIndex + 4).trim() : id;
+                let alias = rest.split('<br>')[0].trim();
+                let name = rest.includes('<br>') ? rest.split('<br>')[1].trim() : rest;
+
+                addSys(id, alias, name);
+                return;
+            }
+
+            // 2. ARROWS (Стрелки)
+            // Ловит A->>B: Text (поддерживает и + и - на стрелке)
+            const msgRegex = /^([^\s\->]+)\s*(-{1,2}>?>?|--\)|x-\))\s*([+\-]?)\s*([^\s:]+)\s*:\s*(.*)$/;
+            const mMatch = sLine.match(msgRegex);
+
+            if (mMatch) {
+                const f = mMatch[1].trim();
+                const arr = mMatch[2].trim();
+                const act = mMatch[3] || ''; // Плюс/минус прямо на стрелке
+                const t = mMatch[4].trim();
+                const txt = mMatch[5].trim();
+                addSys(f); addSys(t);
+                newSteps.push({ type: 'msg', f, t, arr, act, txt });
+                return;
+            }
+
+            // 3. LOOPS / GROUPS
+            const loopMatch = sLine.match(/^(loop|alt|opt|rect)(\s+.*)?$/i);
+            if (loopMatch) {
+                let sub = loopMatch[1].toLowerCase();
+                if (sub.startsWith('rect')) sub = 'rect';
+                newSteps.push({ type: 'loop_start', sub: sub, text: (loopMatch[2]||'').trim() });
+                return;
+            }
+            if (sLine === 'end') {
+                newSteps.push({ type: 'loop_end' });
+                return;
+            }
+
+            // 4. КОМАНДЫ (ACTIVATE, DEACTIVATE, NOTE и все остальное)
+            // Если мы не поняли что это за строка - просто сохраняем её как CMD!
+            // Это решает проблему activate ZUP на первой строке
+            if (sLine.startsWith('activate') || sLine.startsWith('deactivate') || sLine.startsWith('note')) {
+                newSteps.push({ type: 'cmd', txt: sLine });
+                return;
+            }
+        });
+
+        return { systems: newSys, steps: newSteps };
+    }
+
+
+</script>
+</body>
+</html>

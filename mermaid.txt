@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant DBO as BS_DBOCORP<br>(Система Отправитель)
+    participant ESB as FACTOR - ESB<br>(КСШ)
+    participant ATH as BS_ATHENA<br>BS_EFO<br>(Система Получатель)
+    participant CRM as BS_CRMOPK<br>(Система Получатель)
+
+    activate DBO
+    DBO->>ESB: SOAP: si_ao_MultiAccountReservation
+    activate ESB
+    
+    %% Правило 1 (самовызов)
+    ESB->>ESB: Правило 1
+    
+    %% Вызов Athena по JDBC
+    ESB->>ATH: JDBC: si_ao_MultiAccountReservation
+    activate ATH
+    ATH->>ATH: Обработка
+    deactivate ATH
+    
+    %% Правило 2 (первый раз)
+    ESB->>ESB: Правило 2
+    
+    %% Вызов Athena по SOAP
+    ESB->>ATH: SOAP: si_ao_MultiAccountReservation
+    activate ATH
+    ATH->>ATH: Обработка
+    deactivate ATH
+
+    %% Правило 2 (второй раз перед CRM)
+    ESB->>ESB: Правило 2
+
+    %% Вызов CRM
+    ESB->>CRM: SOAP: si_ao_AccountReservationNotice
+    activate CRM
+    CRM->>CRM: Обработка
+    deactivate CRM
+
+    deactivate ESB
+    deactivate DBO

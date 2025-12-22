@@ -12,7 +12,7 @@
 
 <!--    <script src="libs/codemirror.min.js"></script>-->
 <!--    <script src="libs/xml.min.js"></script>-->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+    <script src="libs/tinymce_8.3.1/tinymce.min.js"></script>
     <!-- Общие стили -->
     <link rel="stylesheet" href="style.css">
 
@@ -202,23 +202,87 @@
     // --- Глобальные переменные ---
     let DATA_TPL = {};
     let editIdx = -1;
+    // --- ФУНКЦИЯ ДЛЯ КНОПКИ "НА ВЕСЬ ЭКРАН" ---
+    window.toggleFull = function() {
+        const win = document.getElementById('modal_win_inner');
+        win.classList.toggle('fullscreen');
+
+        // Кнопка меняет название (Опционально)
+        const btn = document.querySelector('#modal_win_inner .m-header button');
+        const isFull = win.classList.contains('fullscreen');
+        btn.innerHTML = isFull ? '⤡ Свернуть' : '⤢ На весь экран';
+    }
 
     $(function(){
         // 1. Инициализация редактора TinyMCE
         tinymce.init({
             selector: '#m_content',
-            language: 'ru',
-            height: 400,
-            menubar: false,
-            // Плагины и тулбар
-            plugins: 'table lists link image fullscreen code help',
-            toolbar: 'undo redo | bold italic link | alignleft aligncenter alignright | bullist numlist | table | fullscreen code',
+            promotion: false,
+            license_key: 'gpl',
+            language: 'ru', // Убедитесь, что файл ru.js есть в папке langs
+            height: 500,    // Чуть выше, удобнее для документации
+            menubar: true,  // Лучше включить для редких функций (типа "Найти/Заменить")
+
+            // --- ПЛАГИНЫ (через пробел) ---
+            // advlist, autolink, lists — улучшенные списки
+            // link, image, charmap — ссылки, картинки, спецсимволы (§, ©)
+            // preview, anchor, searchreplace — предпросмотр, якоря (оглавление), поиск
+            // visualblocks, code, fullscreen — структура блоков, HTML код, полный экран
+            // insertdatetime, table — дата, мощные таблицы
+            // codesample — красивая подсветка кода (ОБЯЗАТЕЛЬНО для ТЗ!)
+            // help, wordcount — справка, кол-во слов
+            plugins: [
+                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                'insertdatetime', 'table', 'help', 'wordcount', 'codesample'
+            ],
+
+            // --- ПАНЕЛЬ ИНСТРУМЕНТОВ (toolbar) ---
+            // undo redo | blocks (Заголовки H1, H2...) | bold italic forecolor (цвет текста)
+            // align... | numlist bullist | table link codesample | removeformat fullscreen
+            toolbar: 'undo redo | blocks | bold italic forecolor | ' +
+                'alignleft aligncenter alignright alignjustify | ' +
+                'bullist numlist outdent indent | ' +
+                'table link image codesample | removeformat | fullscreen',
+
+            // --- НАСТРОЙКИ ФУНКЦИЙ ---
+
+            // Вставка изображений (локально Base64, чтобы не настраивать сервер загрузки)
+            // Позволяет перетаскивать картинки прямо в редактор
+            image_title: true,
+            automatic_uploads: true,
+            file_picker_types: 'image',
+            images_upload_handler: function (blobInfo, progress) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(blobInfo.blob());
+                    reader.onload = function () {
+                        resolve(reader.result); // Вставляем как base64 строку
+                    };
+                    reader.onerror = function (error) {
+                        reject({ message: 'Ошибка чтения файла: ' + error.message, remove: true });
+                    };
+                });
+            },
+
+            // Чтобы таблицы выглядели нормально сразу
+            table_default_attributes: {
+                border: '1'
+            },
+            table_default_styles: {
+                'width': '100%',
+                'border-collapse': 'collapse'
+            },
+
             // Исправление для модальных окон
             setup: function(editor) {
                 editor.on('change', function () {
-                    editor.save(); // Синхронизация с textarea
+                    editor.save();
                 });
-            }
+            },
+
+            // Разрешаем любой HTML (иногда важно для вставки iframe или сложной верстки)
+            verify_html: false
         });
 
         // 2. Загрузка данных
