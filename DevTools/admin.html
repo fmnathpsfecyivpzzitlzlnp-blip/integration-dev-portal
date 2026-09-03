@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="admin_page_title">Администрирование и Бэкапы</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === CSS ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-panel: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #f8fafc;
+            --danger-bg: #fef2f2;
+            --danger-border: #fca5a5;
+            --stats-bg: #f8fafc;
+            --stats-border: #e2e8f0;
+            --file-btn-bg: #f8fafc;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --danger-border: #7f1d1d;
+            --stats-bg: #000000;
+            --stats-border: #334155;
+            --file-btn-bg: #0f172a;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            overflow-y: auto !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); transition: 0.3s; }
+        .header p { color: var(--text-muted); transition: 0.3s; }
+
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
+
+        .admin-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .admin-card h3 { margin: 0; color: var(--text-main); font-size: 18px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px; transition: 0.3s; }
+        .admin-card p { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; transition: 0.3s; }
+
+        .btn-large { padding: 12px 20px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; border: none; text-align: center; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+        .btn-export { background: #3b82f6; color: white; }
+        .btn-export:hover { background: #2563eb; }
+
+        .btn-import { background: #10b981; color: white; }
+        .btn-import:hover { background: #059669; }
+
+        .btn-danger-outline { background: transparent; border: 2px solid #ef4444; color: #ef4444; }
+        .btn-danger-outline:hover { background: var(--danger-bg); }
+
+        /* Кастомный инпут для файла */
+        .file-upload-wrapper { position: relative; overflow: hidden; display: block; }
+        .file-upload-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; height: 100%; width: 100%; }
+
+        .file-upload-wrapper .secondary {
+            background: var(--file-btn-bg);
+            color: var(--text-muted);
+            border-color: var(--border-color);
+        }
+
+        .stats-box {
+            background: var(--stats-bg);
+            border: 1px solid var(--stats-border);
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            max-height: 150px;
+            overflow-y: auto;
+            transition: 0.3s;
+        }
+
+        .danger-zone-card {
+            border-color: var(--danger-border) !important;
+            background: var(--danger-bg) !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header" style="max-width: 1000px; margin: 0 auto 30px auto; width: 100%;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 24px;" data-i18n="admin_title">Администрирование</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="admin_subtitle">Управление локальными данными и резервное копирование</p>
+        </div>
+    </div>
+</div>
+
+<div class="admin-grid">
+
+    <!-- КАРТОЧКА: ЭКСПОРТ -->
+    <div class="admin-card">
+        <h3 data-i18n="admin_export_title">📦 Создать резервную копию</h3>
+        <p data-i18n="admin_export_desc">Выгружает все сохраненные переменные окружения, черновики маппингов, шаблоны схем и историю Mermaid из памяти браузера в один JSON-файл.</p>
+
+        <div class="stats-box" id="storage-stats" data-i18n="admin_analyzing">
+            Анализ хранилища...
+        </div>
+
+        <div style="margin-top: auto;">
+            <button class="btn-large btn-export" onclick="exportBackup()" style="width: 100%;" data-i18n="admin_btn_download">
+                📥 Скачать Backup (.json)
+            </button>
+        </div>
+    </div>
+
+    <!-- КАРТОЧКА: ИМПОРТ -->
+    <div class="admin-card">
+        <h3 data-i18n="admin_import_title">🔄 Восстановить из копии</h3>
+        <p><span data-i18n="admin_import_desc">Загрузите ранее скачанный JSON-файл бэкапа.</span> <b data-i18n="admin_import_warning">Внимание: это действие перезапишет текущие локальные данные.</b></p>
+
+        <div class="file-upload-wrapper" style="margin-top: 15px;">
+            <button class="btn-large secondary" style="width: 100%; border: 2px dashed var(--border-color);" data-i18n="admin_btn_select_file">
+                📂 Выберите файл бэкапа...
+            </button>
+            <input type="file" id="import-file" accept=".json" onchange="handleFileSelect(event)">
+        </div>
+
+        <div id="import-status" style="font-size: 13px; font-weight: bold; text-align: center; margin-top: 10px;"></div>
+
+        <div style="margin-top: auto;">
+            <button class="btn-large btn-import" id="btn-restore" onclick="importBackup()" disabled style="width: 100%; opacity: 0.5; cursor: not-allowed;" data-i18n="admin_btn_restore">
+                🚀 Восстановить данные
+            </button>
+        </div>
+    </div>
+
+    <!-- КАРТОЧКА: DANGER ZONE -->
+    <div class="admin-card danger-zone-card" style="grid-column: 1 / -1;">
+        <h3 style="color: #ef4444; border-bottom-color: rgba(239,68,68,0.3);" data-i18n="admin_danger_title">⚠️ Опасная зона</h3>
+        <p data-i18n="admin_danger_desc">Полный сброс портала. Удаляет абсолютно все сохраненные настройки, кэши, переменные Postman и черновики из памяти браузера.</p>
+
+        <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: #ef4444; font-weight: 600;" data-i18n="admin_danger_warning">Действие нельзя отменить! Рекомендуется сделать бэкап.</span>
+            <button class="btn-large btn-danger-outline" onclick="factoryReset()" data-i18n="admin_btn_reset">
+                🗑 Сбросить кэш и настройки (Factory Reset)
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Универсальная функция перевода для JS
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let importedData = null;
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+
+        analyzeStorage();
+    });
+
+    // 1. Анализ текущего хранилища
+    function analyzeStorage() {
+        const stats = $('#storage-stats');
+        let html = `<b>${t('admin_keys_used', 'Занято ключей в LocalStorage:')}</b> ${localStorage.length}<br><br>`;
+
+        let totalSize = 0;
+        let keyDetails = [];
+
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            const size = new Blob([value]).size;
+            totalSize += size;
+
+            if (key.includes('datacatalog_index')) keyDetails.push(`- Data Catalog Index: ${(size/1024).toFixed(1)} KB`);
+            if (key.includes('postman_envs')) keyDetails.push(`- Environment Vars: ${(size/1024).toFixed(1)} KB`);
+            if (key.includes('mermaid_history')) keyDetails.push(`- Mermaid History: ${(size/1024).toFixed(1)} KB`);
+        }
+
+        html += `<b>${t('admin_total_size', 'Общий размер:')}</b> ${(totalSize / 1024).toFixed(2)} KB<br><br>`;
+        html += keyDetails.join('<br>');
+
+        if(localStorage.length === 0) {
+            html = t('admin_storage_empty', 'Хранилище пустое.');
+        }
+
+        stats.html(html);
+    }
+
+    // 2. Экспорт (Скачивание)
+    function exportBackup() {
+        if (localStorage.length === 0) {
+            return alert(t('admin_err_no_backup', 'Нечего бэкапить. Хранилище пустое.'));
+        }
+
+        const backup = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            backup[key] = localStorage.getItem(key);
+        }
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `devtools_backup_${timestamp}.json`;
+
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        if(typeof showNotification === 'function') showNotification(t('admin_msg_backup_ok', 'Бэкап успешно скачан!'));
+    }
+
+    // 3. Выбор файла для импорта
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        const statusBox = $('#import-status');
+        const restoreBtn = $('#btn-restore');
+
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                importedData = JSON.parse(e.target.result);
+                const keysCount = Object.keys(importedData).length;
+                statusBox.html(`<span style="color:#10b981;">${t('admin_file_read', 'Файл прочитан. Найдено ключей:')} ${keysCount}</span>`);
+
+                restoreBtn.prop('disabled', false).css({opacity: 1, cursor: 'pointer'});
+            } catch (err) {
+                statusBox.html(`<span style="color:#ef4444;">${t('admin_err_invalid_json', 'Ошибка: Файл не является валидным JSON-бэкапом.')}</span>`);
+                importedData = null;
+                restoreBtn.prop('disabled', true).css({opacity: 0.5, cursor: 'not-allowed'});
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // 4. Восстановление
+    function importBackup() {
+        if (!importedData) return;
+
+        if (!confirm(t('admin_confirm_restore', 'Внимание! Текущие данные в браузере будут удалены и заменены данными из бэкапа. Вы уверены?'))) {
+            return;
+        }
+
+        try {
+            localStorage.clear();
+
+            for (let key in importedData) {
+                localStorage.setItem(key, importedData[key]);
+            }
+
+            alert(t('admin_msg_restore_ok', 'Данные успешно восстановлены! Портал сейчас будет перезагружен.'));
+            window.top.location.reload();
+
+        } catch(err) {
+            alert(t('admin_err_restore', 'Критическая ошибка при восстановлении: ') + err.message);
+        }
+    }
+
+    // 5. Очистка кэша (Factory Reset)
+    function factoryReset() {
+        const code = Math.floor(1000 + Math.random() * 9000);
+        const input = prompt(t('admin_prompt_reset', 'Действие необратимо!\nДля подтверждения введите код: ') + code);
+
+        if (input === String(code)) {
+            localStorage.clear();
+            alert(t('admin_msg_reset_ok', 'Хранилище очищено. Портал возвращен к заводским настройкам.'));
+            analyzeStorage();
+            window.top.location.reload();
+        } else if (input !== null) {
+            alert(t('admin_msg_reset_cancel', 'Неверный код. Сброс отменен.'));
+        }
+    }
+</script>
+</body>
+</html>

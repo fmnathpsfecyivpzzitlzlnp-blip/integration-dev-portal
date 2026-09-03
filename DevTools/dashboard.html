@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="dash_title">Главный Дашборд</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ЖЕСТКИЙ СБРОС (БРОНЕЖИЛЕТ ОТ STYLE.CSS) === */
+        html {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100% !important;
+        }
+
+        body {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: var(--bg-main, #f1f5f9) !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            color: var(--text-main, #334155) !important;
+            transition: background 0.3s, color 0.3s;
+            box-sizing: border-box !important;
+            height: 100% !important;
+            position: relative !important;
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+        }
+
+        .main-content {
+            display: block !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 20px !important;
+            margin: 0 !important;
+            height: auto !important;
+            min-height: 100% !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+        }
+
+        /* KPI */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .kpi-card { background: var(--bg-card, #fff); padding: 15px 20px; border-radius: 8px; border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: background 0.3s, border-color 0.3s; }
+        .kpi-card .title { font-size: 12px; color: var(--text-muted, #64748b); font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
+        .kpi-card .value { font-size: 28px; font-weight: 800; color: var(--text-main, #0f172a); line-height: 1; }
+        .kpi-card .subtitle { font-size: 11px; color: var(--text-muted, #94a3b8); margin-top: 5px; }
+        .kpi-blue { border-bottom: 4px solid #3b82f6; } .kpi-green { border-bottom: 4px solid #10b981; } .kpi-orange { border-bottom: 4px solid #f59e0b; } .kpi-red { border-bottom: 4px solid #ef4444; }
+
+        /* КАЛЕНДАРНАЯ ДОСКА */
+        .calendar-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; align-items: start; }
+        .accordion-col { display: flex; flex-direction: column; gap: 10px; }
+
+        .cal-col { background: var(--bg-card, #fff); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.3s ease; }
+
+        .cal-header { padding: 10px 15px; font-weight: bold; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: background 0.2s; }
+        .cal-header-left { display: flex; align-items: center; gap: 8px; }
+        .cal-header:hover { filter: brightness(0.95); }
+
+        .btn-open-all { background: rgba(255,255,255,0.7); border: 1px solid #cbd5e1; color: #334155; padding: 3px 8px; font-size: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-open-all:hover { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transform: translateY(-1px); }
+
+        /* Цвета заголовков пайплайна */
+        .cal-header.bg-backlog { background: #f8fafc; color: #475569; }
+        .cal-header.bg-analysis { background: #fdf4ff; color: #a21caf; }
+        .cal-header.bg-dev { background: #eff6ff; color: #1d4ed8; }
+        .cal-header.bg-test { background: #fffbeb; color: #b45309; }
+        .cal-header.bg-prod { background: #e0f2fe; color: #0369a1; }
+        .cal-header.bg-done { background: #dcfce7; color: #166534; }
+        .cal-header.bg-special { background: #fef2f2; color: #991b1b; }
+
+        /* Цвета заголовков сроков */
+        .cal-header.overdue { background: #fee2e2; color: #b91c1c; border-left: 4px solid #ef4444;}
+        .cal-header.this-week { background: #ffedd5; color: #b45309; border-left: 4px solid #f59e0b;}
+        .cal-header.next-week { background: #e0f2fe; color: #0369a1; border-left: 4px solid #0ea5e9;}
+        .cal-header.future { background: #f1f5f9; color: #475569; }
+
+        .cal-count { background: rgba(0,0,0,0.1); padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+
+        .cal-body { padding: 10px; overflow-y: auto; background: var(--bg-main, #f8fafc); display: flex; flex-direction: column; gap: 10px; max-height: 500px; transition: max-height 0.3s ease, padding 0.3s ease; }
+        .cal-col.collapsed .cal-body { max-height: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; border-top: none; }
+        .cal-col.collapsed .cal-header { border-bottom: none; }
+
+        /* КАРТОЧКА ЗАДАЧИ НА ДОСКЕ */
+        .task-card { background: var(--bg-card, #fff); border: 1px solid var(--border-color, #cbd5e1); padding: 12px; border-radius: 6px; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border-left: 4px solid #3b82f6; display: flex; flex-direction: column; transition: border-color 0.2s; }
+        .task-card:hover { border-color: #94a3b8; }
+        .task-card.danger { border-left-color: #ef4444; }
+
+        .task-card .t-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+        .task-card .t-head-num { font-size: 14px; font-weight: 800; color: var(--text-main); }
+        .task-card .t-contact { font-size: 11px; color: var(--text-muted); font-weight: normal; text-align: right; }
+
+        .task-card .t-sys { font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 2px; white-space: normal; word-break: break-word; line-height: 1.3; }
+        .task-card .t-iface { font-size: 11px; color: #0284c7; font-family: 'Consolas', monospace; margin-bottom: 8px; word-break: break-all; }
+
+        .task-card .t-date { display: inline-block; background: var(--bg-main, #f1f5f9); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; align-self: flex-start; border: 1px solid var(--border-color); }
+
+        .status-badge-inline { font-size: 11px; padding: 4px 8px; font-weight: 600; border-radius: 4px; background: var(--bg-main, #f1f5f9); color: var(--text-main); display: inline-block; margin-top: 2px; border: 1px solid var(--border-color); align-self: flex-start;}
+
+        .card-btn-group { display: flex; gap: 5px; margin-top: auto; border-top: 1px dashed var(--border-color); padding-top: 10px; }
+        .card-btn { flex: 1; text-align: center; padding: 6px 0; border-radius: 4px; font-size: 11px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;}
+        .card-btn:hover { filter: brightness(0.95); transform: translateY(-1px); }
+        .btn-edit { background: #e0e7ff; color: #1d4ed8; }
+        .btn-jira { background: var(--bg-main, #f1f5f9); color: var(--text-muted); }
+
+        .table-box { background: var(--bg-card, #fff); border-radius: 8px; border: 1px solid var(--border-color, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 25px; overflow: hidden; }
+        .table-box-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; }
+        .table-box-header h3 { margin: 0; font-size: 16px; color: var(--text-main); }
+
+        .table-search-bar { width: 100%; padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; margin-bottom: 15px; outline: none; background: var(--bg-card); color: var(--text-main); }
+        .table-search-bar:focus { border-color: #3b82f6; }
+
+        .main-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .main-table th { text-align: left; padding: 12px 15px; background: var(--bg-main); color: var(--text-muted); font-weight: 600; border-bottom: 2px solid var(--border-color); cursor: pointer; user-select: none; transition: background 0.2s; white-space: nowrap; }
+        .main-table th:hover { background: var(--border-color); color: var(--text-main); }
+        .main-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); vertical-align: top; color: var(--text-main); }
+        .main-table tr:hover { background: var(--bg-main); }
+
+        .date-cell { font-weight: 600; white-space: nowrap; }
+        .date-start { color: #4338ca; }
+        .date-dev { color: #1d4ed8; }
+        .date-test { color: #7e22ce; }
+        .date-prod { color: #166534; }
+        .date-empty { color: var(--text-muted); font-weight: normal; }
+
+        .compact-notes {
+            background: #fffbeb; border: 1px solid #fde68a; border-left: 3px solid #f59e0b;
+            padding: 6px 8px; font-size: 11px; color: #92400e; border-radius: 4px;
+            max-height: 60px; overflow-y: auto; line-height: 1.4; max-width: 250px;
+        }
+        .compact-notes::-webkit-scrollbar { width: 4px; }
+        .compact-notes::-webkit-scrollbar-thumb { background: #fcd34d; border-radius: 2px; }
+
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-box { background: var(--bg-card); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .chart-box h3 { margin: 0; color: var(--text-main); font-size: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; }
+        .canvas-container { position: relative; height: 250px; width: 100%; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-card); color: var(--text-main); padding: 25px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .diff-table td, .diff-table th { padding: 6px 10px; color: var(--text-main); border: 1px solid var(--border-color); }
+    </style>
+</head>
+<body>
+
+<div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h2 style="margin: 0; border: none; font-size: 24px; color: var(--text-main);" data-i18n="dash_title">Обзор планов и задач</h2>
+            <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 13px;" data-i18n="dash_subtitle">Матрица: слева статус по пайплайну, по центру — дедлайны календаря.</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="primary" onclick="openReleaseManager()" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="dash_btn_release">🚀 Собрать Релиз (Письмо)</button>
+            <button class="secondary" onclick="loadDashboardData()" style="padding: 8px 15px;" data-i18n="dash_btn_refresh">🔄 Обновить данные</button>
+        </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid">
+        <div class="kpi-card kpi-blue">
+            <div class="title" data-i18n="dash_kpi_total">Запланировано всего</div>
+            <div class="value" id="kpi-total">0</div>
+            <div class="subtitle" data-i18n="dash_kpi_total_sub">имеют даты плана</div>
+        </div>
+        <div class="kpi-card kpi-orange">
+            <div class="title" data-i18n="dash_kpi_active">В активной работе</div>
+            <div class="value" id="kpi-active">0</div>
+            <div class="subtitle" data-i18n="dash_kpi_active_sub">Бэклог / Аналитика / Dev</div>
+        </div>
+        <div class="kpi-card kpi-green">
+            <div class="title" data-i18n="dash_kpi_prod">Внедрено (PROD)</div>
+            <div class="value" id="kpi-prod">0</div>
+            <div class="subtitle" data-i18n="dash_kpi_prod_sub">завершенные интеграции</div>
+        </div>
+        <div class="kpi-card kpi-red">
+            <div class="title" data-i18n="dash_kpi_blocked">Отложено / Блок</div>
+            <div class="value" id="kpi-blocked">0</div>
+            <div class="subtitle" data-i18n="dash_kpi_blocked_sub">требуют внимания</div>
+        </div>
+    </div>
+
+    <!-- ДВУМЕРНАЯ ДОСКА -->
+    <div class="calendar-board">
+        <!-- Столбец 1: ВОРОНКА -->
+        <div class="accordion-col">
+            <h4 style="margin: 0 0 5px 0; color: var(--text-muted); font-size: 12px; text-transform: uppercase;" data-i18n="dash_funnel">Воронка (Все задачи)</h4>
+            <div class="cal-col" id="col-backlog">
+                <div class="cal-header bg-backlog" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_backlog">Очередь (Backlog)</span> <span class="cal-count" id="c-backlog">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-backlog', event)" title="Открыть все ALM ссылки в браузере" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-backlog"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-analysis">
+                <div class="cal-header bg-analysis" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_analysis">Аналитика</span> <span class="cal-count" id="c-analysis">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-analysis', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-analysis"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-dev">
+                <div class="cal-header bg-dev" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_dev">В разработке</span> <span class="cal-count" id="c-dev">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-dev', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-dev"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-test">
+                <div class="cal-header bg-test" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_test">Тестирование</span> <span class="cal-count" id="c-test">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-test', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-test"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-prod">
+                <div class="cal-header bg-prod" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_prod">Внедрение (Прод)</span> <span class="cal-count" id="c-prod">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-prod', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-prod"></div>
+            </div>
+        </div>
+
+        <!-- Столбец 2: ДЕДЛАЙНЫ -->
+        <div class="accordion-col">
+            <h4 style="margin: 0 0 5px 0; color: var(--text-muted); font-size: 12px; text-transform: uppercase;" data-i18n="dash_calendar">Календарь (С датами)</h4>
+            <div class="cal-col" id="col-overdue">
+                <div class="cal-header overdue" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="cal_overdue">Просрочено</span> <span class="cal-count" id="c-overdue">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-overdue', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-overdue"></div>
+            </div>
+            <div class="cal-col" id="col-thisweek">
+                <div class="cal-header this-week" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="cal_this_week">Эта неделя</span> <span class="cal-count" id="c-thisweek">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-thisweek', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-thisweek"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-nextweek">
+                <div class="cal-header next-week" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="cal_next_week">След. неделя</span> <span class="cal-count" id="c-nextweek">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-nextweek', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-nextweek"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-future">
+                <div class="cal-header future" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="cal_future">Позже</span> <span class="cal-count" id="c-future">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-future', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-future"></div>
+            </div>
+        </div>
+
+        <!-- Столбец 3: АРХИВ -->
+        <div class="accordion-col">
+            <h4 style="margin: 0 0 5px 0; color: var(--text-muted); font-size: 12px; text-transform: uppercase;" data-i18n="dash_archive">Архив / Блок</h4>
+            <div class="cal-col" id="col-done">
+                <div class="cal-header bg-done" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_done">Внедрено на ПРОД</span> <span class="cal-count" id="c-done">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-done', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-done"></div>
+            </div>
+            <div class="cal-col collapsed" id="col-special">
+                <div class="cal-header bg-special" onclick="toggleAccordion(this)">
+                    <div class="cal-header-left"><span data-i18n="stage_cancelled">Спец. статусы (Отмена)</span> <span class="cal-count" id="c-special">0</span></div>
+                    <button class="btn-open-all" onclick="openAllInGroup('b-special', event)" data-i18n="btn_all">↗ Все</button>
+                </div>
+                <div class="cal-body" id="b-special"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ТАБЛИЦА -->
+    <div class="table-box">
+        <div class="table-box-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 data-i18n="dash_table_title">📑 Детальный реестр планов (Кликните на заголовок для сортировки)</h3>
+                <span style="font-size: 11px; color: var(--text-muted);" data-i18n="dash_table_hint">По умолчанию свежие изменения всегда сверху</span>
+            </div>
+            <input type="text" id="table-search" class="table-search-bar" placeholder="🔍 Быстрый поиск по задаче, датам или заметкам..." data-i18n="dash_search_placeholder" onkeyup="filterTable()">
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="main-table">
+                <thead>
+                <tr>
+                    <th onclick="sortTable('task_number')" data-i18n="th_task">Задача ↕</th>
+                    <th onclick="sortTable('sender_sys')" data-i18n="th_system">Система / Интерфейс ↕</th>
+                    <th onclick="sortTable('start_dev_date')" data-i18n="th_start_dev">НАЧАЛО РАЗРАБОТКИ ↕</th>
+                    <th onclick="sortTable('planned_dev_date')" data-i18n="th_end_dev">ОКОНЧАНИЕ РАЗРАБОТКИ ↕</th>
+                    <th onclick="sortTable('test_deployment_date')" data-i18n="th_test">ТЕСТ ↕</th>
+                    <th onclick="sortTable('deployment_date')" data-i18n="th_prod">ПРОД ↕</th>
+                    <th data-i18n="th_notes">Заметки (To-Do)</th>
+                </tr>
+                </thead>
+                <tbody id="main-tbody">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);" id="msg_loading" data-i18n="msg_loading">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ГРАФИКИ -->
+    <div class="charts-grid">
+        <div class="chart-box">
+            <h3 data-i18n="chart_stages">Распределение по этапам</h3>
+            <div class="canvas-container"><canvas id="stageChart"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3 data-i18n="chart_systems">Топ-5 загруженных систем</h3>
+            <div class="canvas-container"><canvas id="sysChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА: RELEASE MANAGER -->
+<div id="releaseModal" class="modal">
+    <div class="modal-content" style="width:1300px; max-width:98%; height: 90vh; display: flex; flex-direction: column; padding: 25px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border-color); padding-bottom:10px; margin-bottom:15px; flex-shrink: 0;">
+            <div>
+                <h2 style="margin:0; color:var(--text-main);" data-i18n="rm_title">🚀 Генератор письма на Релиз</h2>
+                <p style="margin: 5px 0 0 0; font-size: 13px; color: var(--text-muted);" data-i18n="rm_subtitle">Укажите задачи, проверьте чек-лист и скопируйте готовую таблицу. <br><span style="color:#0ea5e9; font-weight:bold;">Ваш выбор сохраняется автоматически как Черновик!</span></p>
+            </div>
+            <span onclick="$('#releaseModal').fadeOut(150)" style="cursor:pointer; font-size:28px; color:var(--text-muted); line-height:1;">&times;</span>
+        </div>
+
+        <div style="display:flex; gap: 15px; margin-bottom: 15px; background: rgba(14, 165, 233, 0.1); padding: 12px; border-radius: 6px; border: 1px solid #bae6fd; flex-shrink: 0;">
+            <div>
+                <label style="font-size: 11px; font-weight: bold; color: #0369a1;" data-i18n="rm_date_lbl">Дата релиза:</label>
+                <input type="text" id="rn_date" placeholder="13.08.2026" style="padding: 6px; border: 1px solid #7dd3fc; border-radius: 4px; font-weight: bold; background: var(--bg-card); color: var(--text-main);" onkeyup="generateEmailText()">
+            </div>
+            <div>
+                <label style="font-size: 11px; font-weight: bold; color: #0369a1;" data-i18n="rm_filter_lbl">Категория задач для выбора:</label>
+                <select id="rn_status_filter" onchange="renderReleaseTasksList()" style="padding: 6px; border: 1px solid #7dd3fc; border-radius: 4px; background: var(--bg-card); color: var(--text-main);">
+                    <option value="ready_prod" selected data-i18n="rm_opt_prod">Только Готовые к ПРОД / Установленные</option>
+                    <option value="ready_test" data-i18n="rm_opt_test">Только Готовые к TEST</option>
+                    <option value="all_active" data-i18n="rm_opt_all">🌍 ПОКАЗАТЬ ВСЕ АКТИВНЫЕ ЗАДАЧИ</option>
+                </select>
+            </div>
+            <div id="rn_warning" style="display:none; color:#b45309; background:#fef3c7; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; border:1px solid #fde68a; align-self: center;"></div>
+        </div>
+
+        <div style="display:flex; gap: 20px; flex: 1; overflow: hidden;">
+            <!-- Левая часть: Выбор задач -->
+            <div style="flex: 1; border-right: 1px solid var(--border-color); padding-right: 15px; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <h4 style="margin:0; color:var(--text-main);" data-i18n="rm_step1">1. Выберите задачи:</h4>
+                    <button class="secondary btn-small" onclick="clearReleaseDraft()" style="font-size: 11px; padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; color: #dc2626;" data-i18n="rm_btn_clear">🗑 Очистить черновик</button>
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <input type="text" id="rn_search" placeholder="🔍 Искать по: задаче, системе..." data-i18n="rm_search_ph" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; background: var(--bg-card); color: var(--text-main);" onkeyup="filterReleaseTasks()">
+                </div>
+
+                <div style="flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-main);">
+                    <table class="diff-table" style="width:100%; border-collapse: collapse; font-size: 13px;">
+                        <thead style="position: sticky; top: 0; z-index: 2; background: var(--bg-header);">
+                        <tr>
+                            <th width="30" style="text-align: center;">✔</th>
+                            <th data-i18n="rm_th_task">Задача / Контакт</th>
+                            <th data-i18n="rm_th_sys">Система.Интерфейс</th>
+                        </tr>
+                        </thead>
+                        <tbody id="rn_task_list"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Правая часть: Предпросмотр -->
+            <div style="flex: 1.5; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px;">
+                <h4 style="margin:0; color:var(--text-main);" data-i18n="rm_step2">2. Обязательный контроль:</h4>
+                <div style="background:rgba(245, 158, 11, 0.1); border:1px solid #f59e0b; padding:12px; border-radius:4px; font-size:13px; color:var(--text-main);">
+                    <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; cursor:pointer;">
+                        <input type="checkbox" style="width:16px; height:16px;"> <span data-i18n="rm_chk1">Версии объектов в ALM совпадают с финальными</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; cursor:pointer;">
+                        <input type="checkbox" style="width:16px; height:16px;"> <span data-i18n="rm_chk2">Скрипты миграции БД (Flyway/Liquibase) приложены</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" style="width:16px; height:16px;"> <span data-i18n="rm_chk3">Маппинги و логика согласованы</span>
+                    </label>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4 style="margin:0; color:var(--text-main);" data-i18n="rm_step3">3. Готовое письмо:</h4>
+                    <button class="primary" onclick="copyReleaseEmail()" style="background:#10b981; border-color:#10b981; padding: 8px 15px; font-size:13px; font-weight:bold;" data-i18n="rm_btn_copy">📋 Скопировать письмо</button>
+                </div>
+
+                <div id="email_preview" contenteditable="true" style="flex: 1; min-height: 250px; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; padding: 15px; border: 1px solid var(--border-color); border-radius: 4px; background: #ffffff; color: #000000; overflow-y: auto; outline: none; box-sizing: border-box;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let stageChartInstance = null;
+    let sysChartInstance = null;
+    let plannedTasksData = [];
+    window.allTasksGlobal = [];
+    let currentSort = { col: 'last_updated', dir: 'desc' };
+
+    $(function() {
+        const storedUser = localStorage.getItem('esb_user');
+        if (storedUser) {
+            const user = JSON.parse(storedUser);
+            $.ajaxSetup({ headers: { 'X-User-Id': user.id, 'X-User-Role': user.role } });
+            loadDashboardData();
+        } else {
+            alert(window.t ? window.t('err_auth_req', 'Для просмотра дашборда необходимо авторизоваться в Реестре задач.') : 'Для просмотра дашборда необходимо авторизоваться в Реестре задач.');
+            window.location.href = "task_tracker.html";
+        }
+
+        if(typeof initLocalization === 'function') initLocalization();
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+    });
+
+    function toggleAccordion(headerEl) {
+        const col = headerEl.parentElement;
+        const group = col.parentElement;
+        $(group).find('.cal-col').addClass('collapsed');
+        col.classList.remove('collapsed');
+    }
+
+    window.openAllInGroup = function(groupId, event) {
+        event.stopPropagation();
+        const links = [];
+        $('#' + groupId + ' .btn-jira').each(function() {
+            const url = $(this).attr('href');
+            if (url && url !== '#' && !links.includes(url)) links.push(url);
+        });
+
+        const totalTasks = $('#' + groupId + ' .task-card').length;
+        const noLinks = totalTasks - links.length;
+
+        if (links.length === 0) return alert((window.t ? window.t('err_no_links', 'В этой группе нет ссылок на ALM.') : 'В этой группе нет ссылок на ALM.') + '\n(' + (window.t ? window.t('lbl_tasks_no_links', 'Задач без ссылок:') : 'Задач без ссылок:') + ' ' + totalTasks + ')');
+        if (!confirm((window.t ? window.t('confirm_open_tabs', 'Готовим к открытию:') : 'Готовим к открытию:') + ' ' + links.length + ' ' + (window.t ? window.t('lbl_tabs', 'вкладок.') : 'вкладок.') + '\n' + (window.t ? window.t('msg_allow_popups', 'Разрешите всплывающие окна в браузере.\nПродолжить?') : 'Разрешите всплывающие окна в браузере.\nПродолжить?'))) return;
+
+        links.forEach(url => window.open(url, '_blank'));
+    };
+
+    function formatDateStr(val) {
+        if (!val) return '';
+        val = val.trim();
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) return val;
+        if (val.includes('-')) {
+            let p = val.split('-');
+            if (p.length === 3) return `${p[2]}.${p[1]}.${p[0]}`;
+        }
+        return val;
+    }
+
+    function parseCustomDate(val) {
+        if (!val) return 0;
+        if (val.includes(':')) return new Date(val.replace(' ', 'T')).getTime();
+        if (val.includes('-')) { let p = val.split('-'); return new Date(p[0], p[1]-1, p[2]).getTime(); }
+        if (val.includes('.')) { let p = val.split('.'); return new Date(p[2], p[1]-1, p[0]).getTime(); }
+        return 0;
+    }
+
+    function loadDashboardData() {
+        $.get('/api/tasks', function(allTasks) {
+            if (!allTasks) allTasks = [];
+            window.allTasksGlobal = allTasks;
+
+            plannedTasksData = allTasks.filter(t =>
+                (t.start_dev_date && t.start_dev_date.trim() !== '') ||
+                (t.planned_dev_date && t.planned_dev_date.trim() !== '') ||
+                (t.test_deployment_date && t.test_deployment_date.trim() !== '') ||
+                (t.deployment_date && t.deployment_date.trim() !== '')
+            );
+
+            processKPIAndCharts(allTasks);
+            buildCalendar(window.allTasksGlobal);
+            sortTable('last_updated', true);
+        }).fail(function() {
+            alert(window.t ? window.t('err_load_dash', 'Ошибка загрузки данных для дашборда.') : 'Ошибка загрузки данных для дашборда.');
+            $('#msg_loading').text(window.t ? window.t('err_load_dash', 'Ошибка загрузки данных') : 'Ошибка загрузки данных');
+        });
+    }
+
+    function sortTable(column, forceDesc = false) {
+        if (forceDesc) {
+            currentSort.col = column;
+            currentSort.dir = 'desc';
+        } else {
+            if (currentSort.col === column) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.col = column;
+                currentSort.dir = 'asc';
+            }
+        }
+
+        plannedTasksData.sort((a, b) => {
+            let valA = a[column] || '';
+            let valB = b[column] || '';
+
+            if (column.includes('date') || column === 'last_updated') {
+                valA = parseCustomDate(valA);
+                valB = parseCustomDate(valB);
+                return currentSort.dir === 'asc' ? valA - valB : valB - valA;
+            }
+
+            valA = valA.toString().toLowerCase();
+            valB = valB.toString().toLowerCase();
+            if (valA < valB) return currentSort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return currentSort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        renderMainTable();
+    }
+
+    function renderMainTable() {
+        const tbody = $('#main-tbody').empty();
+
+        if (plannedTasksData.length === 0) {
+            tbody.html(`<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">${window.t ? window.t('msg_no_data', 'Нет данных') : 'Нет данных'}</td></tr>`);
+            return;
+        }
+
+        plannedTasksData.forEach(tobj => {
+            const contactText = tobj.contact_person ? `<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">👤 ${escapeHtml(tobj.contact_person)}</div>` : '';
+            const taskHtml = `
+                <div><b style="color:var(--text-main); font-size:14px;">${escapeHtml(tobj.task_number)}</b></div>
+                ${contactText}
+                <div class="task-action-menu" style="margin-top:6px;">
+                    <a href="task_tracker.html?edit=${tobj.id}" class="btn-local" style="color:#3b82f6; text-decoration:none; font-size:11px; border:1px solid #bfdbfe; padding:2px 6px; border-radius:4px;">📝 ${window.t ? window.t('btn_open', 'Открыть') : 'Открыть'}</a>
+                </div>
+            `;
+
+            const sysOut = (tobj.sender_sys && tobj.receiver_sys) ? `<b>${escapeHtml(tobj.sender_sys)} ➔ ${escapeHtml(tobj.receiver_sys)}</b>` : `<span class="date-empty">—</span>`;
+            const ifaceText = tobj.interface_name ? `<div style="font-size:11px; color:#0284c7; font-family:monospace; margin-top:4px;">${escapeHtml(tobj.interface_name)}</div>` : '';
+            const sysHtml = `<div style="color:var(--text-main);">${sysOut}</div>${ifaceText}`;
+
+            const startHtml = tobj.start_dev_date ? `<span class="date-cell date-start">${escapeHtml(formatDateStr(tobj.start_dev_date))}</span>` : `<span class="date-empty">—</span>`;
+            const devHtml = tobj.planned_dev_date ? `<span class="date-cell date-dev">${escapeHtml(formatDateStr(tobj.planned_dev_date))}</span>` : `<span class="date-empty">—</span>`;
+            const testHtml = tobj.test_deployment_date ? `<span class="date-cell date-test">${escapeHtml(formatDateStr(tobj.test_deployment_date))}</span>` : `<span class="date-empty">—</span>`;
+            const prodHtml = tobj.deployment_date ? `<span class="date-cell date-prod">${escapeHtml(formatDateStr(tobj.deployment_date))}</span>` : `<span class="date-empty">—</span>`;
+
+            let notesHtml = `<span class="date-empty">${window.t ? window.t('lbl_none', 'Нет') : 'Нет'}</span>`;
+            if (tobj.user_notes) {
+                const notesArr = escapeHtml(tobj.user_notes).split('\n').filter(n => n.trim() !== '');
+                notesHtml = `<div class="compact-notes">${notesArr.map(n => `• ${n}`).join('<br>')}</div>`;
+            }
+
+            tbody.append(`
+                <tr class="table-row-item">
+                    <td>${taskHtml}</td>
+                    <td>${sysHtml}</td>
+                    <td>${startHtml}</td>
+                    <td>${devHtml}</td>
+                    <td>${testHtml}</td>
+                    <td>${prodHtml}</td>
+                    <td>${notesHtml}</td>
+                </tr>
+            `);
+        });
+    }
+
+    function filterTable() {
+        const input = document.getElementById("table-search").value.toLowerCase();
+        const rows = document.querySelectorAll("#main-tbody .table-row-item");
+
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(input) ? "" : "none";
+        });
+    }
+
+    function buildCalendar(tasks) {
+        let bBacklog = [], bAnalysis = [], bDev = [], bTest = [], bProd = [], bDone = [], bSpecial = [];
+        let bOverdue = [], bThisWeek = [], bNextWeek = [], bFuture = [];
+
+        const now = new Date();
+        now.setHours(0,0,0,0);
+        const dayOfWeek = now.getDay() || 7;
+        const mondayThisWeek = new Date(now);
+        mondayThisWeek.setDate(now.getDate() - dayOfWeek + 1);
+        const mondayNextWeek = new Date(mondayThisWeek);
+        mondayNextWeek.setDate(mondayThisWeek.getDate() + 7);
+        const mondayAfterNext = new Date(mondayNextWeek);
+        mondayAfterNext.setDate(mondayNextWeek.getDate() + 7);
+
+        tasks.forEach(tobj => {
+            const stageStr = (tobj.stage || '').toLowerCase();
+            const statusStr = (tobj.status || '').toLowerCase();
+
+            const isSpecial = statusStr.includes('отмен') || statusStr.includes('блок') || statusStr.includes('hold') || statusStr.includes('приост');
+            const isDone = statusStr.includes('завершено') || statusStr.includes('внедрено');
+            const isProd = !isDone && !isSpecial && (stageStr.includes('внедрение') || stageStr.includes('этап 5') || statusStr.includes('установка (prod)') || statusStr.includes('готово к внедрению'));
+            const isTest = !isDone && !isProd && !isSpecial && (stageStr.includes('тест') || stageStr.includes('этап 4') || statusStr.includes('готов') || statusStr.includes('релиз'));
+            const isDev = !isDone && !isProd && !isTest && !isSpecial && (stageStr.includes('разработ') || stageStr.includes('этап 3'));
+            const isAnalysis = !isDone && !isProd && !isTest && !isDev && !isSpecial && (stageStr.includes('аналит') || stageStr.includes('этап 2'));
+
+            if (isSpecial) { bSpecial.push(tobj); }
+            else if (isDone) { bDone.push(tobj); }
+            else if (isProd) { bProd.push(tobj); }
+            else if (isTest) { bTest.push(tobj); }
+            else if (isDev) { bDev.push(tobj); }
+            else if (isAnalysis) { bAnalysis.push(tobj); }
+            else { bBacklog.push(tobj); }
+
+            if (!isDone && !isSpecial) {
+                let dates = [];
+                if(tobj.start_dev_date) dates.push({ms: parseCustomDate(tobj.start_dev_date), lbl: '▶️ СТАРТ', raw: formatDateStr(tobj.start_dev_date)});
+                if(tobj.planned_dev_date) dates.push({ms: parseCustomDate(tobj.planned_dev_date), lbl: '🏁 ФИНИШ', raw: formatDateStr(tobj.planned_dev_date)});
+                if(tobj.test_deployment_date) dates.push({ms: parseCustomDate(tobj.test_deployment_date), lbl: '🧪 ТЕСТ', raw: formatDateStr(tobj.test_deployment_date)});
+                if(tobj.deployment_date) dates.push({ms: parseCustomDate(tobj.deployment_date), lbl: '🚀 ПРОД', raw: formatDateStr(tobj.deployment_date)});
+
+                if (dates.length > 0) {
+                    dates.sort((a,b) => a.ms - b.ms);
+                    let futureDates = dates.filter(d => d.ms >= now.getTime());
+                    let chosenDateObj = futureDates.length > 0 ? futureDates[0] : dates[dates.length - 1];
+
+                    tobj._calLabel = `${chosenDateObj.lbl}: ${chosenDateObj.raw}`;
+                    tobj._calDanger = futureDates.length === 0 || chosenDateObj.ms < mondayNextWeek.getTime();
+
+                    if (chosenDateObj.ms < mondayThisWeek.getTime()) bOverdue.push(tobj);
+                    else if (chosenDateObj.ms >= mondayThisWeek.getTime() && chosenDateObj.ms < mondayNextWeek.getTime()) bThisWeek.push(tobj);
+                    else if (chosenDateObj.ms >= mondayNextWeek.getTime() && chosenDateObj.ms < mondayAfterNext.getTime()) bNextWeek.push(tobj);
+                    else bFuture.push(tobj);
+                }
+            }
+        });
+
+        const renderBucket = (selector, arr) => {
+            $(selector).empty();
+            if (arr.length === 0) return;
+            arr.forEach(tobj => {
+                const sysText = tobj.sender_sys && tobj.receiver_sys ? `${escapeHtml(tobj.sender_sys)} ➔ ${escapeHtml(tobj.receiver_sys)}` : '';
+                const dangerClass = tobj._calDanger && !selector.includes('done') && !selector.includes('special') ? 'danger' : '';
+                const trackerLink = `task_tracker.html?edit=${tobj.id}`;
+                const jiraBtn = tobj.task_url ? `<a href="${escapeHtml(tobj.task_url)}" target="_blank" class="card-btn btn-jira" style="color:var(--text-main)">🌐 Jira</a>` : '';
+
+                // Отрисовка контактного лица и интерфейса
+                const contactText = tobj.contact_person ? `<span style="font-weight:normal; font-size:10px; color:var(--text-muted); float:right;">👤 ${escapeHtml(tobj.contact_person)}</span>` : '';
+                const interfaceText = tobj.interface_name ? `<div style="font-size:11px; color:#0284c7; font-family:monospace; margin-bottom:5px; word-break:break-all;">${escapeHtml(tobj.interface_name)}</div>` : '';
+
+                let html = `<div class="task-card ${dangerClass}">
+                    <div class="t-head">
+                        <span style="font-size: 14px;">${escapeHtml(tobj.task_number)}</span>
+                        ${contactText}
+                    </div>
+                    ${sysText ? `<div class="t-sys" title="${sysText}" style="color:var(--text-main); font-weight:700;">${sysText}</div>` : ''}
+                    ${interfaceText}`;
+
+                if (tobj._calLabel) html += `<div class="t-date">${tobj._calLabel}</div>`;
+
+                html += `<div class="status-badge-inline" style="font-size:11px; padding:3px 6px;">${escapeHtml(tobj.status || (window.t ? window.t('lbl_no_status', 'Без статуса') : 'Без статуса'))}</div>
+                    <div class="card-btn-group" style="margin-top:8px;">
+                        <a href="${trackerLink}" class="card-btn btn-edit" style="color:#1d4ed8">✏️ ${window.t ? window.t('btn_open', 'Открыть') : 'Открыть'}</a>
+                        ${jiraBtn}
+                    </div>
+                </div>`;
+
+                $(selector).append(html);
+            });
+        };
+
+        $('#c-backlog').text(bBacklog.length); renderBucket('#b-backlog', bBacklog);
+        $('#c-analysis').text(bAnalysis.length); renderBucket('#b-analysis', bAnalysis);
+        $('#c-dev').text(bDev.length); renderBucket('#b-dev', bDev);
+        $('#c-test').text(bTest.length); renderBucket('#b-test', bTest);
+        $('#c-prod').text(bProd.length); renderBucket('#b-prod', bProd);
+
+        $('#c-overdue').text(bOverdue.length); renderBucket('#b-overdue', bOverdue);
+        $('#c-thisweek').text(bThisWeek.length); renderBucket('#b-thisweek', bThisWeek);
+        $('#c-nextweek').text(bNextWeek.length); renderBucket('#b-nextweek', bNextWeek);
+        $('#c-future').text(bFuture.length); renderBucket('#b-future', bFuture);
+
+        $('#c-done').text(bDone.length); renderBucket('#b-done', bDone);
+        $('#c-special').text(bSpecial.length); renderBucket('#b-special', bSpecial);
+    }
+
+    function processKPIAndCharts(tasks) {
+        let activeCount = 0; let prodCount = 0; let blockedCount = 0;
+        let stageCounts = {}; let sysCounts = {};
+
+        tasks.forEach(tobj => {
+            const status = (tobj.status || '').toLowerCase();
+            const stage = (tobj.stage || 'Unknown').split(':')[0];
+
+            if (status.includes('внедрен') || status.includes('prod') && status.includes('готов') || status.includes('заверш')) prodCount++;
+            else if (status.includes('блок') || status.includes('приост') || status.includes('отмен')) blockedCount++;
+            else if (!status.includes('нов')) activeCount++;
+
+            stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+            if (tobj.sender_sys && tobj.sender_sys !== "Неизвестно") sysCounts[tobj.sender_sys] = (sysCounts[tobj.sender_sys] || 0) + 1;
+            if (tobj.receiver_sys && tobj.receiver_sys !== "Неизвестно") sysCounts[tobj.receiver_sys] = (sysCounts[tobj.receiver_sys] || 0) + 1;
+        });
+
+        $('#kpi-total').text(tasks.filter(t => t.start_dev_date || t.planned_dev_date || t.deployment_date).length);
+        $('#kpi-active').text(activeCount);
+        $('#kpi-prod').text(prodCount);
+        $('#kpi-blocked').text(blockedCount);
+
+        const ctxStage = document.getElementById('stageChart').getContext('2d');
+        if (stageChartInstance) stageChartInstance.destroy();
+        stageChartInstance = new Chart(ctxStage, {
+            type: 'doughnut', data: { labels: Object.keys(stageCounts), datasets: [{ data: Object.values(stageCounts), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b', '#ef4444'], borderWidth: 0 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: localStorage.getItem('global_dark_theme')==='true'?'#f8fafc':'#334155' } } } }
+        });
+
+        const ctxSys = document.getElementById('sysChart').getContext('2d');
+        if (sysChartInstance) sysChartInstance.destroy();
+        const sortedSys = Object.keys(sysCounts).sort((a,b) => sysCounts[b] - sysCounts[a]).slice(0, 5);
+        sysChartInstance = new Chart(ctxSys, {
+            type: 'bar', data: { labels: sortedSys, datasets: [{ label: 'Интеграций', data: sortedSys.map(k => sysCounts[k]), backgroundColor: '#3b82f6', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: localStorage.getItem('global_dark_theme')==='true'?'#f8fafc':'#334155' } }, x: { ticks: { color: localStorage.getItem('global_dark_theme')==='true'?'#f8fafc':'#334155' } } } }
+        });
+    }
+
+    function getNextThursday() {
+        let d = new Date();
+        d.setDate(d.getDate() + ((4 + 7 - d.getDay()) % 7 || 7));
+        let lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        let isLastThursday = (d.getDate() + 7) > lastDayOfMonth.getDate();
+        let day = String(d.getDate()).padStart(2, '0');
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        return { dateStr: `${day}.${month}.${d.getFullYear()}`, isLast: isLastThursday };
+    }
+
+    window.openReleaseManager = function() {
+        const tInfo = getNextThursday();
+        $('#rn_date').val(tInfo.dateStr);
+        if (tInfo.isLast) $('#rn_warning').text(window.t ? window.t('rm_warn_last', '⚠️ Это последний четверг месяца!') : '⚠️ Это последний четверг месяца!').show(); else $('#rn_warning').hide();
+        $('#rn_search').val('');
+        renderReleaseTasksList();
+        $('#releaseModal').css('display', 'flex').hide().fadeIn(200);
+        generateEmailText();
+    };
+
+    window.renderReleaseTasksList = function() {
+        const statusFilter = $('#rn_status_filter').val();
+        const savedDraftIds = JSON.parse(localStorage.getItem('release_draft_ids') || '[]');
+        const tbody = $('#rn_task_list').empty();
+
+        let relTasks = window.allTasksGlobal.filter(tobj => !tobj.status.toLowerCase().includes('отмен') && !tobj.status.toLowerCase().includes('внедрено') && !tobj.status.toLowerCase().includes('завершено'));
+        if (statusFilter !== 'all_active') {
+            relTasks = relTasks.filter(tobj => (tobj.deployment_date && tobj.deployment_date.trim() !== '') || (tobj.test_deployment_date && tobj.test_deployment_date.trim() !== ''));
+            if (statusFilter === 'ready_prod') relTasks = relTasks.filter(tobj => (tobj.status || '').toLowerCase().includes('prod') && ((tobj.status || '').toLowerCase().includes('готов') || (tobj.status || '').toLowerCase().includes('установл')));
+            else if (statusFilter === 'ready_test') relTasks = relTasks.filter(tobj => (tobj.status || '').toLowerCase().includes('test') && ((tobj.status || '').toLowerCase().includes('готов') || (tobj.status || '').toLowerCase().includes('установл')));
+        }
+
+        if (relTasks.length === 0) return tbody.html(`<tr><td colspan="3" style="text-align:center; padding:15px; color:#999;">${window.t ? window.t('rm_no_tasks', 'Нет подходящих задач') : 'Нет подходящих задач'}</td></tr>`);
+
+        relTasks.forEach(tobj => {
+            let isChecked = (savedDraftIds.length > 0) ? (savedDraftIds.includes(tobj.id.toString()) ? 'checked' : '') : (statusFilter !== 'all_active' && tobj.status.toLowerCase().includes('готов') ? 'checked' : '');
+            const sysText = tobj.sender_sys && tobj.receiver_sys ? `${tobj.sender_sys} -> ${tobj.receiver_sys}` : tobj.sender_sys || '';
+            const contactText = tobj.contact_person ? `<br><span style="font-size:10px; color:var(--text-muted);">👤 ${escapeHtml(tobj.contact_person)}</span>` : '';
+
+            tbody.append(`
+                <tr class="rn-row" style="border-bottom: 1px solid var(--border-color);">
+                    <td style="text-align:center;"><input type="checkbox" class="rel-cb" value="${tobj.id}" ${isChecked} onchange="saveReleaseDraft()" style="width:16px; height:16px; cursor:pointer;"></td>
+                    <td><div class="searchable-text"><b style="font-size:13px;">${escapeHtml(tobj.task_number)}</b>${contactText}</div></td>
+                    <td>
+                        <div class="searchable-text" style="font-size:12px; font-weight:bold; color:var(--text-main); margin-bottom:2px;">${escapeHtml(sysText)}</div>
+                        ${tobj.interface_name ? `<div style="font-size:11px; color:#0284c7; font-family:monospace; word-break:break-all;">${escapeHtml(tobj.interface_name)}</div>` : ''}
+                    </td>
+                </tr>
+            `);
+        });
+        saveReleaseDraft(false);
+    };
+
+    window.saveReleaseDraft = function(updateEmail = true) {
+        let selectedIds = []; $('.rel-cb:checked').each(function() { selectedIds.push($(this).val()); });
+        localStorage.setItem('release_draft_ids', JSON.stringify(selectedIds));
+        if(updateEmail) generateEmailText();
+    };
+
+    window.clearReleaseDraft = function() {
+        if(confirm(window.t ? window.t('confirm_clear_draft', 'Очистить черновик?') : 'Очистить черновик?')) { localStorage.removeItem('release_draft_ids'); $('.rel-cb').prop('checked', false); generateEmailText(); }
+    };
+
+    window.filterReleaseTasks = function() {
+        const query = $('#rn_search').val().toLowerCase().trim();
+        $('.rn-row').each(function() {
+            const text = $(this).find('.searchable-text').text().toLowerCase();
+            if (text.includes(query)) $(this).show(); else $(this).hide();
+        });
+    };
+
+    window.generateEmailText = function() {
+        const dateStr = $('#rn_date').val();
+        let html = `<div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 14px; color: #000000;"><p>${window.t ? window.t('rm_email_hi', 'Добрый день!') : 'Добрый день!'}</p><p>${window.t ? window.t('rm_email_req', 'Прошу взять в Релиз следующие задачи на') : 'Прошу взять в Релиз следующие задачи на'} <strong>${escapeHtml(dateStr)}</strong>:</p>`;
+        let hasTasks = false; let rows = '';
+
+        $('.rel-cb:checked').each(function() {
+            hasTasks = true; const tobj = window.allTasksGlobal.find(x => x.id == $(this).val());
+            if(tobj) {
+                let sysOut = (tobj.sender_sys && tobj.receiver_sys) ? `${escapeHtml(tobj.sender_sys)} ➔ ${escapeHtml(tobj.receiver_sys)}` : escapeHtml(tobj.sender_sys || tobj.receiver_sys || (window.t ? window.t('lbl_integration', 'Интеграция') : 'Интеграция'));
+
+                rows += `<tr>
+                            <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold;">${escapeHtml(tobj.task_number)}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 8px;"><b>${sysOut}</b>${tobj.interface_name ? `<br><span style="font-family: monospace; color: #0369a1;">${escapeHtml(tobj.interface_name)}</span>` : ''}</td>
+                            <td style="border: 1px solid #cbd5e1; padding: 8px;">${tobj.task_url ? `<a href="${tobj.task_url}" style="color: #0563c1;">${escapeHtml(tobj.task_url)}</a>` : ''}</td>
+                         </tr>`;
+            }
+        });
+
+        if (hasTasks) {
+            html += `<table style="border-collapse: collapse; width: 100%; max-width: 900px; font-size: 13px; margin-top: 15px;">
+                        <thead>
+                            <tr style="background-color: #f1f5f9; text-align: left;">
+                                <th style="border: 1px solid #cbd5e1; padding: 8px;">Номер задачи</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 8px;">Система / Интерфейс</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 8px;">Ссылка на задачу ALM</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                     </table>`;
+        } else {
+            html += `<p style="color: #999;">(${window.t ? window.t('rm_email_none', 'Задачи не выбраны') : 'Задачи не выбраны'})</p>`;
+        }
+
+        $('#email_preview').html(html + `</div>`);
+    };
+
+    window.copyReleaseEmail = function() {
+        const emailDiv = document.getElementById('email_preview');
+        const range = document.createRange(); range.selectNodeContents(emailDiv);
+        const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+        try { document.execCommand('copy'); alert(window.t ? window.t('msg_copied_outlook', 'Скопировано для Outlook.') : 'Скопировано для Outlook.'); } catch(err) { alert(window.t ? window.t('err_copy', 'Ошибка копирования.') : 'Ошибка копирования.'); }
+        selection.removeAllRanges();
+    };
+
+    function escapeHtml(text) { return String(text||'').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+</script>
+</body>
+</html>

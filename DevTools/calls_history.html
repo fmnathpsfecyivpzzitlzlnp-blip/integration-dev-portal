@@ -1,10 +1,60 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>История вызовов</title>
+    <title data-i18n="ch_title">История вызовов</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="style.css">
     <style>
+        /* === CSS ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-panel: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --group-header-bg: #f8f9fa;
+            --group-header-hover: #e9ecef;
+            --call-details-bg: #fafafa;
+            --code-bg: #ffffff;
+            --code-border: #e0e0e0;
+            --bulk-bar-bg: #e0e7ff;
+            --bulk-bar-border: #c7d2fe;
+            --bulk-bar-text: #3730a3;
+            --quick-filters-bg: #f8f9fa;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --group-header-bg: #1e293b;
+            --group-header-hover: #334155;
+            --call-details-bg: #0f172a;
+            --code-bg: #000000;
+            --code-border: #334155;
+            --bulk-bar-bg: #1e1b4b;
+            --bulk-bar-border: #3730a3;
+            --bulk-bar-text: #a5b4fc;
+            --quick-filters-bg: #1e293b;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background 0.3s, color 0.3s;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .main-content { padding: 20px; box-sizing: border-box; }
+
         .filter-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -12,166 +62,505 @@
             margin-bottom: 20px;
             align-items: end;
         }
+
+        .filter-input {
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+        }
+        .filter-input:focus { border-color: #3b82f6; }
+
         .history-group {
-            background: #fff;
-            border: 1px solid #ddd;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             margin-bottom: 20px;
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            transition: 0.3s;
         }
         .group-header {
             cursor: pointer;
-            background-color: #f8f9fa;
+            background-color: var(--group-header-bg);
             padding: 12px 15px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
             transition: background 0.2s;
         }
         .group-header:hover {
-            background-color: #e9ecef;
+            background-color: var(--group-header-hover);
         }
-        .group-body {
-            display: none;
-        }
+        .group-body { display: none; }
+
         /* Статус коды */
         .status-success { border-left: 5px solid #28a745; }
         .status-error { border-left: 5px solid #dc3545; }
         .status-auth-error { border-left: 5px solid #ffc107; }
-        .status-unknown { border-left: 5px solid #6c757d; }
 
         .call-summary {
             padding: 10px 15px;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--border-color);
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             font-size: 0.95em;
+            transition: background 0.2s;
         }
-        .call-summary:hover { background-color: #fcfcfc; }
+        .call-summary:hover { background-color: var(--group-header-hover); }
 
         .call-details {
             padding: 20px;
-            background: #fafafa;
-            border-bottom: 1px solid #ddd;
+            background: var(--call-details-bg);
+            border-bottom: 1px solid var(--border-color);
             font-size: 0.9em;
             display: none;
         }
 
         pre {
-            background: #fff;
-            border: 1px solid #e0e0e0;
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            color: var(--text-main);
             padding: 10px;
             border-radius: 4px;
             max-height: 300px;
             overflow: auto;
             white-space: pre-wrap;
+            font-family: 'Consolas', monospace;
+            transition: 0.3s;
         }
+
+        label { color: var(--text-muted); font-size: 13px; font-weight: 600; margin-bottom: 5px; display: block; }
+
+        .form-section {
+            background: var(--bg-panel);
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: 0.3s;
+        }
+
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(4px); }
+        .modal-content { background:var(--bg-panel); color:var(--text-main); width:450px; border-radius:8px; padding:25px; box-shadow:0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); }
+
+        #quick-env, #quick-status { background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border-color); }
     </style>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
 </head>
 <body>
+
+<!-- ЛОКАЛЬНЫЙ СЛОВАРЬ (САМООБОГАЩЕНИЕ) -->
+<script>
+    const PAGE_DICTIONARY = {
+        "ru": {
+            "ch_title": "История вызовов",
+            "ch_home": "🏠 Домой",
+            "ch_cs": "Сценарий (CS)",
+            "ch_bs": "Система (BS)",
+            "ch_iface": "Интерфейс (или часть URL)",
+            "ch_date_from": "Дата от",
+            "ch_date_to": "Дата до",
+            "ch_5d": "5 дней",
+            "ch_14d": "14 дней",
+            "ch_all_d": "✖ Все",
+            "ch_url": "Полный URL",
+            "ch_content": "Содержимое (Ищет абсолютно ВЕЗДЕ: заголовки, тело, правила, URL)",
+            "ch_ph_search": "Поиск любого текста...",
+            "ch_group": "🗂 Группировать по интерфейсу (показывать 2 последних)",
+            "ch_quick": "⚡ Быстрые фильтры:",
+            "ch_env_all": "🌍 Все среды",
+            "ch_env_dev": "🔵 Только DEV",
+            "ch_env_test": "🟡 Только TEST",
+            "ch_env_prod": "🟢 Только PROD",
+            "ch_stat_all": "🚥 Все статусы",
+            "ch_stat_ok": "✅ Только Успешные (2xx)",
+            "ch_stat_err": "❌ Только Ошибки (4xx, 5xx)",
+            "ch_sel_calls": "Выбрано вызовов:",
+            "ch_btn_reset": "Сбросить",
+            "ch_btn_repeat": "🚀 Повторить вызовы",
+            "ch_modal_title": "🛡️ Безопасный массовый запуск",
+            "ch_modal_desc": "Вы собираетесь повторить вызовы в фоновом режиме. Во избежание блокировки, введите актуальные учетные данные.",
+            "ch_login": "Актуальный Логин:",
+            "ch_pass": "Актуальный Пароль:",
+            "ch_done": "Выполнено:",
+            "ch_cancel": "Отмена",
+            "ch_start": "▶ Старт",
+            "ch_loading": "Загрузка истории...",
+            "ch_empty": "Записи отсутствуют.",
+            "ch_hidden": "Записи скрыты фильтрами.",
+            "ch_err_load": "Ошибка загрузки истории.",
+            "ch_req_body": "Запрос (Body)",
+            "ch_res_body": "Ответ (Response)",
+            "ch_btn_pretty": "✨ Красивый вид",
+            "ch_btn_raw": "🔄 Исходный код",
+            "ch_btn_pin": "📌 Закрепить",
+            "ch_btn_unpin": "🧷 Открепить",
+            "ch_btn_del": "🗑 Удалить",
+            "ch_prompt_pin": "Добавить комментарий к закрепу? (Оставьте пустым, если не нужен)",
+            "ch_confirm_del": "Удалить эту запись безвозвратно?",
+            "ch_err_format": "Данные не являются корректным JSON.",
+            "ch_no_auth": "Вы не ввели новые учетные данные. Запросы могут упасть. Продолжить?"
+        },
+        "en": {
+            "ch_title": "Call History",
+            "ch_home": "🏠 Home",
+            "ch_cs": "Scenario (CS)",
+            "ch_bs": "System (BS)",
+            "ch_iface": "Interface (or partial URL)",
+            "ch_date_from": "Date From",
+            "ch_date_to": "Date To",
+            "ch_5d": "5 Days",
+            "ch_14d": "14 Days",
+            "ch_all_d": "✖ All",
+            "ch_url": "Full URL",
+            "ch_content": "Content (Searches EVERYWHERE: headers, body, rules, URL)",
+            "ch_ph_search": "Search any text...",
+            "ch_group": "🗂 Group by interface (show last 2)",
+            "ch_quick": "⚡ Quick Filters:",
+            "ch_env_all": "🌍 All Environments",
+            "ch_env_dev": "🔵 DEV Only",
+            "ch_env_test": "🟡 TEST Only",
+            "ch_env_prod": "🟢 PROD Only",
+            "ch_stat_all": "🚥 All Statuses",
+            "ch_stat_ok": "✅ Success Only (2xx)",
+            "ch_stat_err": "❌ Errors Only (4xx, 5xx)",
+            "ch_sel_calls": "Calls selected:",
+            "ch_btn_reset": "Reset",
+            "ch_btn_repeat": "🚀 Repeat Calls",
+            "ch_modal_title": "🛡️ Secure Bulk Execution",
+            "ch_modal_desc": "You are about to repeat calls in the background. Enter current credentials to avoid account lockout.",
+            "ch_login": "Current Username:",
+            "ch_pass": "Current Password:",
+            "ch_done": "Completed:",
+            "ch_cancel": "Cancel",
+            "ch_start": "▶ Start",
+            "ch_loading": "Loading history...",
+            "ch_empty": "No records found.",
+            "ch_hidden": "Records hidden by filters.",
+            "ch_err_load": "Error loading history.",
+            "ch_req_body": "Request Body",
+            "ch_res_body": "Response Body",
+            "ch_btn_pretty": "✨ Pretty Format",
+            "ch_btn_raw": "🔄 Raw Code",
+            "ch_btn_pin": "📌 Pin",
+            "ch_btn_unpin": "🧷 Unpin",
+            "ch_btn_del": "🗑 Delete",
+            "ch_prompt_pin": "Add a comment to this pin? (Leave empty if not needed)",
+            "ch_confirm_del": "Delete this record permanently?",
+            "ch_err_format": "Data is not valid JSON.",
+            "ch_no_auth": "No credentials entered. Calls might fail. Continue?"
+        },
+        "de": {
+            "ch_title": "Anrufverlauf", "ch_home": "🏠 Startseite", "ch_cs": "Szenario (CS)", "ch_bs": "System (BS)",
+            "ch_iface": "Schnittstelle (oder Teil-URL)", "ch_date_from": "Datum von", "ch_date_to": "Datum bis",
+            "ch_5d": "5 Tage", "ch_14d": "14 Tage", "ch_all_d": "✖ Alle", "ch_url": "Vollständige URL",
+            "ch_content": "Inhalt (Sucht ÜBERALL)", "ch_ph_search": "Beliebigen Text suchen...",
+            "ch_group": "🗂 Nach Schnittstelle gruppieren", "ch_quick": "⚡ Schnelle Filter:",
+            "ch_env_all": "🌍 Alle Umgebungen", "ch_env_dev": "🔵 Nur DEV", "ch_env_test": "🟡 Nur TEST",
+            "ch_env_prod": "🟢 Nur PROD", "ch_stat_all": "🚥 Alle Status", "ch_stat_ok": "✅ Nur Erfolgreich (2xx)",
+            "ch_stat_err": "❌ Nur Fehler (4xx, 5xx)", "ch_sel_calls": "Ausgewählte Anrufe:", "ch_btn_reset": "Zurücksetzen",
+            "ch_btn_repeat": "🚀 Anrufe wiederholen", "ch_modal_title": "🛡️ Sichere Massenausführung",
+            "ch_modal_desc": "Geben Sie aktuelle Anmeldeinformationen ein, um eine Sperrung zu vermeiden.",
+            "ch_login": "Aktueller Benutzername:", "ch_pass": "Aktuelles Passwort:", "ch_done": "Abgeschlossen:",
+            "ch_cancel": "Abbrechen", "ch_start": "▶ Start", "ch_loading": "Verlauf wird geladen...",
+            "ch_empty": "Keine Aufzeichnungen gefunden.", "ch_hidden": "Durch Filter verborgen.",
+            "ch_err_load": "Fehler beim Laden des Verlaufs.", "ch_req_body": "Anfrage", "ch_res_body": "Antwort",
+            "ch_btn_pretty": "✨ Formatieren", "ch_btn_raw": "🔄 Rohdaten", "ch_btn_pin": "📌 Anheften",
+            "ch_btn_unpin": "🧷 Lösen", "ch_btn_del": "🗑 Löschen", "ch_prompt_pin": "Kommentar hinzufügen?",
+            "ch_confirm_del": "Dauerhaft löschen?", "ch_err_format": "Ungültiges JSON.", "ch_no_auth": "Ohne Anmeldung fortfahren?"
+        },
+        "zh": {
+            "ch_title": "通话记录", "ch_home": "🏠 主页", "ch_cs": "场景 (CS)", "ch_bs": "系统 (BS)",
+            "ch_iface": "接口 (或部分 URL)", "ch_date_from": "起始日期", "ch_date_to": "结束日期",
+            "ch_5d": "5 天", "ch_14d": "14 天", "ch_all_d": "✖ 全部", "ch_url": "完整 URL",
+            "ch_content": "内容 (搜索所有内容)", "ch_ph_search": "搜索任何文本...", "ch_group": "🗂 按接口分组",
+            "ch_quick": "⚡ 快速过滤器:", "ch_env_all": "🌍 所有环境", "ch_env_dev": "🔵 仅 DEV",
+            "ch_env_test": "🟡 仅 TEST", "ch_env_prod": "🟢 仅 PROD", "ch_stat_all": "🚥 所有状态",
+            "ch_stat_ok": "✅ 仅成功 (2xx)", "ch_stat_err": "❌ 仅错误 (4xx, 5xx)", "ch_sel_calls": "已选通话:",
+            "ch_btn_reset": "重置", "ch_btn_repeat": "🚀 重复通话", "ch_modal_title": "🛡️ 安全批量执行",
+            "ch_modal_desc": "输入当前凭据以避免帐户被锁定。", "ch_login": "用户名:", "ch_pass": "密码:",
+            "ch_done": "已完成:", "ch_cancel": "取消", "ch_start": "▶ 开始", "ch_loading": "正在加载历史记录...",
+            "ch_empty": "没有找到记录。", "ch_hidden": "记录被隐藏。", "ch_err_load": "加载失败。",
+            "ch_req_body": "请求正文", "ch_res_body": "响应正文", "ch_btn_pretty": "✨ 格式化",
+            "ch_btn_raw": "🔄 原始代码", "ch_btn_pin": "📌 固定", "ch_btn_unpin": "🧷 取消固定",
+            "ch_btn_del": "🗑 删除", "ch_prompt_pin": "添加评论？", "ch_confirm_del": "永久删除？",
+            "ch_err_format": "无效的JSON。", "ch_no_auth": "未输入凭据，继续？"
+        },
+        "ja": {
+            "ch_title": "通話履歴", "ch_home": "🏠 ホーム", "ch_cs": "シナリオ (CS)", "ch_bs": "システム (BS)",
+            "ch_iface": "インターフェース", "ch_date_from": "開始日", "ch_date_to": "終了日",
+            "ch_5d": "5日間", "ch_14d": "14日間", "ch_all_d": "✖ すべて", "ch_url": "完全なURL",
+            "ch_content": "内容 (すべて検索)", "ch_ph_search": "テキストを検索...", "ch_group": "🗂 グループ化",
+            "ch_quick": "⚡ クイックフィルター:", "ch_env_all": "🌍 すべての環境", "ch_env_dev": "🔵 DEVのみ",
+            "ch_env_test": "🟡 TESTのみ", "ch_env_prod": "🟢 PRODのみ", "ch_stat_all": "🚥 すべてのステータス",
+            "ch_stat_ok": "✅ 成功のみ", "ch_stat_err": "❌ エラーのみ", "ch_sel_calls": "選択済み:",
+            "ch_btn_reset": "リセット", "ch_btn_repeat": "🚀 再実行", "ch_modal_title": "🛡️ セキュア実行",
+            "ch_modal_desc": "ロックを避けるため、現在の資格情報を入力してください。", "ch_login": "ユーザー名:", "ch_pass": "パスワード:",
+            "ch_done": "完了:", "ch_cancel": "キャンセル", "ch_start": "▶ 開始", "ch_loading": "読み込み中...",
+            "ch_empty": "記録がありません。", "ch_hidden": "非表示。", "ch_err_load": "エラー。",
+            "ch_req_body": "リクエスト", "ch_res_body": "レスポンス", "ch_btn_pretty": "✨ フォーマット",
+            "ch_btn_raw": "🔄 生コード", "ch_btn_pin": "📌 ピン留め", "ch_btn_unpin": "🧷 ピン解除",
+            "ch_btn_del": "🗑 削除", "ch_prompt_pin": "コメントを追加？", "ch_confirm_del": "完全に削除しますか？",
+            "ch_err_format": "無効なJSON", "ch_no_auth": "資格情報なしで続行しますか？"
+        },
+        "ar": {
+            "ch_title": "سجل المكالمات", "ch_home": "🏠 الرئيسية", "ch_cs": "السيناريو", "ch_bs": "النظام",
+            "ch_iface": "الواجهة", "ch_date_from": "التاريخ من", "ch_date_to": "التاريخ إلى",
+            "ch_5d": "5 أيام", "ch_14d": "14 يوم", "ch_all_d": "✖ الكل", "ch_url": "الرابط الكامل",
+            "ch_content": "المحتوى", "ch_ph_search": "البحث في أي نص...", "ch_group": "🗂 تجميع",
+            "ch_quick": "⚡ فلاتر سريعة:", "ch_env_all": "🌍 جميع البيئات", "ch_env_dev": "🔵 DEV فقط",
+            "ch_env_test": "🟡 TEST فقط", "ch_env_prod": "🟢 PROD فقط", "ch_stat_all": "🚥 جميع الحالات",
+            "ch_stat_ok": "✅ نجاح فقط", "ch_stat_err": "❌ أخطاء فقط", "ch_sel_calls": "المحدد:",
+            "ch_btn_reset": "إعادة ضبط", "ch_btn_repeat": "🚀 تكرار", "ch_modal_title": "🛡️ تنفيذ آمن",
+            "ch_modal_desc": "أدخل بيانات الاعتماد الحالية.", "ch_login": "اسم المستخدم:", "ch_pass": "كلمة المرور:",
+            "ch_done": "مكتمل:", "ch_cancel": "إلغاء", "ch_start": "▶ بدء", "ch_loading": "جاري التحميل...",
+            "ch_empty": "لا توجد سجلات.", "ch_hidden": "سجلات مخفية.", "ch_err_load": "خطأ.",
+            "ch_req_body": "الطلب", "ch_res_body": "الاستجابة", "ch_btn_pretty": "✨ تنسيق",
+            "ch_btn_raw": "🔄 كود خام", "ch_btn_pin": "📌 تثبيت", "ch_btn_unpin": "🧷 إلغاء تثبيت",
+            "ch_btn_del": "🗑 حذف", "ch_prompt_pin": "إضافة تعليق؟", "ch_confirm_del": "حذف نهائي؟",
+            "ch_err_format": "JSON غير صالح.", "ch_no_auth": "استمرار بدون تسجيل دخول؟"
+        }
+    };
+
+    // ФУНКЦИЯ САМООБОГАЩЕНИЯ: Вызывается ПЕРЕД отрисовкой страницы
+    function autoEnrichDictionary() {
+        const lang = localStorage.getItem('app_lang') || 'ru';
+        let dictStr = localStorage.getItem('portal_dictionary');
+        let globalDict = dictStr ? JSON.parse(dictStr) : {};
+        let isUpdated = false;
+
+        for (let l in PAGE_DICTIONARY) {
+            if (!globalDict[l]) {
+                globalDict[l] = {};
+                isUpdated = true;
+            }
+            for (let k in PAGE_DICTIONARY[l]) {
+                if (globalDict[l][k] === undefined) {
+                    globalDict[l][k] = PAGE_DICTIONARY[l][k];
+                    isUpdated = true;
+                }
+            }
+        }
+
+        if (isUpdated) {
+            // Сохраняем локально, чтобы другие вкладки сразу увидели
+            localStorage.setItem('portal_dictionary', JSON.stringify(globalDict));
+            // Отправляем в БД асинхронно
+            $.ajax({
+                url: '/api/tasks/settings', type: 'POST', contentType: 'application/json',
+                data: JSON.stringify({ ui_dictionary: JSON.stringify(globalDict) })
+            });
+        }
+
+        // Применяем язык немедленно
+        if (typeof applyLanguage === 'function') {
+            applyLanguage(lang, globalDict);
+        }
+    }
+
+    // Функция получения перевода на лету (для JS алертов)
+    function t(key, defaultStr) {
+        const lang = localStorage.getItem('app_lang') || 'ru';
+        try {
+            const dict = JSON.parse(localStorage.getItem('portal_dictionary'))[lang];
+            if (dict && dict[key]) return dict[key];
+        } catch(e) {}
+        return PAGE_DICTIONARY[lang] ? (PAGE_DICTIONARY[lang][key] || defaultStr) : defaultStr;
+    }
+</script>
+
 <div class="main-content">
-    <h2>История вызовов</h2>
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="ch_home">🏠 Домой</button>
+        <h2 style="margin: 0; border: none; color: var(--text-main);" data-i18n="ch_title">История вызовов</h2>
+    </div>
 
     <div class="form-section">
         <div class="filter-grid">
-            <div><label>Сценарий (CS)</label><input type="text" id="csName-filter" class="filter-input" data-key="csName"></div>
-            <div><label>Система (BS)</label><input type="text" id="bsName-filter" class="filter-input" data-key="bsName"></div>
-            <div><label>Интерфейс</label><input type="text" id="interface-filter" class="filter-input" data-key="interfaceName"></div>
-            <div><label>URL</label><input type="text" id="url-filter" class="filter-input" data-key="url"></div>
-            <div><label>Дата от</label><input type="date" id="dateFrom-filter" class="filter-input" data-key="dateFrom"></div>
-            <div><label>Дата до</label><input type="date" id="dateTo-filter" class="filter-input" data-key="dateTo"></div>
+            <div><label data-i18n="ch_cs">Сценарий (CS)</label><input type="text" id="csName-filter" class="filter-input"></div>
+            <div><label data-i18n="ch_bs">Система (BS)</label><input type="text" id="bsName-filter" class="filter-input"></div>
+            <div><label data-i18n="ch_iface">Интерфейс (или часть URL)</label><input type="text" id="interface-filter" class="filter-input"></div>
+
+            <div><label data-i18n="ch_date_from">Дата от</label><input type="date" id="dateFrom-filter" class="filter-input" min="2000-01-01" max="2099-12-31"></div>
+            <div><label data-i18n="ch_date_to">Дата до</label><input type="date" id="dateTo-filter" class="filter-input" min="2000-01-01" max="2099-12-31"></div>
+
+            <div style="display: flex; gap: 5px; align-items: flex-end; padding-bottom: 2px;">
+                <button id="btn-date-5" class="secondary" style="padding: 6px; font-size: 11px; flex: 1; font-weight: bold;" data-i18n="ch_5d">5 дней</button>
+                <button id="btn-date-14" class="secondary" style="padding: 6px; font-size: 11px; flex: 1; font-weight: bold;" data-i18n="ch_14d">14 дней</button>
+                <button id="btn-date-clear" class="danger" style="padding: 6px; font-size: 11px; flex: 1; font-weight: bold;" data-i18n="ch_all_d">✖ Все</button>
+            </div>
+
+            <div><label data-i18n="ch_url">Полный URL</label><input type="text" id="url-filter" class="filter-input"></div>
+
             <div style="grid-column: 1 / -1;">
-                <label>Содержимое (заголовки, тело, правила)</label>
-                <input type="text" id="content-filter" class="filter-input" data-key="content" placeholder="Поиск текста...">
+                <label data-i18n="ch_content">Содержимое (Ищет абсолютно ВЕЗДЕ: заголовки, тело, правила, URL)</label>
+                <input type="text" id="content-filter" class="filter-input" data-i18n="ch_ph_search" placeholder="Поиск любого текста...">
+            </div>
+            <div style="grid-column: 1 / -1; margin-top: 5px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; color: var(--text-muted); font-size: 13px;">
+                    <input type="checkbox" id="group-interface-filter" class="filter-input" style="width: 16px; height: 16px; margin: 0;">
+                    <span data-i18n="ch_group">🗂 Группировать по интерфейсу (показывать 2 последних)</span>
+                </label>
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+
+        <div style="display: flex; gap: 20px; align-items: center; background: var(--quick-filters-bg); padding: 10px 15px; border-radius: 6px; border: 1px solid var(--border-color); transition: 0.3s;">
+            <strong style="color: var(--text-main); font-size: 13px;" data-i18n="ch_quick">⚡ Быстрые фильтры:</strong>
+
+            <select id="quick-env" style="padding: 6px 10px; border-radius: 4px; font-size: 13px; outline: none;">
+                <option value="all" data-i18n="ch_env_all">🌍 Все среды</option>
+                <option value="DEV" data-i18n="ch_env_dev">🔵 Только DEV</option>
+                <option value="TEST" data-i18n="ch_env_test">🟡 Только TEST</option>
+                <option value="PROD" data-i18n="ch_env_prod">🟢 Только PROD</option>
+            </select>
+
+            <select id="quick-status" style="padding: 6px 10px; border-radius: 4px; font-size: 13px; outline: none;">
+                <option value="all" data-i18n="ch_stat_all">🚥 Все статусы</option>
+                <option value="success" data-i18n="ch_stat_ok">✅ Только Успешные (2xx)</option>
+                <option value="error" data-i18n="ch_stat_err">❌ Только Ошибки (4xx, 5xx)</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="bulk-action-bar" style="display: none; background: var(--bulk-bar-bg); padding: 12px 20px; border-radius: 6px; border: 1px solid var(--bulk-bar-border); margin-bottom: 20px; align-items: center; justify-content: space-between; transition: 0.3s;">
+        <span style="font-weight: 600; color: var(--bulk-bar-text); font-size: 14px;">
+            <span data-i18n="ch_sel_calls">Выбрано вызовов:</span> <span id="bulk-count-display">0</span>
+        </span>
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-clear-bulk" class="secondary" data-i18n="ch_btn_reset">Сбросить</button>
+            <button id="btn-open-bulk-modal" class="primary" style="background: #4f46e5; border-color: #4f46e5;" data-i18n="ch_btn_repeat">🚀 Повторить вызовы</button>
+        </div>
+    </div>
+
+    <div id="bulk-resend-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-top:0; color:var(--text-main); border-bottom:2px solid var(--border-color); padding-bottom:10px;" data-i18n="ch_modal_title">🛡️ Безопасный массовый запуск</h2>
+            <p style="font-size:13px; color:var(--text-muted);"><span data-i18n="ch_modal_desc">Вы собираетесь повторить вызовы в фоновом режиме. Во избежание блокировки, введите актуальные учетные данные.</span> (<b id="modal-bulk-count">0</b>)</p>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display:block; font-weight:600; margin-bottom:5px; font-size:13px;" data-i18n="ch_login">Актуальный Логин:</label>
+                <input type="text" id="bulk-login" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px; background:var(--input-bg); color:var(--text-main);" autocomplete="off">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; font-weight:600; margin-bottom:5px; font-size:13px;" data-i18n="ch_pass">Актуальный Пароль:</label>
+                <input type="password" id="bulk-password" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px; background:var(--input-bg); color:var(--text-main);" autocomplete="new-password">
+            </div>
+
+            <div id="bulk-progress" style="display:none; margin-bottom:15px; font-size:13px; color:#10b981; font-weight:bold;">
+                <span data-i18n="ch_done">Выполнено:</span> <span id="bulk-progress-done">0</span> / <span id="bulk-progress-total">0</span>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="secondary" onclick="$('#bulk-resend-modal').fadeOut(150)" data-i18n="ch_cancel">Отмена</button>
+                <button class="primary" id="btn-execute-bulk" style="background:#10b981; border-color:#10b981;" data-i18n="ch_start">▶ Старт</button>
             </div>
         </div>
     </div>
 
     <div id="history-container">
-        <p style="text-align:center; color:#777; padding: 20px;">Загрузка истории...</p>
+        <p style="text-align:center; color:var(--text-muted); padding: 20px;" id="loading-msg" data-i18n="ch_loading">Загрузка истории...</p>
     </div>
 </div>
 
-<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
+    let allHistoryData = [];
+    let envDictionary = [];
+
     $(function() {
-        let allHistoryData = [];
+        // Обогащаем глобальный словарь своими переводами при старте
+        autoEnrichDictionary();
 
-        // === КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Логика определения среды через словарь ===
-        function getEnvironmentInfo(url) {
-            if (!url) return 'URL не указан';
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
 
-            let host;
-            try {
-                host = new URL(url).hostname;
-            } catch (e) {
-                return url;
+        function setDateRange(daysAgo) {
+            if (daysAgo === null) {
+                $('#dateFrom-filter').val('');
+                $('#dateTo-filter').val('');
+            } else {
+                const today = new Date();
+                const past = new Date();
+                past.setDate(today.getDate() - daysAgo);
+
+                const offset = today.getTimezoneOffset() * 60000;
+                const todayLocal = new Date(today.getTime() - offset).toISOString().split('T')[0];
+                const pastLocal = new Date(past.getTime() - offset).toISOString().split('T')[0];
+
+                $('#dateTo-filter').val(todayLocal);
+                $('#dateFrom-filter').val(pastLocal);
             }
-
-            // 1. Загружаем справочник (предполагаем, что он уже сохранен в dictionaries.html)
-            // Если нет - пустой массив
-            const envDict = JSON.parse(localStorage.getItem('env_dictionary') || '[]');
-
-            // 2. Ищем совпадение (по подстроке или точно)
-            // Пример элемента словаря: { host: 'brmq-dev1', type: 'DEV' }
-            const match = envDict.find(entry => host.includes(entry.host));
-
-            if (match) {
-                let color = '#6c757d'; // Gray default
-                let bg = '#f8f9fa';
-                if (match.type === 'PROD') { color = '#155724'; bg = '#d4edda'; }
-                if (match.type === 'TEST') { color = '#856404'; bg = '#fff3cd'; }
-                if (match.type === 'DEV')  { color = '#0c5460'; bg = '#d1ecf1'; }
-
-                return `<span style="font-weight:bold; color:${color}; background:${bg}; padding:2px 6px; border-radius:4px; font-size:0.85em;">${match.type}</span> ${host}`;
-            }
-
-            // 3. Fallback: если в словаре нет, НЕ ПИШЕМ PROD! Пишем Unknown или Host.
-            return `<span style="color: #999; font-weight: bold; font-size: 0.85em;">UNKNOWN</span> ${host}`;
+            doDateSearch();
         }
-        // =====================================================================
+
+        $('#btn-date-5').on('click', () => setDateRange(5));
+        $('#btn-date-14').on('click', () => setDateRange(14));
+        $('#btn-date-clear').on('click', () => setDateRange(null));
+
+
+        function getEnvType(url) {
+            if (!url) return 'UNKNOWN';
+            let host;
+            try { host = new URL(url).hostname.toLowerCase(); } catch(e) { host = url.toLowerCase(); }
+
+            const match = envDictionary.find(entry => host.includes(entry.host.toLowerCase()));
+            if (match) return match.type.toUpperCase();
+
+            if (host.includes('dev')) return 'DEV';
+            if (host.includes('tst') || host.includes('test')) return 'TEST';
+            if (host.includes('prod')) return 'PROD';
+            if (host.includes('uat')) return 'UAT';
+
+            return 'UNKNOWN';
+        }
+
+        function getEnvBadge(envType) {
+            let color = '#64748b', bg = 'var(--bg-main)';
+            if (envType === 'PROD') { color = '#155724'; bg = '#d4edda'; }
+            if (envType === 'TEST') { color = '#856404'; bg = '#fef08a'; }
+            if (envType === 'DEV')  { color = '#0369a1'; bg = '#e0f2fe'; }
+            return `<span style="font-weight:bold; color:${color}; background:${bg}; padding:2px 6px; border-radius:4px; font-size:0.85em; margin-right: 8px;">${envType}</span>`;
+        }
 
         function getStatusClass(item) {
-            // Считаем статус код
-            if(item.stack_trace) return 'status-error';
-            if(!item.response_headers) return 'status-unknown';
-            try {
-                // Попытка найти статус в заголовках
-                let status = 0;
-                // Просто эвристика для парсинга разных форматов заголовков
-                if(typeof item.response_headers === 'object') {
-                    // если пришло как объект
-                    status = item.status_code; // часто есть такое поле
-                } else {
-                    // если json string
-                    const headers = JSON.parse(item.response_headers);
-                    // Попытка найти :status или взять статус из item, если API передает
-                }
-                // Фолбэк на простой статус если есть поле в базе
-                if(item.http_status) status = item.http_status;
+            if (item.stack_trace) return 'status-error';
 
-                if (status >= 200 && status < 300) return 'status-success';
-                if (status >= 400 && status < 500) return 'status-auth-error';
-                if (status >= 500) return 'status-error';
-            } catch(e) {}
+            const respBody = (item.response || '').toLowerCase();
+            const isErrorPayload = respBody.includes('httpoperationfailedexception') ||
+                respBody.includes('java.net.connectexception') ||
+                (respBody.includes('"error"') && respBody.includes('404'));
 
-            // Грубый фолбэк: есть stack_trace или нет
-            return item.stack_trace ? 'status-error' : 'status-success';
+            if (isErrorPayload) return 'status-error';
+
+            if (item.http_status) {
+                if (item.http_status >= 200 && item.http_status < 300) return 'status-success';
+                if (item.http_status >= 400 && item.http_status < 500) return 'status-auth-error';
+                if (item.http_status >= 500) return 'status-error';
+            }
+
+            if (respBody.includes('exception') || respBody.includes('fail')) return 'status-error';
+
+            return 'status-success';
         }
 
         function renderHistory(history) {
             const container = $('#history-container').empty();
             if (!history || history.length === 0) {
-                container.html('<div class="form-section"><p style="text-align:center; color:#777;">Записи отсутствуют.</p></div>');
+                container.html(`<div class="form-section"><p style="text-align:center; color:var(--text-muted);">${t('ch_empty', 'Записи отсутствуют.')}</p></div>`);
                 return;
             }
 
-            // Группировка по Сценарию (CS Name)
             const groupedByCS = history.reduce((acc, item) => {
-                const key = item.cs_name || 'Без сценария';
+                const key = item.cs_name || 'UNKNOWN SCENARIO';
                 (acc[key] = acc[key] || []).push(item);
                 return acc;
             }, {});
@@ -180,14 +569,12 @@
 
             sortedKeys.forEach(csName => {
                 const groupItems = groupedByCS[csName];
-                const groupCount = groupItems.length;
 
-                // Шаблон Группы
                 const group = $(`
                     <div class="history-group">
                         <div class="group-header">
-                            <strong style="font-size:1.1em; color:#343a40;">${escapeHtml(csName)} <span style="color:#adb5bd; font-weight:normal;">(${groupCount})</span></strong>
-                            <span class="toggle-icon">▼</span>
+                            <strong style="font-size:1.1em; color:var(--text-main);">${escapeHtml(csName)} <span class="group-count" style="color:var(--text-muted); font-weight:normal;">(${groupItems.length})</span></strong>
+                            <span class="toggle-icon" style="color:var(--text-muted)">▼</span>
                         </div>
                         <div class="group-body"></div>
                     </div>
@@ -195,63 +582,116 @@
 
                 const body = group.find('.group-body');
 
-                // Внутри сортируем по ID убывания (новые сверху)
-                groupItems.sort((a, b) => b.id - a.id);
+                group.find('.group-header').on('click', function() {
+                    body.slideToggle(200);
+                    const icon = $(this).find('.toggle-icon');
+                    icon.text(icon.text() === '▼' ? '▲' : '▼');
+                });
+
+                groupItems.sort((a, b) => {
+                    const pinA = a.is_pinned || 0;
+                    const pinB = b.is_pinned || 0;
+                    if (pinA !== pinB) return pinB - pinA;
+                    return b.id - a.id;
+                });
 
                 groupItems.forEach(item => {
                     const stClass = getStatusClass(item);
-                    const dateStr = new Date(item.call_date).toLocaleString('ru-RU');
+                    const envType = getEnvType(item.service_url);
+                    const isError = stClass !== 'status-success';
+                    const isPinned = item.is_pinned === 1;
 
-                    // Строка саммари
+                    const filterClasses = `filter-item env-${envType} status-${isError ? 'error' : 'success'}`;
+                    const dateStr = new Date(item.call_date).toLocaleString();
+
+                    const pinBadge = isPinned
+                        ? `<span title="${escapeHtml(item.pin_comment || 'PIN')}" style="margin-right:8px; font-size:16px; cursor:help;">📌</span>`
+                        : '';
+
+                    const bgStyle = isPinned ? (localStorage.getItem('global_dark_theme')==='true'?'background-color: rgba(245, 158, 11, 0.1);':'background-color: #fffbeb;') : '';
+
                     const summary = $(`
-                        <div class="call-summary ${stClass}">
-                            <div style="flex:1;">
-                                <div style="font-weight:600; margin-bottom:3px;">${escapeHtml(item.bs_name)} / ${escapeHtml(item.interface_o)}</div>
-                                <div>${getEnvironmentInfo(item.service_url)}</div>
+                        <div class="call-summary ${stClass} ${filterClasses}" style="${bgStyle}">
+                            <div style="flex:1; overflow: hidden; display: flex; align-items: center;">
+                                <input type="checkbox" class="bulk-cb" data-id="${item.id}" style="margin-right: 15px; width: 16px; height: 16px; cursor: pointer;">
+                                ${pinBadge}
+                                <div>
+                                    <div style="font-weight:600; margin-bottom:4px; display:flex; align-items:center; color:var(--text-main);">
+                                        ${getEnvBadge(envType)} ${escapeHtml(item.bs_name || 'UNKNOWN')} / ${escapeHtml(item.interface_o)}
+                                    </div>
+                                    <div style="color:var(--text-muted); font-size:11px; font-family: 'Consolas', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.service_url)}">
+                                        ${escapeHtml(item.http_method || 'POST')} &rarr; ${escapeHtml(item.service_url)}
+                                    </div>
+                                </div>
                             </div>
-                            <div style="color:#888; font-size:0.85em; align-self:center;">
+                            <div style="color:var(--text-muted); font-size:0.85em; align-self:center; margin-left:15px; white-space:nowrap;">
                                 ${dateStr}
                             </div>
                         </div>
                     `);
 
-                    // Блок деталей
+                    const rawReq = item.request || '';
+                    const rawRes = item.response || '';
+
                     const details = $(`
                         <div class="call-details">
-                            <div class="button-bar" style="justify-content: flex-start; margin-bottom:15px; gap:10px;">
-                                <button class="repeat-btn" style="background:#007bff; color:white;">⟳ Повторить вызов</button>
-                                <button class="danger delete-btn" style="margin-left:auto;">🗑 Удалить</button>
+                            <div class="button-bar" style="justify-content: flex-start; margin-bottom:15px; gap:10px; display:flex;">
+                                <button class="repeat-btn primary" style="background:#3b82f6; border:none; padding:6px 12px; border-radius:4px; color:white; cursor:pointer;">${t('ch_btn_repeat', '⟳ Повторить вызов')}</button>
+                                <button class="secondary pin-btn" style="padding:6px 12px; border-radius:4px; cursor:pointer; background:var(--bg-main); color:var(--text-main); border:1px solid var(--border-color);">${isPinned ? t('ch_btn_unpin', '🧷 Открепить') : t('ch_btn_pin', '📌 Закрепить')}</button>
+                                <button class="danger delete-btn" style="margin-left:auto; background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">${t('ch_btn_del', '🗑 Удалить')}</button>
                             </div>
 
-                            <h4>Request (Body)</h4>
-                            <pre>${escapeHtml(item.request)}</pre>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                                <h4 style="margin-bottom:5px; color:var(--text-main);">${t('ch_req_body', 'Request (Body)')}</h4>
+                                <button class="btn-small secondary format-btn" data-type="req" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main); border-radius:4px; cursor:pointer;">${t('ch_btn_pretty', '✨ Красивый вид')}</button>
+                            </div>
+                            <pre class="req-block">${escapeHtml(rawReq)}</pre>
 
-                            <h4>Response</h4>
-                            <pre>${escapeHtml(item.response || '(empty)')}</pre>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:15px;">
+                                <h4 style="margin-bottom:5px; color:var(--text-main);">${t('ch_res_body', 'Response')}</h4>
+                                <button class="btn-small secondary format-btn" data-type="res" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main); border-radius:4px; cursor:pointer;">${t('ch_btn_pretty', '✨ Красивый вид')}</button>
+                            </div>
+                            <pre class="res-block">${escapeHtml(rawRes || '(empty)')}</pre>
 
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:15px;">
-                                <div>
-                                    <strong>Request Headers:</strong>
-                                    <pre style="font-size:0.8em; max-height:150px;">${safeJsonFormat(item.request_headers)}</pre>
-                                </div>
-                                <div>
-                                    <strong>Response Headers:</strong>
-                                    <pre style="font-size:0.8em; max-height:150px;">${safeJsonFormat(item.response_headers)}</pre>
-                                </div>
+                                <div><strong style="color:var(--text-main);">Request Headers:</strong><pre style="font-size:0.8em; max-height:150px;">${safeJsonFormat(item.request_headers)}</pre></div>
+                                <div><strong style="color:var(--text-main);">Response Headers:</strong><pre style="font-size:0.8em; max-height:150px;">${safeJsonFormat(item.response_headers)}</pre></div>
                             </div>
-
-                            ${item.stack_trace ? `<h4 style="color:red;">Error Trace</h4><pre style="background:#fff5f5; border-color:#ffa8a8;">${escapeHtml(item.stack_trace)}</pre>` : ''}
+                            ${item.stack_trace ? `<h4 style="color:#ef4444;">Error Trace</h4><pre style="background:rgba(239, 68, 68, 0.1); border-color:#fca5a5; color:#ef4444;">${escapeHtml(item.stack_trace)}</pre>` : ''}
                         </div>
                     `);
 
-                    // Логика кнопок
+                    summary.find('.bulk-cb').on('click', function(e) {
+                        e.stopPropagation();
+                        updateBulkActionBar();
+                    });
+
+                    details.find('.pin-btn').on('click', function(e) {
+                        e.stopPropagation();
+                        let comment = item.pin_comment || '';
+                        if (!isPinned) {
+                            comment = prompt(t('ch_prompt_pin', 'Добавить комментарий к закрепу? (Оставьте пустым, если не нужен)'), comment) || '';
+                        }
+                        $.ajax({
+                            url: '/api/history/pin',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ id: item.id, is_pinned: isPinned ? 0 : 1, comment: comment }),
+                            success: () => doDateSearch()
+                        });
+                    });
+
                     details.find('.delete-btn').on('click', function(e) {
                         e.stopPropagation();
-                        if(confirm('Удалить эту запись?')) {
+                        if(confirm(t('ch_confirm_del', 'Удалить эту запись?'))) {
                             $.ajax({
                                 url: `/api/history/item/${item.id}`,
                                 type: 'DELETE',
-                                success: () => { summary.remove(); details.remove(); }
+                                success: () => {
+                                    summary.remove();
+                                    details.remove();
+                                    applyLocalFilters();
+                                }
                             });
                         }
                     });
@@ -261,47 +701,67 @@
                         repeatCall(item);
                     });
 
-                    // Тоггл деталей по клику на саммари
-                    summary.on('click', () => {
-                        details.slideToggle(200);
+                    details.find('.format-btn').on('click', function(e) {
+                        e.stopPropagation();
+                        const isRes = $(this).data('type') === 'res';
+                        const targetPre = $(this).parent().next('pre');
+                        const isFormatted = $(this).data('formatted');
+                        const rawText = isRes ? rawRes : rawReq;
+
+                        if (!isFormatted) {
+                            try {
+                                const parsed = JSON.parse(rawText);
+                                targetPre.text(JSON.stringify(parsed, null, 4));
+                                $(this).data('formatted', true).text(t('ch_btn_raw', '🔄 Исходный код'));
+                            } catch(err) {
+                                alert(t('ch_err_format', 'Данные не являются корректным JSON.'));
+                            }
+                        } else {
+                            targetPre.text(rawText);
+                            $(this).data('formatted', false).text(t('ch_btn_pretty', '✨ Красивый вид'));
+                        }
                     });
 
+                    summary.on('click', () => details.slideToggle(200));
                     body.append(summary).append(details);
                 });
 
                 container.append(group);
             });
-
-            // Аккордеон для групп
-            $('.group-header').on('click', function() {
-                $(this).next('.group-body').slideToggle(200);
-                // Меняем стрелочку (простой способ)
-                const txt = $(this).find('.toggle-icon').text();
-                $(this).find('.toggle-icon').text(txt === '▼' ? '▲' : '▼');
-            });
         }
 
-        function repeatCall(item) {
-            // Пишем в LS
+        window.repeatCall = function(item) {
             try {
-                localStorage.setItem('calls_#url', item.service_url || '');
-                localStorage.setItem('calls_#method', item.http_method || 'POST'); // если сохраняли метод
-                localStorage.setItem('calls_#headers', item.request_headers || '{}');
-                localStorage.setItem('calls_#template', item.request || '');
-                // Принудительно очистить пароли из безопасности
-                localStorage.setItem('calls_#login', '');
-                localStorage.setItem('calls_#password', '');
+                let tabsData = JSON.parse(localStorage.getItem('api_calls_tabs')) || [];
+                let newTabId = 'tab_' + Math.random().toString(36).substr(2, 9);
 
-                // Восстанавливаем правила (если они были)
-                if(item.data_rules && item.data_rules !== '{}' && item.data_rules !== 'null') {
-                    localStorage.setItem('calls_#dataRules', item.data_rules);
-                } else {
-                    localStorage.setItem('calls_#dataRules', '{}');
-                }
+                let newState = {
+                    '#url': item.service_url || '',
+                    '#method': item.http_method || 'POST',
+                    '#headers': item.request_headers || '{"Content-Type": "application/json"}',
+                    '#template': item.request || '',
+                    '#csName': item.cs_name || '',
+                    '#bsName': item.bs_name || '',
+                    '#interfaceName': item.interface_o || '',
+                    '#login': '',
+                    '#password': '',
+                    '#dataRules': (item.data_rules && item.data_rules !== '{}' && item.data_rules !== 'null') ? item.data_rules : '{}',
+                    '#credentials-select': '',
+                    '#numRequests': '1',
+                    '#delaySeconds': '0',
+                    '#log-req-headers': false,
+                    '#log-res-headers': false
+                };
 
-                // Перенаправляем на вкладку calls.html (если во фрейме - window.location, иначе абсолютный)
-                // Учитываем, что это SPA/Frame структура.
-                // Попытаемся найти ссылку в родительском меню и кликнуть её
+                tabsData.push({
+                    id: newTabId,
+                    name: (t('ch_btn_repeat', 'Повтор: ')) + ' ' + (item.interface_o || 'Call'),
+                    state: newState
+                });
+
+                localStorage.setItem('api_calls_tabs', JSON.stringify(tabsData));
+                localStorage.setItem('api_calls_active_tab', newTabId);
+
                 if(window.parent && window.parent.document) {
                     const link = window.parent.document.querySelector('a[href="calls.html"]');
                     if(link) link.click();
@@ -309,52 +769,244 @@
                 } else {
                     window.location.href = 'calls.html';
                 }
-            } catch(e) {
-                alert('Ошибка подготовки повтора: ' + e.message);
-            }
+            } catch(e) {}
         }
 
         function safeJsonFormat(str) {
             try {
                 if(!str) return '{}';
-                // Попытка скрыть Auth header при рендеринге, если это простой JSON
                 const obj = JSON.parse(str);
-                // Опционально: маскировка
-                // if(obj['Authorization']) obj['Authorization'] = '*** MASKED ***';
                 return JSON.stringify(obj, null, 2);
-            } catch(e) {
-                return escapeHtml(str);
+            } catch(e) { return escapeHtml(str); }
+        }
+
+        function doDateSearch() {
+            const params = {};
+            const dFrom = $('#dateFrom-filter').val();
+            const dTo = $('#dateTo-filter').val();
+
+            if (dFrom) params.dateFrom = dFrom;
+            if (dTo) params.dateTo = dTo;
+
+            $('#history-container').html(`<p style="text-align:center; color:var(--text-muted); padding: 20px;">${t('ch_loading', 'Загрузка истории...')}</p>`);
+
+            $.get('/api/history/search', params)
+                .done(function(data) {
+                    allHistoryData = data || [];
+                    applyLocalFilters();
+                })
+                .fail(() => $('#history-container').html(`<p style="text-align:center; color:#ef4444; padding: 20px;">${t('ch_err_load', 'Ошибка загрузки')}</p>`));
+        }
+
+        function applyLocalFilters() {
+            const cs = $('#csName-filter').val().toLowerCase().trim();
+            const bs = $('#bsName-filter').val().toLowerCase().trim();
+            const iface = $('#interface-filter').val().toLowerCase().trim();
+            const url = $('#url-filter').val().toLowerCase().trim();
+            const content = $('#content-filter').val().toLowerCase().trim();
+            const groupBy = $('#group-interface-filter').is(':checked');
+
+            let filtered = allHistoryData.filter(item => {
+                if (cs && !(item.cs_name || '').toLowerCase().includes(cs)) return false;
+                if (bs && !(item.bs_name || '').toLowerCase().includes(bs)) return false;
+
+                if (iface) {
+                    const inName = (item.interface_o || '').toLowerCase().includes(iface);
+                    const inUrl = (item.service_url || '').toLowerCase().includes(iface);
+                    if (!inName && !inUrl) return false;
+                }
+
+                if (url && !(item.service_url || '').toLowerCase().includes(url)) return false;
+
+                if (content) {
+                    const giantString = (
+                        (item.request || '') + ' ' +
+                        (item.response || '') + ' ' +
+                        (item.stack_trace || '') + ' ' +
+                        (item.request_headers || '') + ' ' +
+                        (item.response_headers || '') + ' ' +
+                        (item.bs_name || '') + ' ' +
+                        (item.interface_o || '') + ' ' +
+                        (item.service_url || '') + ' ' +
+                        (item.cs_name || '')
+                    ).toLowerCase();
+
+                    if (!giantString.includes(content)) return false;
+                }
+                return true;
+            });
+
+            if (groupBy) {
+                const groups = {};
+                const groupedFiltered = [];
+                filtered.forEach(item => {
+                    const key = `${item.bs_name}_${item.interface_o}_${item.service_url}`;
+                    if (!groups[key]) groups[key] = 0;
+                    if (groups[key] < 2) {
+                        groupedFiltered.push(item);
+                        groups[key]++;
+                    }
+                });
+                filtered = groupedFiltered;
+            }
+
+            renderHistory(filtered);
+            applyQuickFilters();
+        }
+
+        $('#dateFrom-filter, #dateTo-filter').on('change', function() { doDateSearch(); });
+        $('.filter-input').not('#dateFrom-filter, #dateTo-filter').on('input change', function() { applyLocalFilters(); });
+        $('#quick-env, #quick-status').on('change', function() { applyQuickFilters(); });
+
+        function applyQuickFilters() {
+            const envFilter = $('#quick-env').val();
+            const statusFilter = $('#quick-status').val();
+
+            let hasVisibleItems = false;
+
+            $('.history-group').each(function() {
+                const group = $(this);
+                let visibleInGroup = 0;
+
+                group.find('.call-summary').each(function() {
+                    const el = $(this);
+                    const showEnv = (envFilter === 'all') || el.hasClass('env-' + envFilter);
+                    const showStatus = (statusFilter === 'all') || el.hasClass('status-' + statusFilter);
+
+                    if (showEnv && showStatus) {
+                        el.show();
+                        visibleInGroup++;
+                        hasVisibleItems = true;
+                    } else {
+                        el.hide();
+                        el.next('.call-details').hide();
+                    }
+                });
+
+                group.find('.group-count').text(`(${visibleInGroup})`);
+
+                if (visibleInGroup === 0) {
+                    group.hide();
+                } else {
+                    group.show();
+                }
+            });
+
+            $('#empty-filter-msg').remove();
+            if (!hasVisibleItems && $('.history-group').length > 0) {
+                $('#history-container').append(`<p id="empty-filter-msg" style="text-align:center; color:var(--text-muted); padding: 30px; font-size: 14px;">🕵️‍♂️ ${t('ch_hidden', 'Записи скрыты фильтрами.')}</p>`);
             }
         }
 
-        function escapeHtml(text) {
-            if (!text) return '';
-            return $('<div>').text(text).html();
+        $.ajax({
+            url: '/api/tasks/settings',
+            type: 'GET',
+            timeout: 2000
+        }).done(function(settingsData) {
+            try {
+                if (settingsData && settingsData.env_dictionary) {
+                    envDictionary = JSON.parse(settingsData.env_dictionary);
+                }
+            } catch(e) {}
+        }).always(function() {
+            setDateRange(5);
+        });
+
+    });
+
+    function updateBulkActionBar() {
+        const selectedCount = $('.bulk-cb:checked').length;
+        $('#bulk-count-display').text(selectedCount);
+        $('#modal-bulk-count').text(selectedCount);
+
+        if (selectedCount > 0) {
+            $('#bulk-action-bar').css('display', 'flex');
+        } else {
+            $('#bulk-action-bar').hide();
+        }
+    }
+
+    $('#btn-clear-bulk').on('click', function() {
+        $('.bulk-cb').prop('checked', false);
+        updateBulkActionBar();
+    });
+
+    $('#btn-open-bulk-modal').on('click', function() {
+        $('#bulk-login, #bulk-password').val('');
+        $('#bulk-progress').hide();
+        $('#btn-execute-bulk').prop('disabled', false).text(t('ch_start', '▶ Старт'));
+        $('#bulk-resend-modal').css('display', 'flex').hide().fadeIn(200);
+    });
+
+    $('#btn-execute-bulk').on('click', async function() {
+        const login = $('#bulk-login').val();
+        const pass = $('#bulk-password').val();
+
+        const selectedCheckboxes = $('.bulk-cb:checked');
+        if (selectedCheckboxes.length === 0) return;
+
+        if (!login || !pass) {
+            if (!confirm(t('ch_no_auth', 'Нет учетных данных. Продолжить?'))) return;
         }
 
-        // Поиск
-        $('.filter-input').on('keyup change', function() {
-            const params = {};
-            $('.filter-input').each((i, el) => {
-                const v = $(el).val().trim();
-                if(v) params[$(el).data('key')] = v;
-            });
+        const btn = $(this);
+        btn.prop('disabled', true).text('...');
 
-            // Debounce можно добавить при желании, пока прямой вызов
-            $.get('/api/history/search', params)
-                .done(renderHistory)
-                .fail(() => $('#history-container').html('<p>Ошибка поиска</p>'));
-        });
+        const total = selectedCheckboxes.length;
+        let done = 0;
 
-        // Initial Load
-        $.get('/api/history/all').done((data) => {
-            allHistoryData = data;
-            renderHistory(data);
-        }).fail(() => {
-            // Fallback для верстки без API
-            renderHistory([]);
-        });
+        $('#bulk-progress-total').text(total);
+        $('#bulk-progress-done').text(0);
+        $('#bulk-progress').show();
+
+        for (let i = 0; i < selectedCheckboxes.length; i++) {
+            const id = $(selectedCheckboxes[i]).data('id');
+            const item = allHistoryData.find(x => x.id === id);
+            if (!item) continue;
+
+            const config = {
+                url: item.service_url,
+                method: item.http_method,
+                csName: item.cs_name,
+                bsName: item.bs_name,
+                interfaceName: item.interface_o,
+                headers: JSON.parse(item.request_headers || '{}'),
+                template: item.request,
+                dataRules: JSON.parse(item.data_rules || '{}'),
+                login: login,
+                password: pass,
+                credentialId: null,
+                iteration: 1,
+                logReqHeaders: false,
+                logResHeaders: false
+            };
+
+            try {
+                await $.ajax({
+                    url: '/api/execute-calls',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(config),
+                    dataType: 'text'
+                });
+            } catch(e) {}
+
+            done++;
+            $('#bulk-progress-done').text(done);
+        }
+
+        btn.text('✅');
+        setTimeout(() => {
+            $('#bulk-resend-modal').fadeOut(150);
+            $('#btn-clear-bulk').click();
+            $('#btn-date-5').click();
+        }, 1500);
     });
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

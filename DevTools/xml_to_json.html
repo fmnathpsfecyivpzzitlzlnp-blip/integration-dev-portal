@@ -1,35 +1,183 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>Конвертер XML в JSON</title>
     <meta charset="UTF-8">
+    <title>Конвертер XML в JSON</title>
+    <script src="sidebar.js"></script>
     <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+    <script src="utils.js"></script>
+
+    <style>
+        /* Обертка для редактора, чтобы он занимал нужную высоту */
+        .editor-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 65vh;
+            min-height: 400px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* Сам редактор на 100% высоты обертки */
+        .CodeMirror {
+            height: 100% !important;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+
+        /* Класс для красной подсветки строки с ошибкой */
+        .error-line-bg {
+            background-color: #ffcdd2 !important;
+        }
+
+        .generator-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .generator-panel label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
 <div class="main-content generator-page-container">
-    <h2 style="flex-shrink: 0;">Конвертер XML в JSON</h2>
-    <div class="generator-controls">
-        <button id="btn-convert" style="padding: 10px 15px;">Конвертировать</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; border: none;">Конвертер XML в JSON</h2>
+        <div class="generator-controls" style="display: flex; gap: 10px;">
+            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
+            <button id="btn-convert" class="primary" style="padding: 8px 15px;">🚀 Конвертировать</button>
+        </div>
     </div>
-    <div id="error-panel" style="display:none; padding:10px; background:#ffebee; color:#c62828; border:1px solid #c62828; margin-bottom:10px;"></div>
 
-    <div class="generator-columns-container">
+    <div id="error-panel" style="display:none; padding:15px; background:#ffebee; color:#c62828; border:1px solid #c62828; border-radius: 4px; margin-bottom:15px; font-family: monospace; white-space: pre-wrap;"></div>
+
+    <div class="generator-columns-container" style="display: flex; gap: 20px;">
         <div class="generator-panel">
             <label for="input-area">Входной XML:</label>
-            <textarea id="input-area" placeholder="Вставьте сюда ваш XML..."></textarea>
+            <div class="editor-wrapper">
+                <textarea id="input-area"></textarea>
+            </div>
         </div>
         <div class="generator-panel">
             <label for="output-area">Результат в JSON:</label>
-            <textarea id="output-area" readonly></textarea>
+            <div class="editor-wrapper">
+                <textarea id="output-area"></textarea>
+            </div>
         </div>
     </div>
 </div>
-<script src="libs/jquery-3.6.0.min.js"></script>
+
 <script>
     $(function () {
+        const errorPanel = $('#error-panel');
+        let errorLineHandle = null;
+
+        // 1. Инициализация CodeMirror для левого поля (входной XML)
+        const editorIn = CodeMirror.fromTextArea(document.getElementById('input-area'), {
+            mode: "xml",
+            lineNumbers: true,      // Нумерация строк
+            matchBrackets: true,    // Подсветка парных тегов/скобок
+            theme: "default",
+            lineWrapping: true
+        });
+
+        // 2. Инициализация CodeMirror для правого поля (выходной JSON)
+        const editorOut = CodeMirror.fromTextArea(document.getElementById('output-area'), {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: "dracula",       // Темная тема для контраста
+            lineWrapping: true,
+            readOnly: true          // Запрет редактирования
+        });
+
+        // 3. Восстановление из памяти браузера
+        const savedXml = localStorage.getItem('xml_to_json_input');
+        if (savedXml) {
+            editorIn.setValue(savedXml);
+        } else {
+            const exampleXml = '<?xml version="1.0" encoding="UTF-8"?>\n<Request>\n  <ClientInfo>\n    <INN>1234567890</INN>\n  </ClientInfo>\n</Request>';
+            editorIn.setValue(exampleXml);
+        }
+
+        // 4. Автосохранение и сброс ошибок при редактировании
+        editorIn.on('change', function() {
+            localStorage.setItem('xml_to_json_input', editorIn.getValue());
+
+            // Убираем красную подсветку, если пользователь начал вносить изменения
+            if (errorLineHandle) {
+                editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+            errorPanel.hide();
+        });
+
+        // 5. Очистка полей
+        $('#clearBtn').on('click', function() {
+            if (confirm('Очистить поле ввода?')) {
+                editorIn.setValue('');
+                editorOut.setValue('');
+                localStorage.removeItem('xml_to_json_input');
+            }
+        });
+
+        // 6. Конвертация с перехватом ошибок синтаксиса
         $('#btn-convert').on('click', function() {
-            const inputText = $('#input-area').val();
-            if (!inputText.trim()) return;
+            errorPanel.hide();
+            if (errorLineHandle) {
+                editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+
+            const inputText = editorIn.getValue();
+            if (!inputText.trim()) {
+                alert("Пожалуйста, вставьте XML.");
+                return;
+            }
+
+            // ШАГ А: Строгая валидация XML перед отправкой через браузерный DOMParser
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(inputText, "text/xml");
+            const errorNode = xmlDoc.querySelector("parsererror");
+
+            if (errorNode) {
+                const errorText = errorNode.textContent;
+                // Пытаемся поймать номер строки с ошибкой (в разных браузерах может быть "line X" или "строка X")
+                const match = errorText.match(/line\s+(\d+)/i) || errorText.match(/строка\s+(\d+)/i);
+
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    // Подсвечиваем сломанную строку
+                    errorLineHandle = editorIn.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                    // Скроллим к ней
+                    editorIn.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+                }
+
+                // Выводим текст ошибки
+                errorPanel.text("❌ Ошибка синтаксиса XML:\n" + errorText).show();
+                return; // Прерываем отправку!
+            }
+
+            // ШАГ Б: Отправка правильного XML на сервер
+            const btn = $(this);
+            const originalText = btn.text();
+            btn.text('⏳ Конвертация...').prop('disabled', true);
+            editorOut.setValue('Обработка...');
 
             $.ajax({
                 url: '/api/convert',
@@ -37,15 +185,34 @@
                 contentType: 'application/json',
                 data: JSON.stringify({ text: inputText, from: 'xml', to: 'json' }),
                 success: (convertedText) => {
-                    $('#output-area').val(convertedText);
+                    // Пытаемся красиво отформатировать JSON, если сервер вернул "сжатый" текст
+                    try {
+                        const jsonObj = JSON.parse(convertedText);
+                        editorOut.setValue(JSON.stringify(jsonObj, null, 4));
+                    } catch(e) {
+                        editorOut.setValue(convertedText);
+                    }
                 },
                 error: (xhr) => {
                     const msg = xhr.responseJSON ? xhr.responseJSON.message : xhr.responseText;
-                    $('#error-panel').text('Ошибка конвертации: ' + msg).show();
+                    errorPanel.text('⚠️ Ошибка конвертации на сервере:\n' + msg).show();
+                    editorOut.setValue('');
+                },
+                complete: () => {
+                    btn.text(originalText).prop('disabled', false);
                 }
             });
         });
     });
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

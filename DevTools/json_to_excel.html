@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSON to Excel Structure</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+    <script src="utils.js"></script>
+    <style>
+        /* Обертка для нашего самодельного редактора */
+        .editor-wrapper {
+            display: flex;
+            height: 70vh;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+        }
+
+        /* Колонка с цифрами */
+        .line-numbers {
+            background: #f8f9fa;
+            color: #999;
+            padding: 10px 5px;
+            text-align: right;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 21px; /* Строго фиксируем высоту строки */
+            overflow: hidden; /* Прячем скроллбар */
+            border-right: 1px solid #ddd;
+            user-select: none;
+            min-width: 35px;
+        }
+
+        .line-numbers div {
+            height: 21px; /* Высота одной цифры равна высоте строки текста */
+        }
+
+        /* Стиль для ошибочной строки */
+        .error-line {
+            color: #c62828;
+            font-weight: bold;
+            background: #ffcdd2;
+            border-radius: 2px;
+            display: block;
+        }
+
+        /* Само поле ввода */
+        textarea {
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 21px; /* Должна точно совпадать с line-numbers */
+            box-sizing: border-box;
+            border: none;
+            resize: none;
+            outline: none;
+            white-space: pre; /* Запрещаем перенос слов, иначе нумерация собьется */
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="main-content">
+    <h2>Экспорт структуры JSON в Excel</h2>
+    <p>Вставьте ваш JSON в поле ниже и нажмите кнопку, чтобы скачать `.xlsx` файл со структурой данных.</p>
+
+    <button id="exportBtn" style="padding: 10px 15px; cursor: pointer; margin-bottom: 10px; background: #007bff; color: white; border: none; border-radius: 4px;">Скачать структуру в Excel</button>
+
+    <div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; border-radius: 4px; font-family: monospace;"></div>
+
+    <div class="editor-wrapper">
+        <div class="line-numbers" id="line-numbers"></div>
+        <textarea id="json-input" placeholder="Вставьте сюда ваш JSON..."></textarea>
+    </div>
+</div>
+
+<script src="libs/jquery-3.6.0.min.js"></script>
+<script>
+    $(function () {
+        const errorPanel = $('#error-panel');
+        const textarea = $('#json-input');
+        const gutter = $('#line-numbers');
+
+        // Функция отрисовки номеров строк
+        function updateLineNumbers(errorLine = -1) {
+            const linesCount = textarea.val().split('\n').length;
+            let html = '';
+            for (let i = 1; i <= linesCount; i++) {
+                if (i === errorLine) {
+                    html += `<div class="error-line">${i}</div>`;
+                } else {
+                    html += `<div>${i}</div>`;
+                }
+            }
+            gutter.html(html);
+        }
+
+        // Обновляем цифры при вводе текста
+        textarea.on('input', function() {
+            errorPanel.hide();
+            updateLineNumbers();
+        });
+
+        // Синхронизируем прокрутку (скроллим текст -> скроллятся цифры)
+        textarea.on('scroll', function() {
+            gutter.scrollTop(textarea.scrollTop());
+        });
+
+        // Инициализация при загрузке
+        const exampleJson = `{
+  "tariffPlan": [
+    {
+      "account": "string",
+      "id": "string",
+      "code": "string",
+      "description": "string",
+      "rate": "string",
+      "error": "string"
+    }
+  ]
+}`;
+        textarea.val(exampleJson);
+        updateLineNumbers();
+
+        // Обработка кнопки
+        $('#exportBtn').on('click', function() {
+            errorPanel.hide();
+            updateLineNumbers(); // Сбрасываем красную подсветку
+
+            let jsonText = textarea.val();
+
+            // МАГИЯ ЗДЕСЬ: Заменяем "кривые" кавычки из Word/PDF на нормальные двойные
+            jsonText = jsonText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+            textarea.val(jsonText); // Обновляем текстарею, чтобы юзер видел исправленный текст
+
+            if (!jsonText.trim()) {
+                errorPanel.text("Пожалуйста, вставьте JSON-данные.").show();
+                return;
+            }
+
+            try {
+                // Проверяем JSON на валидность
+                JSON.parse(jsonText);
+            } catch (e) {
+                // Пытаемся вытащить номер строки из сообщения об ошибке
+                // Ошибка обычно выглядит так: "... at position 340 (line 21 column 25)"
+                const match = e.message.match(/line\s+(\d+)/i);
+
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    updateLineNumbers(lineNum); // Рисуем красную цифру
+
+                    // Немного прокручиваем текстарею к месту ошибки, если она длинная
+                    const lineHeight = 21;
+                    textarea.scrollTop((lineNum - 1) * lineHeight - 60);
+                }
+
+                // Выводим текст ошибки в красивую панель
+                errorPanel.text("Ошибка парсинга: " + e.message).show();
+                return;
+            }
+
+            // Если всё ок - отправляем форму
+            var form = $('<form></form>').attr('action', '/api/export-to-excel').attr('method', 'post');
+            form.append($('<input></input>').attr('type', 'hidden').attr('name', 'json').attr('value', jsonText));
+            form.appendTo('body').submit().remove();
+        });
+    });
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+
+Синхронный пример
+
+sequenceDiagram
+    activate Sender
+    %% Отправка REST
+    Sender->>ESB: REST: si_so_AbsenceConfirmResponse
+    activate ESB
+    %% Правило 1
+    ESB->ESB: Правило 1
+    %% Отправка SOAP
+    ESB->>Receiver: SOAP: si_si_AbsenceConfirmResponse
+    activate Receiver
+    %% Обработка
+    Receiver->Receiver: Обработка
+    %% Ответ SOAP
+    Receiver-->>ESB: SOAP: si_si_AbsenceConfirmResponse
+    deactivate Receiver
+    %% Правило 2
+    ESB->ESB: Правило 2
+    %% Ответ REST
+    ESB-->>Sender: REST: si_so_AbsenceConfirmResponse
+    deactivate ESB
+    destroy Sender
+
+Асинхронный пример
+sequenceDiagram
+    autonumber
+    participant Sender as Sender<br>Sender
+    participant ESB as ESB<br>ESB
+    participant Receiver as Receiver<br>Receiver
+
+    activate Sender
+    Sender-)ESB: REST JSON:<br>si_ao_CurrencyExchange
+    activate ESB
+    ESB->ESB: Правило 1
+    ESB-)Receiver: REST JSON:<br>si_ai_CurrencyExchange
+    deactivate ESB
+    activate Receiver
+    Receiver->Receiver: Обработка
+    deactivate Receiver

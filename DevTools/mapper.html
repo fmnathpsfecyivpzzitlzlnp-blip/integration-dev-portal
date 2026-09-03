@@ -2,17 +2,71 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Data Mapping Tool (DB)</title>
+    <title data-i18n="mp_title">Data Mapping Tool (DB)</title>
     <!-- Библиотека jQuery -->
     <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/clike.min.js"></script>
+
     <style>
-        /* === BASIC LAYOUT === */
-        body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f4f7f9; font-family: 'Segoe UI', sans-serif; margin: 0; }
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --topbar-bg: #2c3e50;
+            --topbar-border: #1a252f;
+            --col-header-bg: #f1f5f9;
+            --badge-bg: #f1f5f9;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --topbar-bg: #1e293b;
+            --topbar-border: #0f172a;
+            --col-header-bg: #0f172a;
+            --badge-bg: #334155;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html { margin: 0 !important; padding: 0 !important; height: 100% !important; }
+        body {
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+            background: var(--bg-main) !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+            box-sizing: border-box !important;
+        }
+
+        /* Фикс для окна генератора кода - растягиваем редактор на всю высоту */
+        #codegen-modal .CodeMirror {
+            position: absolute !important;
+            top: 0; left: 0; right: 0; bottom: 0;
+            height: 100% !important;
+        }
 
         .top-bar {
             flex-shrink: 0; display: flex; align-items: center; gap: 15px; padding: 10px 20px;
-            background: #2c3e50; border-bottom: 1px solid #1a252f; color: white; z-index: 100;
+            background: var(--topbar-bg); border-bottom: 1px solid var(--topbar-border); color: white; z-index: 100;
+            transition: background 0.3s;
         }
 
         .btn {
@@ -38,47 +92,47 @@
 
         /* Columns */
         .column {
-            width: 350px; display: flex; flex-direction: column; background: #fff; z-index: 10;
-            border-right: 1px solid #e2e8f0; box-shadow: 0 0 15px rgba(0,0,0,0.05);
-            transition: width 0.1s;
+            width: 350px; display: flex; flex-direction: column; background: var(--bg-card); z-index: 10;
+            border-right: 1px solid var(--border-color); box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            transition: width 0.1s, background 0.3s, border-color 0.3s;
         }
-        .column.target-col { border-left: 1px solid #e2e8f0; border-right: none; }
-        .center-space { flex: 1; background: #f8fafc; position: relative; }
+        .column.target-col { border-left: 1px solid var(--border-color); border-right: none; }
+        .center-space { flex: 1; background: var(--bg-main); position: relative; transition: 0.3s; }
 
         .col-header {
-            padding: 12px 15px; background: #f1f5f9; font-weight: bold; color: #334155;
-            border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;
-            align-items: center; font-size: 14px; text-transform: uppercase;
+            padding: 12px 15px; background: var(--col-header-bg); font-weight: bold; color: var(--text-main);
+            border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between;
+            align-items: center; font-size: 14px; text-transform: uppercase; transition: 0.3s;
         }
 
         /* Input Area */
-        .json-input-box { padding: 15px; background: #fff; border-bottom: 1px solid #e2e8f0; display: none; }
+        .json-input-box { padding: 15px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: none; transition: 0.3s; }
         .json-input-box textarea {
-            width: 100%; height: 120px; font-family: 'Consolas', monospace; font-size: 12px;
-            border: 1px solid #ccc; border-radius: 4px; resize: vertical; padding: 8px; box-sizing: border-box;
+            width: 100%; height: 120px; font-family: 'Consolas', monospace; font-size: 12px; color: var(--text-main); background: var(--input-bg);
+            border: 1px solid var(--border-color); border-radius: 4px; resize: vertical; padding: 8px; box-sizing: border-box; transition: 0.3s;
         }
-        .json-label { font-size: 11px; font-weight: bold; display: block; margin-bottom: 5px; color: #666; }
+        .json-label { font-size: 11px; font-weight: bold; display: block; margin-bottom: 5px; color: var(--text-muted); }
 
         /* Fields List */
         .fields-container { flex: 1; overflow-y: auto; padding: 15px; position: relative; }
 
         /* Field Card */
         .field-card {
-            padding: 8px 12px; margin-bottom: 8px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 8px 12px; margin-bottom: 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px;
             font-size: 13px; display: flex; justify-content: space-between; align-items: center; position: relative;
-            transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.03); color: var(--text-main);
         }
         .field-card:hover { border-color: #3b82f6; transform: translateX(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .field-card.mapped { background: #f0fdf4; border-color: #86efac; }
+        .field-card.mapped { background: rgba(34, 197, 94, 0.05); border-color: #86efac; }
         .field-card.mapped b { color: #15803d; }
 
-        .type-badge { font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #64748b; border: 1px solid #e2e8f0; }
+        .type-badge { font-size: 10px; background: var(--badge-bg); padding: 2px 6px; border-radius: 4px; color: var(--text-muted); border: 1px solid var(--border-color); transition: 0.3s; }
 
         /* Ports */
         .port {
             width: 12px; height: 12px; background: #94a3b8; border-radius: 50%;
             position: absolute; top: 50%; transform: translateY(-50%); cursor: crosshair;
-            border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.3); z-index: 20;
+            border: 2px solid var(--bg-card); box-shadow: 0 0 3px rgba(0,0,0,0.3); z-index: 20;
             transition: 0.2s;
         }
         .source-col .port { right: -7px; }
@@ -106,36 +160,40 @@
 
         /* POPUP */
         .map-popup {
-            position: absolute; width: 300px; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            border: 1px solid #e2e8f0; border-radius: 8px; z-index: 200; padding: 20px; display: none;
+            position: absolute; width: 300px; background: var(--bg-card); box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border: 1px solid var(--border-color); border-radius: 8px; z-index: 200; padding: 20px; display: none; color: var(--text-main);
         }
-        .popup-header { font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; color: #333; display: flex; justify-content: space-between;}
+        .popup-header { font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; color: var(--text-main); display: flex; justify-content: space-between;}
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 600; }
-        .form-group select, .form-group input { width: 100%; padding: 8px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 4px; box-sizing: border-box; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; font-weight: 600; }
+        .form-group select, .form-group input { width: 100%; padding: 8px; font-size: 13px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); border-radius: 4px; box-sizing: border-box; }
 
-        .close-icon { cursor: pointer; color: #999; }
-        .close-icon:hover { color: #333; }
+        .close-icon { cursor: pointer; color: var(--text-muted); }
+        .close-icon:hover { color: var(--text-main); }
 
         /* Help Text */
-        .empty-state { text-align: center; padding: 20px; color: #999; font-size: 13px; margin-top: 50px;}
+        .empty-state { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; margin-top: 50px;}
     </style>
 </head>
 <body>
 
 <div class="top-bar">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <button onclick="window.close()" class="btn">✖ Закрыть</button>
-        <h2 style="margin:0; font-size:18px;">Data Mapping Tool</h2>
-        <span id="db-status" class="status-badge">Загрузка...</span>
+        <button onclick="window.close()" class="btn" data-i18n="mp_btn_close">✖ Закрыть</button>
+        <h2 style="margin:0; font-size:18px;" data-i18n="mp_title">Data Mapping Tool</h2>
+        <span id="db-status" class="status-badge" data-i18n="mp_msg_loading">Загрузка...</span>
     </div>
 
-    <div style="margin-left: auto; display: flex; gap: 10px;">
-        <button class="btn" onclick="$('.json-input-box').slideToggle()">⚙ Редактор JSON</button>
-        <button class="btn btn-primary" onclick="autoMap()">✨ Авто-Связь</button>
+    <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+        <label style="color: white; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; margin-right: 15px;">
+            <input type="checkbox" id="filter-mapped" onchange="applyFilters()"> <span data-i18n="mp_lbl_only_mapped">Только связанные</span>
+        </label>
+        <button class="btn" style="background:#8b5cf6; border-color:#8b5cf6; color:white;" onclick="openCodeGenModal()" data-i18n="mp_btn_codegen">⚡ Сгенерировать код</button>
+        <button class="btn" onclick="$('.json-input-box').slideToggle()" data-i18n="mp_btn_json">⚙ Редактор JSON</button>
+        <button class="btn btn-primary" onclick="autoMap()" data-i18n="mp_btn_auto">✨ Авто-Связь</button>
         <div style="width: 1px; background: rgba(255,255,255,0.3); height: 20px; margin: 0 5px;"></div>
-        <button class="btn" onclick="exportTable()">📤 Таблица</button>
-        <button class="btn btn-success" onclick="saveToDB()" id="btn-save-db">💾 Сохранить в БД</button>
+        <button class="btn" onclick="exportTable()" data-i18n="mp_btn_table">📤 Таблица</button>
+        <button class="btn btn-success" onclick="saveToDB()" id="btn-save-db" data-i18n="mp_btn_save">💾 Сохранить в БД</button>
     </div>
 </div>
 
@@ -144,14 +202,17 @@
 
     <!-- LEFT: Source -->
     <div class="column source-col">
-        <div class="col-header">SOURCE (Источник)</div>
+        <div class="col-header" data-i18n="mp_col_source">SOURCE (Источник)</div>
+        <div style="padding: 10px; background: var(--col-header-bg); border-bottom: 1px solid var(--border-color);">
+            <input type="text" id="search-src" placeholder="🔍 Поиск поля..." data-i18n="mp_ph_search" onkeyup="applyFilters()" style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box;">
+        </div>
         <div class="json-input-box">
-            <label class="json-label">Структура Отправителя:</label>
+            <label class="json-label" data-i18n="mp_lbl_json_src">Структура Отправителя:</label>
             <textarea id="json-source">{}</textarea>
-            <button class="btn btn-primary" onclick="parseJson('source')" style="width:100%;margin-top:8px;border:none;">Применить</button>
+            <button class="btn btn-primary" onclick="parseJson('source')" style="width:100%;margin-top:8px;border:none;" data-i18n="mp_btn_apply">Применить</button>
         </div>
         <div class="fields-container" id="list-source">
-            <div class="empty-state">Загрузка данных...</div>
+            <div class="empty-state" data-i18n="mp_msg_loading">Загрузка данных...</div>
         </div>
     </div>
 
@@ -159,14 +220,17 @@
 
     <!-- RIGHT: Target -->
     <div class="column target-col">
-        <div class="col-header">TARGET (Получатель)</div>
+        <div class="col-header" data-i18n="mp_col_target">TARGET (Получатель)</div>
+        <div style="padding: 10px; background: var(--col-header-bg); border-bottom: 1px solid var(--border-color);">
+            <input type="text" id="search-trg" placeholder="🔍 Поиск поля..." data-i18n="mp_ph_search" onkeyup="applyFilters()" style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box;">
+        </div>
         <div class="json-input-box">
-            <label class="json-label">Структура Получателя:</label>
+            <label class="json-label" data-i18n="mp_lbl_json_trg">Структура Получателя:</label>
             <textarea id="json-target">{}</textarea>
-            <button class="btn btn-primary" onclick="parseJson('target')" style="width:100%;margin-top:8px;border:none;">Применить</button>
+            <button class="btn btn-primary" onclick="parseJson('target')" style="width:100%;margin-top:8px;border:none;" data-i18n="mp_btn_apply">Применить</button>
         </div>
         <div class="fields-container" id="list-target">
-            <div class="empty-state">Загрузка данных...</div>
+            <div class="empty-state" data-i18n="mp_msg_loading">Загрузка данных...</div>
         </div>
     </div>
 
@@ -175,62 +239,118 @@
 <!-- SETTINGS MODAL -->
 <div id="config-popup" class="map-popup">
     <div class="popup-header">
-        <span id="popup-title">Связь</span>
+        <span id="popup-title" data-i18n="mp_popup_title">Связь</span>
         <span class="close-icon" onclick="$('#config-popup').fadeOut(100)">&times;</span>
     </div>
     <div class="form-group">
-        <label>Тип трансформации:</label>
+        <label data-i18n="mp_lbl_trans_type">Тип трансформации:</label>
         <select id="cfg-trans">
-            <option value="Direct">Прямая (As Is)</option>
-            <option value="Format">Форматирование</option>
-            <option value="Lookup">Справочник</option>
-            <option value="Constant">Константа</option>
-            <option value="Script">Скрипт</option>
+            <option value="Direct" data-i18n="mp_opt_direct">Прямая (As Is)</option>
+            <option value="Format" data-i18n="mp_opt_format">Форматирование</option>
+            <option value="Lookup" data-i18n="mp_opt_lookup">Справочник</option>
+            <option value="Constant" data-i18n="mp_opt_constant">Константа</option>
+            <option value="Script" data-i18n="mp_opt_script">Скрипт</option>
         </select>
     </div>
     <div class="form-group">
-        <label>Комментарий / Параметры:</label>
+        <label data-i18n="mp_lbl_comm">Комментарий / Параметры:</label>
         <input id="cfg-comm" placeholder="Например: YYYY-MM-DD">
     </div>
     <div style="text-align:right; margin-top:15px; display:flex; justify-content: space-between;">
-        <button onclick="deleteLink()" class="btn btn-danger" style="padding:6px 12px; font-size:12px; border:none;">Удалить</button>
-        <button onclick="saveConfig()" class="btn btn-primary" style="padding:6px 15px; border:none;">OK</button>
+        <button onclick="deleteLink()" class="btn btn-danger" style="padding:6px 12px; font-size:12px; border:none;" data-i18n="mp_btn_delete">Удалить</button>
+        <button onclick="saveConfig()" class="btn btn-primary" style="padding:6px 15px; border:none;" data-i18n="mp_btn_ok">OK</button>
+    </div>
+</div>
+
+<!-- === MODAL: CODE GENERATOR === -->
+<div id="codegen-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px);">
+    <div class="modal-content" style="background:var(--bg-card); padding:20px; border-radius:8px; width:900px; max-width:95%; height: 80vh; display: flex; flex-direction: column; box-shadow:0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color);">
+
+        <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="margin:0; color:var(--text-main); display:flex; align-items:center; gap:10px;" data-i18n="mp_cg_title">
+                ⚡ Генератор Трансформаций
+            </h3>
+            <span onclick="$('#codegen-modal').fadeOut(150)" style="cursor:pointer; font-size:24px; color:var(--text-muted); line-height:1;">&times;</span>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-bottom: 15px; background: var(--col-header-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <div>
+                <label style="font-size: 12px; font-weight: 600; color: var(--text-muted);" data-i18n="mp_cg_lang">Язык скрипта:</label>
+                <select id="cg-lang" onchange="runCodeGeneration()" style="padding: 6px; font-size: 13px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main);">
+                    <option value="groovy">Groovy (JSON / XML Builder)</option>
+                    <option value="xslt">XSLT 2.0 (Скоро...)</option>
+                </select>
+            </div>
+            <div style="display: flex; align-items: center; padding-top: 15px;">
+                <label style="cursor:pointer; font-size: 13px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="cg-comments" checked onchange="runCodeGeneration()" style="width:16px; height:16px;">
+                    <span data-i18n="mp_cg_comments">Включить авто-комментарии</span>
+                </label>
+            </div>
+            <div style="margin-left: auto; padding-top: 12px;">
+                <button class="btn btn-primary" onclick="copyGeneratedCode()" data-i18n="mp_cg_copy">📋 Копировать код</button>
+            </div>
+        </div>
+
+        <!-- Контейнеры для кода и результата -->
+        <div style="flex:1; display:flex; gap: 15px; min-height: 0;">
+            <!-- Левая часть: Код -->
+            <div style="flex: 1; border:1px solid var(--border-color); border-radius:4px; overflow:hidden; position:relative;">
+                <textarea id="cg-output"></textarea>
+            </div>
+
+            <!-- Правая часть: Результат (Live Test) -->
+            <div style="flex: 1; display: flex; flex-direction: column; background: #1e293b; border-radius: 4px; border: 1px solid var(--border-color); overflow: hidden;">
+                <div style="background: #334155; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #e2e8f0; font-size: 13px; font-weight: 600;" data-i18n="mp_cg_result">Результат (Test Output)</span>
+                    <button class="btn btn-success" onclick="testGroovyScript()" style="padding: 4px 12px; font-size: 12px; background: #10b981; border: none; cursor: pointer;" data-i18n="mp_cg_run">▶ Run Script</button>
+                </div>
+                <textarea id="testGenOutput" style="flex:1; background:transparent; color:#a6e22e; border:none; padding:15px; font-family:'Consolas',monospace; font-size:13px; resize:none; outline:none;" readonly placeholder="Нажмите 'Run Script', чтобы выполнить маппинг на сервере..."></textarea>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
     // --- PARAMS & STATE ---
     const urlParams = new URLSearchParams(location.search);
-    // Пытаемся найти ID задачи, если переданы. Или берем из LocalStorage
     let TASK_ID = urlParams.get('task_id');
     let FLOW_ORDER = urlParams.get('flow_order');
-
-    // Если открыли напрямую без параметров (для теста)
     let isDbMode = (TASK_ID && FLOW_ORDER);
 
-    // Данные
     let mappings = [];
     let flatSource = [];
     let flatTarget = [];
-
-    // Переменные для DB
     let flowDetailsRecord = {};
-
-    // Переменные Drag'n'Drop
     let dragStart = null;
     let activePath = null;
     let currentSelectedId = null;
+    let codeGenEditor = null;
 
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+
         if(isDbMode) {
             loadFromDB();
         } else {
-            // Fallback: Загрузка из LocalStorage (если открыли руками)
             loadFromLocalStorage();
-            $('#db-status').text("Режим LocalStorage (Демо)");
+            $('#db-status').text(t('mp_msg_local', "Режим LocalStorage (Демо)"));
         }
 
-        // Листенеры событий
         window.addEventListener('resize', drawAll);
         $('.fields-container').on('scroll', drawAll);
         document.addEventListener('mousemove', onMouseMove);
@@ -245,44 +365,34 @@
         });
     });
 
-    // --- 1. LOAD DATA ---
-
     function loadFromDB() {
-        $('#db-status').text("Загрузка из БД...");
-        $('#btn-save-db').text("Сохранение...");
+        $('#db-status').text(t('mp_msg_loading', "Загрузка..."));
+        $('#btn-save-db').text(t('mp_btn_saving', "Сохранение..."));
 
         $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`, function(data) {
             if(!data || !data.id) {
-                alert("Поток не найден в БД");
+                alert(t('mp_err_not_found', "Поток не найден в БД"));
                 return;
             }
 
             flowDetailsRecord = data;
-            $('#db-status').text(`Задача: ${TASK_ID} | Поток: ${FLOW_ORDER}`);
-            $('#btn-save-db').text("💾 Сохранить в БД");
+            $('#db-status').text(t('mp_lbl_task', "Задача: ") + TASK_ID + t('mp_lbl_flow', " | Поток: ") + FLOW_ORDER);
+            $('#btn-save-db').text(t('mp_btn_save', "💾 Сохранить в БД"));
 
-            // 1. Заполняем исходники
             if(data.service_description) $('#json-source').val(data.service_description);
             if(data.target_description)  $('#json-target').val(data.target_description);
 
-            // 2. Загружаем связи
-            // Связи храним в поле file_path (временно, как мы договорились),
-            // так как это большое текстовое поле, и оно не мешает работе основного функционала
-            // Если там не JSON, значит связей нет.
             try {
                 let savedMaps = JSON.parse(data.file_path || '[]');
                 if(Array.isArray(savedMaps)) mappings = savedMaps;
-            } catch(e) {
-                console.log("Mappings not found or invalid in file_path");
-            }
+            } catch(e) {}
 
             parseJson('source', false);
             parseJson('target', false);
-        })
-            .fail(function() {
-                $('#db-status').text("Ошибка подключения к БД");
-                alert("Ошибка загрузки данных потока.");
-            });
+        }).fail(function() {
+            $('#db-status').text(t('mp_err_load', "Ошибка загрузки данных потока."));
+            alert(t('mp_err_load', "Ошибка загрузки данных потока."));
+        });
     }
 
     function loadFromLocalStorage() {
@@ -299,8 +409,6 @@
         parseJson('target', false);
     }
 
-    // --- 2. PARSE & RENDER ---
-
     function parseJson(side, autoSave = true) {
         try {
             const txt = $(`#json-${side}`).val();
@@ -314,10 +422,8 @@
 
             renderColumn(side, flat);
 
-            if(autoSave) save(); // Сохраняем локально
+            if(autoSave) save();
 
-            // Очистка "висячих" связей (если поля удалены)
-            // Можно добавить позже, сейчас просто рисуем
             setTimeout(drawAll, 50);
 
         } catch(e) { console.error(e); }
@@ -327,11 +433,15 @@
         for(let k in obj) {
             if(obj[k] === null) {
                 res.push({ path: prefix + k, type: 'null' });
-            } else if (typeof obj[k] === 'object' && !Array.isArray(obj[k])) {
+            } else if (Array.isArray(obj[k])) {
+                res.push({ path: prefix + k + '[]', type: 'array' });
+                if(obj[k].length > 0 && typeof obj[k][0] === 'object' && obj[k][0] !== null) {
+                    flatten(obj[k][0], prefix + k + '[].', res);
+                }
+            } else if (typeof obj[k] === 'object') {
                 flatten(obj[k], prefix + k + '.', res);
             } else {
-                let type = Array.isArray(obj[k]) ? 'array' : typeof obj[k];
-                res.push({ path: prefix + k, type: type });
+                res.push({ path: prefix + k, type: typeof obj[k] });
             }
         }
         return res;
@@ -339,60 +449,33 @@
 
     function renderColumn(side, list) {
         const c = $(`#list-${side}`).empty();
-        if(list.length === 0) { c.html('<div class="empty-state">Пусто</div>'); return; }
+        if(list.length === 0) { c.html('<div class="empty-state">' + t('mp_lbl_empty', 'Пусто') + '</div>'); return; }
 
         list.forEach((item, idx) => {
-            // Генерируем стабильный ID для DOM, чтобы SVG линии не терялись при перерисовке,
-            // НО! Mappings должны привязываться к path, а не к случайному ID.
-            // Для упрощения сейчас привязываем к DOM ID.
-            // В идеале, mappings должны хранить 'path'.
             const uid = `${side}_${idx}`;
-
             c.append(`
                 <div class="field-card ${side}" id="${uid}" data-path="${item.path}">
                     <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" title="${item.path}">
                         <b>${item.path.split('.').pop()}</b>
-                        <div style="color:#999;font-size:10px;">${item.path}</div>
+                        <div style="color:var(--text-muted);font-size:10px;">${item.path}</div>
                     </div>
                     <span class="type-badge">${item.type}</span>
                     <div class="port" onmousedown="startDrag(event, '${uid}', '${side}')"></div>
                 </div>
             `);
         });
-
-        // Важно: Маппинги мы храним как {srcPath: '...', trgPath: '...'}
-        // Но для рисования нужны DOM ID.
-        // Нужно восстановить связи (map paths to DOM IDs)
         refreshMappingLinks();
     }
 
     function refreshMappingLinks() {
-        // Если мы только загрузились, mappings могут хранить старые ID или Path.
-        // Лучше использовать Path как ключ.
-        // Перебираем mappings, находим актуальные DOM ID для путей.
-
-        // Для текущей простой реализации предполагаем, что mappings хранят {srcPath, trgPath}
-        // И мы на лету ищем их DOM элементы.
-
-        // Но в коде рисования используются m.src (ID) и m.trg (ID).
-        // Давайте сделаем апгрейд:
-
-        // При рендере проходимся и ищем соответствия, если они есть в state
-
-        // (Для упрощения и стабильности демо версии -
-        // просто чистим маппинг, если поля пропали, или оставляем)
-
         updateMappedStatus();
     }
-
-    // --- 3. DRAG & DROP ---
 
     function startDrag(e, id, side) {
         if(e.button!==0) return;
         e.stopPropagation(); e.preventDefault();
         dragStart = { id, side, x: e.pageX, y: e.pageY };
 
-        // Temp Line
         activePath = document.createElementNS('http://www.w3.org/2000/svg','path');
         activePath.setAttribute('class', 'drag-line');
         $('#svg-canvas').append(activePath);
@@ -405,7 +488,6 @@
         if(!dragStart) return;
         const svgRect = $('#workspace')[0].getBoundingClientRect();
 
-        // Start Point coordinates (DOM element)
         const el = document.getElementById(dragStart.id);
         if(!el) return;
         const port = el.querySelector('.port').getBoundingClientRect();
@@ -447,11 +529,9 @@
     }
 
     function addMappingByDomIds(srcId, trgId) {
-        // Get Paths
         const sPath = $(`#${srcId}`).data('path');
         const tPath = $(`#${trgId}`).data('path');
 
-        // Check Duplicate
         if(mappings.find(m => m.s === sPath && m.t === tPath)) return;
 
         mappings.push({
@@ -467,8 +547,6 @@
         drawAll();
     }
 
-    // --- 4. DRAW & VISUALS ---
-
     function drawAll() {
         const svg = $('#svg-canvas');
         svg.empty();
@@ -477,13 +555,11 @@
         const wk = $('#workspace')[0].getBoundingClientRect();
 
         mappings.forEach(m => {
-            // Find DOM elements by PATH
             let el1, el2;
-
             $('.source-col .field-card').each(function() { if($(this).data('path')==m.s) el1 = this; });
             $('.target-col .field-card').each(function() { if($(this).data('path')==m.t) el2 = this; });
 
-            if(el1 && el2) {
+            if(el1 && el2 && $(el1).is(':visible') && $(el2).is(':visible')) {
                 const p1 = getPos(el1, wk);
                 const p2 = getPos(el2, wk);
 
@@ -510,17 +586,15 @@
     function updateMappedStatus() {
         $('.field-card').removeClass('mapped');
         mappings.forEach(m => {
-            // Highlight by path
             $(`.source-col .field-card`).filter((i,e)=>$(e).data('path')==m.s).addClass('mapped');
             $(`.target-col .field-card`).filter((i,e)=>$(e).data('path')==m.t).addClass('mapped');
         });
+        applyFilters();
     }
-
-    // --- 5. POPUP ---
 
     function openPopup(e, id) {
         currentSelectedId = id;
-        drawAll(); // Highlight selected
+        drawAll();
         const m = mappings.find(x => x.id === id);
         $('#cfg-trans').val(m.type);
         $('#cfg-comm').val(m.comm);
@@ -549,43 +623,33 @@
         $('#config-popup').fadeOut();
     }
 
-    // --- 6. PERSISTENCE (DB or Local) ---
-
     function save() {
-        if(isDbMode) {
-            // Сохраняем только в переменную памяти (авто-сохранение)
-            // Настоящее сохранение будет по кнопке
-        } else {
+        if(!isDbMode) {
             localStorage.setItem('mapper_source', $('#json-source').val());
             localStorage.setItem('mapper_target', $('#json-target').val());
             localStorage.setItem('mapper_data', JSON.stringify(mappings));
         }
     }
 
-    function saveToDB() {
-        if(!isDbMode) return alert("Режим без БД (Демо). Данные сохранены локально.");
+    window.saveToDB = function() {
+        if(!isDbMode) return alert(t('mp_msg_demo_save', "Режим без БД (Демо). Данные сохранены локально."));
 
-        // Готовим пейлоад
         const payload = {
             task_id: parseInt(TASK_ID),
             flow_order: parseInt(FLOW_ORDER),
-
-            // Мы обязаны передать старые данные, чтобы не затереть их,
-            // так как этот API endpoint обновляет всю строку
             connection_type: flowDetailsRecord.connection_type,
             protocol: flowDetailsRecord.protocol,
             format: flowDetailsRecord.format,
             description: flowDetailsRecord.description,
-
-            // Обновляем эти поля:
-            service_description: $('#json-source').val(), // Source JSON
-            target_description: $('#json-target').val(),  // Target JSON
-            // ! ВАЖНО: Используем file_path как хранилище маппинга, т.к. отдельной колонки нет
-            file_path: JSON.stringify(mappings)
+            protocol_out: flowDetailsRecord.protocol_out,
+            format_out: flowDetailsRecord.format_out,
+            service_description: $('#json-source').val(),
+            target_description: $('#json-target').val(),
+            mappings: mappings
         };
 
         const btn = $('#btn-save-db');
-        btn.prop('disabled', true).text('Сохранение...');
+        btn.prop('disabled', true).text(t('mp_btn_saving', 'Сохранение...'));
 
         $.ajax({
             url: '/api/flow-details',
@@ -593,19 +657,19 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function() {
-                btn.prop('disabled', false).text('✅ Сохранено').addClass('btn-success');
-                setTimeout(()=>btn.text('💾 Сохранить в БД'), 2000);
+                btn.prop('disabled', false).text(t('mp_btn_saved', '✅ Сохранено')).addClass('btn-success');
+                setTimeout(()=> {
+                    btn.removeClass('btn-success').text(t('mp_btn_save', '💾 Сохранить в БД'));
+                }, 2000);
             },
             error: function(x) {
-                alert('Ошибка сохранения: '+x.responseText);
+                alert(t('mp_err_save', 'Ошибка сохранения: ') + x.responseText);
                 btn.prop('disabled', false).text('Ошибка');
             }
         });
     }
 
-    // --- 7. UTILS ---
-
-    function autoMap() {
+    window.autoMap = function() {
         let count = 0;
         $('.source-col .field-card').each(function() {
             const sPath = $(this).data('path');
@@ -615,7 +679,6 @@
                 const tPath = $(this).data('path');
                 const tName = tPath.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,'');
 
-                // Simple Match
                 if (sName === tName || (sName.includes(tName) && tName.length>3)) {
                     if(!mappings.find(m => m.s===sPath && m.t===tPath)) {
                         mappings.push({ id: Date.now()+count, s:sPath, t:tPath, type:'Direct', comm:'Auto' });
@@ -624,11 +687,11 @@
                 }
             });
         });
-        if(count) { updateMappedStatus(); drawAll(); save(); alert('Найдено: '+count); }
-        else alert('Нет совпадений');
+        if(count) { updateMappedStatus(); drawAll(); save(); alert(t('mp_msg_found', 'Найдено: ') + count); }
+        else alert(t('mp_msg_no_match', 'Нет совпадений'));
     }
 
-    function exportTable() {
+    window.exportTable = function() {
         let h = `<table border="1" cellpadding="5" style="border-collapse:collapse;width:100%">
             <tr style="background:#eee"><th>Source</th><th>Rule</th><th>Target</th><th>Desc</th></tr>`;
         mappings.forEach(m => {
@@ -639,11 +702,296 @@
         w.document.write('<h3>Mapping</h3>'+h);
     }
 
-    function clearAll() {
-        if(confirm('Очистить?')) {
+    window.clearAll = function() {
+        if(confirm(t('mp_confirm_clear', 'Очистить?'))) {
             mappings=[]; updateMappedStatus(); drawAll(); save();
         }
     }
+
+    window.applyFilters = function() {
+        const onlyMapped = $('#filter-mapped').is(':checked');
+        const srcTerm = $('#search-src').val().toLowerCase().trim();
+        const trgTerm = $('#search-trg').val().toLowerCase().trim();
+
+        $('.source-col .field-card').each(function() {
+            const path = $(this).data('path').toLowerCase();
+            const isMapped = $(this).hasClass('mapped');
+            const matchesSearch = path.includes(srcTerm);
+            if ((onlyMapped && !isMapped) || !matchesSearch) $(this).hide(); else $(this).show();
+        });
+
+        $('.target-col .field-card').each(function() {
+            const path = $(this).data('path').toLowerCase();
+            const isMapped = $(this).hasClass('mapped');
+            const matchesSearch = path.includes(trgTerm);
+            if ((onlyMapped && !isMapped) || !matchesSearch) $(this).hide(); else $(this).show();
+        });
+
+        drawAll();
+    };
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    window.openCodeGenModal = function() {
+        if(mappings.length === 0) {
+            return alert(t('mp_err_no_map', "Сначала создайте хотя бы одну связь (маппинг)!"));
+        }
+
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+
+        if (!codeGenEditor) {
+            codeGenEditor = CodeMirror.fromTextArea(document.getElementById('cg-output'), {
+                mode: "text/x-groovy",
+                lineNumbers: true,
+                theme: isDark ? "dracula" : "default",
+                lineWrapping: true,
+                readOnly: true
+            });
+            codeGenEditor.setSize("100%", "100%");
+        } else {
+            codeGenEditor.setOption('theme', isDark ? "dracula" : "default");
+        }
+
+        $('#codegen-modal').css('display', 'flex').hide().fadeIn(200, () => {
+            codeGenEditor.refresh();
+            runCodeGeneration();
+        });
+    }
+
+    window.runCodeGeneration = function() {
+        const lang = $('#cg-lang').val();
+        const withComments = $('#cg-comments').is(':checked');
+        let generatedCode = "";
+
+        if (lang === 'groovy') {
+            generatedCode = generateGroovy(mappings, withComments);
+            codeGenEditor.setOption("mode", "text/x-groovy");
+        } else if (lang === 'xslt') {
+            generatedCode = generateXslt(mappings, withComments);
+            codeGenEditor.setOption("mode", "xml");
+        }
+
+        codeGenEditor.setValue(generatedCode);
+        setTimeout(() => codeGenEditor.refresh(), 50);
+    }
+
+    function generateGroovy(maps, useComments) {
+        let code = `import groovy.json.JsonSlurper\nimport groovy.json.JsonBuilder\n\n`;
+
+        if (useComments) {
+            code += `/*\n * Автоматически сгенерированный скрипт трансформации (с поддержкой массивов).\n`;
+            code += ` * Дата генерации: ${new Date().toLocaleString('ru-RU')}\n */\n\n`;
+        }
+
+        code += `def processData(String inputPayload) {\n`;
+        code += `    def source = new JsonSlurper().parseText(inputPayload)\n`;
+        code += `    def target = [:]\n\n`;
+
+        let plainMaps = maps.filter(m => !m.t.includes('[]'));
+        let arrayMaps = maps.filter(m => m.t.includes('[]'));
+
+        if (useComments && plainMaps.length > 0) code += `    // 1. Маппинг плоских полей\n`;
+
+        plainMaps.forEach(m => {
+            let sPath = formatPath(m.s).replace(/\[\]/g, '');
+            let tPath = formatPath(m.t);
+            let safeSource = sPath.split('.').join('?.');
+
+            if (m.type === 'Constant') {
+                let val = m.comm ? m.comm.replace(/'/g, "\\'") : '';
+                code += `    assignNestedValue(target, '${tPath}', '${val}')\n`;
+            } else {
+                code += `    assignNestedValue(target, '${tPath}', source?.${safeSource})\n`;
+            }
+        });
+
+        if (arrayMaps.length > 0) {
+            if (useComments) code += `\n    // 2. Маппинг массивов (Коллекции)\n`;
+
+            let arrayGroups = {};
+            arrayMaps.forEach(m => {
+                let tParts = formatPath(m.t).split('[]');
+                let sParts = formatPath(m.s).split('[]');
+
+                let tRoot = tParts[0];
+                let sRoot = sParts[0];
+                let tProp = tParts[1] ? tParts[1].substring(1) : '';
+                let sProp = sParts[1] ? sParts[1].substring(1) : '';
+
+                if (!arrayGroups[tRoot]) arrayGroups[tRoot] = { srcRoot: sRoot, fields: [] };
+                arrayGroups[tRoot].fields.push({ tProp, sProp, type: m.type, comm: m.comm });
+            });
+
+            Object.keys(arrayGroups).forEach(tRoot => {
+                let group = arrayGroups[tRoot];
+                let safeSrcRoot = group.srcRoot.split('.').join('?.');
+                let varName = tRoot.replace(/\./g, '_').toLowerCase() + '_array';
+
+                code += `    def ${varName} = source?.${safeSrcRoot}?.collect { item ->\n`;
+                code += `        def row = [:]\n`;
+
+                group.fields.forEach(f => {
+                    if (f.type === 'Constant') {
+                        let val = f.comm ? f.comm.replace(/'/g, "\\'") : '';
+                        code += `        assignNestedValue(row, '${f.tProp}', '${val}')\n`;
+                    } else if (f.sProp) {
+                        let safeProp = f.sProp.split('.').join('?.');
+                        code += `        assignNestedValue(row, '${f.tProp}', item?.${safeProp})\n`;
+                    } else {
+                        code += `        assignNestedValue(row, '${f.tProp}', item)\n`;
+                    }
+                });
+
+                code += `        return row\n    }\n`;
+                code += `    assignNestedValue(target, '${tRoot}', ${varName})\n\n`;
+            });
+        }
+
+        code += `    return new JsonBuilder(target).toPrettyString()\n}\n\n`;
+        code += `// --- Вспомогательные функции ---\n`;
+        code += `def assignNestedValue(Map map, String path, def value) {\n`;
+        code += `    if (value == null || path == '') return\n`;
+        code += `    def keys = path.split('\\\\.')\n`;
+        code += `    def current = map\n`;
+        code += `    for (int i = 0; i < keys.size() - 1; i++) {\n`;
+        code += `        if (!current.containsKey(keys[i])) current[keys[i]] = [:]\n`;
+        code += `        current = current[keys[i]]\n    }\n`;
+        code += `    current[keys.last()] = value\n}\n`;
+
+        return code;
+    }
+
+    function generateXslt(maps, useComments) {
+        let code = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+        code += `<xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">\n`;
+        code += `  <xsl:output method="xml" indent="yes" encoding="UTF-8"/>\n\n`;
+
+        if (useComments) {
+            code += `  <!--\n`;
+            code += `    ~ Автоматически сгенерированный XSLT скрипт.\n`;
+            code += `    ~ Дата генерации: ${new Date().toLocaleString('ru-RU')}\n`;
+            code += `    ~ Количество замапленных полей: ${maps.length}\n`;
+            code += `    -->\n\n`;
+        }
+
+        code += `  <xsl:template match="/">\n`;
+
+        let targetTree = {};
+
+        maps.forEach(m => {
+            let tPath = formatPath(m.t);
+            let keys = tPath.split('.');
+            let current = targetTree;
+
+            for (let i = 0; i < keys.length; i++) {
+                let k = keys[i];
+                let cleanKey = k.replace(/\[\]/g, '').replace(/\[\w+\]/g, '');
+
+                if (i === keys.length - 1) {
+                    current[cleanKey] = { _isLeaf: true, mapping: m };
+                } else {
+                    if (!current[cleanKey] || current[cleanKey]._isLeaf) {
+                        current[cleanKey] = {};
+                    }
+                    current = current[cleanKey];
+                }
+            }
+        });
+
+        function renderXsltNode(nodeName, nodeData, indent) {
+            let res = "";
+            if (nodeData._isLeaf) {
+                let m = nodeData.mapping;
+                let sPath = formatPath(m.s).replace(/\./g, '/');
+
+                if (useComments && m.comm) res += `${indent}<!-- Rule: ${m.type} | Info: ${m.comm} -->\n`;
+
+                if (m.type === 'Constant') {
+                    res += `${indent}<${nodeName}>${m.comm}</${nodeName}>\n`;
+                } else if (m.type === 'Direct' || !m.type) {
+                    res += `${indent}<${nodeName}>\n`;
+                    res += `${indent}  <xsl:value-of select="//${sPath}"/>\n`;
+                    res += `${indent}</${nodeName}>\n`;
+                } else {
+                    res += `${indent}<${nodeName}>\n`;
+                    res += `${indent}  <!-- TODO: Реализовать сложную логику: ${m.type} (${m.comm}) -->\n`;
+                    res += `${indent}  <xsl:value-of select="//${sPath}"/>\n`;
+                    res += `${indent}</${nodeName}>\n`;
+                }
+            } else {
+                res += `${indent}<${nodeName}>\n`;
+                for (let childKey in nodeData) res += renderXsltNode(childKey, nodeData[childKey], indent + "  ");
+                res += `${indent}</${nodeName}>\n`;
+            }
+            return res;
+        }
+
+        for (let rootKey in targetTree) {
+            code += renderXsltNode(rootKey, targetTree[rootKey], "    ");
+        }
+
+        code += `  </xsl:template>\n`;
+        code += `</xsl:stylesheet>\n`;
+
+        return code;
+    }
+
+    function formatPath(rawPath) {
+        if(!rawPath) return "";
+        let parts = rawPath.split('.');
+        if (parts.length > 1) parts.shift();
+        return parts.join('.');
+    }
+
+    window.copyGeneratedCode = function() {
+        if(codeGenEditor) {
+            navigator.clipboard.writeText(codeGenEditor.getValue());
+            if(typeof showNotification === 'function') {
+                showNotification(t('mp_msg_copied', "Код успешно скопирован в буфер обмена!"));
+            } else {
+                alert(t('mp_msg_copied_short', "Скопировано!"));
+            }
+        }
+    }
+
+    window.testGroovyScript = function() {
+        const lang = $('#cg-lang').val();
+        const outArea = $('#testGenOutput');
+
+        if (lang !== 'groovy') return alert(t('mp_err_groovy_only', "Тестирование на лету сейчас поддерживается только для Groovy!"));
+
+        const code = codeGenEditor ? codeGenEditor.getValue() : $('#cg-output').val();
+        const sourceJson = $('#json-source').val() || '{}';
+        const executableCode = code + `\n\nprintln processData('''${sourceJson}''')`;
+
+        outArea.val('⏳ Выполнение скрипта на сервере...');
+
+        $.ajax({
+            url: '/api/groovy/run',
+            type: 'POST',
+            contentType: 'text/plain',
+            data: executableCode,
+            success: function(res) {
+                if(res.success) {
+                    outArea.val(res.output);
+                } else {
+                    outArea.val("⚠️ Ошибка сервера:\n" + res.message);
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = xhr.responseText;
+                try {
+                    const parsed = JSON.parse(xhr.responseText);
+                    if (parsed.message) errorMsg = parsed.message;
+                } catch(e) {}
+                outArea.val("❌ Ошибка выполнения:\n\n" + errorMsg);
+            }
+        });
+    };
 </script>
+
 </body>
 </html>

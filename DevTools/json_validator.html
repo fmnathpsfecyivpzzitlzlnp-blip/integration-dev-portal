@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>JSON Schema Validator</title>
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+    <script src="libs/ajv7.min.js"></script>
+    <script src="utils.js"></script>
+    <style>
+
+    /* Обертка для редактора, чтобы он занимал нужную высоту */
+    .editor-wrapper {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 55vh;
+        min-height: 350px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    /* Сам редактор на 100% высоты обертки */
+    .CodeMirror {
+        height: 100% !important;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 13px;
+    }
+
+    /* Красная подсветка строки с ошибкой */
+    .error-line-bg {
+        background-color: #ffcdd2 !important;
+    }
+
+    .generator-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .generator-panel label {
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: inline-block;
+        color: #333;
+    }
+
+    /* Панели результатов валидации */
+    #results-panel {
+        padding: 20px;
+        border-radius: 6px;
+        font-family: 'Consolas', monospace;
+        display: none;
+        margin-top: 15px;
+    }
+    .success-panel { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+    .error-panel { background: #fff5f5; border: 1px solid #ffcdd2; color: #c62828; }
+    .error-item {
+        background: #fff; border: 1px solid #ffcdd2; padding: 15px;
+        margin-top: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .error-item strong { display: inline-block; width: 120px; color: #555; }
+</style>
+</head>
+<body>
+<div class="main-content generator-page-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; border: none;">JSON Schema Validator</h2>
+        <div class="generator-controls" style="display: flex; gap: 10px;">
+            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
+            <button id="validateBtn" class="primary" style="padding: 8px 15px;">⚡ Проверить (Validate)</button>
+        </div>
+    </div>
+
+    <div id="results-panel"></div>
+
+    <div class="generator-columns-container" style="display: flex; gap: 20px;">
+        <div class="generator-panel">
+            <label for="schema-input">JSON Schema:</label>
+            <div class="editor-wrapper">
+                <textarea id="schema-input"></textarea>
+            </div>
+        </div>
+
+        <div class="generator-panel">
+            <label for="json-input">Input JSON (Данные):</label>
+            <div class="editor-wrapper">
+                <textarea id="json-input"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(function () {
+        const resultsPanel = $('#results-panel');
+        let schemaErrorLine = null;
+        let jsonErrorLine = null;
+
+        // 1. Инициализация CodeMirror для Схемы
+        const editorSchema = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: "default",
+            lineWrapping: true
+        });
+
+        // 2. Инициализация CodeMirror для Данных
+        const editorJson = CodeMirror.fromTextArea(document.getElementById('json-input'), {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: "default",
+            lineWrapping: true
+        });
+
+        // 3. Восстановление из памяти браузера
+        if (localStorage.getItem('validator_schema')) editorSchema.setValue(localStorage.getItem('validator_schema'));
+        if (localStorage.getItem('validator_json')) editorJson.setValue(localStorage.getItem('validator_json'));
+
+        // 4. Автосохранение и сброс ошибок при вводе
+        editorSchema.on('change', function() {
+            localStorage.setItem('validator_schema', editorSchema.getValue());
+            if (schemaErrorLine) {
+                editorSchema.removeLineClass(schemaErrorLine, 'background', 'error-line-bg');
+                schemaErrorLine = null;
+            }
+            resultsPanel.hide();
+        });
+
+        editorJson.on('change', function() {
+            localStorage.setItem('validator_json', editorJson.getValue());
+            if (jsonErrorLine) {
+                editorJson.removeLineClass(jsonErrorLine, 'background', 'error-line-bg');
+                jsonErrorLine = null;
+            }
+            resultsPanel.hide();
+        });
+
+        // 5. Очистка полей
+        $('#clearBtn').on('click', function() {
+            if(confirm('Очистить оба поля?')) {
+                editorSchema.setValue('');
+                editorJson.setValue('');
+                localStorage.removeItem('validator_schema');
+                localStorage.removeItem('validator_json');
+                resultsPanel.hide();
+            }
+        });
+
+        // 6. ЛОГИКА ВАЛИДАЦИИ
+        $('#validateBtn').on('click', function() {
+            resultsPanel.removeClass('success-panel error-panel').empty().hide();
+
+            const schemaTxt = editorSchema.getValue().trim();
+            const jsonTxt = editorJson.getValue().trim();
+
+            if (!schemaTxt || !jsonTxt) return alert("Заполните оба поля!");
+
+            // Шаг А: Проверка синтаксиса (ловли сломанных запятых и скобок)
+            let schemaObj, jsonObj;
+
+            try {
+                schemaObj = JSON.parse(schemaTxt);
+            } catch (e) {
+                return showParseError(e, "JSON Schema", editorSchema, true);
+            }
+
+            try {
+                jsonObj = JSON.parse(jsonTxt);
+            } catch (e) {
+                return showParseError(e, "Input JSON (Данные)", editorJson, false);
+            }
+
+            // Проверка библиотеки AJV
+            if (typeof window.ajv7 === 'undefined') {
+                return alert("Ошибка: Библиотека Ajv не загружена. Проверьте файл libs/ajv7.min.js");
+            }
+
+            // Шаг Б: Валидация данных по схеме
+            try {
+                const ajv = new window.ajv7({ allErrors: true });
+                const validate = ajv.compile(schemaObj);
+                const valid = validate(jsonObj);
+
+                if (valid) {
+                    resultsPanel.addClass('success-panel').html('<h3 style="margin:0;">✅ JSON полностью соответствует схеме!</h3>').slideDown();
+                } else {
+                    let errorHtml = `<h3 style="margin-top:0;">❌ Найдено ошибок: ${validate.errors.length}</h3>`;
+
+                    validate.errors.forEach(err => {
+                        let msg = err.message;
+                        if (err.keyword === 'additionalProperties') msg = `Свойство '${err.params.additionalProperty}' не определено (запрещены дополнительные свойства)`;
+                        if (err.keyword === 'required') msg = `Отсутствует обязательное поле: '${err.params.missingProperty}'`;
+
+                        errorHtml += `
+                            <div class="error-item">
+                                <div><strong>Поле (Path):</strong> <span style="color:#d32f2f; font-weight:bold;">${err.instancePath || '/ (Root)'}</span></div>
+                                <div><strong>Ошибка:</strong> ${msg}</div>
+                                <div style="font-size: 11px; color: #888; margin-top: 5px;"><strong>Схема:</strong> ${err.schemaPath}</div>
+                            </div>
+                        `;
+                    });
+
+                    resultsPanel.addClass('error-panel').html(errorHtml).slideDown();
+                }
+            } catch (e) {
+                // Ошибка в самой структуре схемы (например, неверный $ref)
+                resultsPanel.addClass('error-panel').html(`<h3 style="margin-top:0;">⚠️ Ошибка в структуре JSON Schema:</h3><p>${e.message}</p>`).slideDown();
+            }
+        });
+
+        // Функция обработки сломанного текста с подсветкой строки
+        function showParseError(e, title, editorInstance, isSchema) {
+            const match = e.message.match(/line\s+(\d+)/i) || e.message.match(/position\s+(\d+)/i);
+            if (match) {
+                const lineNum = parseInt(match[1], 10);
+                if(e.message.includes('line')) {
+                    const handle = editorInstance.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                    if (isSchema) schemaErrorLine = handle; else jsonErrorLine = handle;
+                    editorInstance.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+                }
+            }
+            resultsPanel.addClass('error-panel').html(`<h3 style="margin-top:0;">❌ Ошибка синтаксиса в ${title}</h3><p>${e.message}</p>`).slideDown();
+        }
+    });
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

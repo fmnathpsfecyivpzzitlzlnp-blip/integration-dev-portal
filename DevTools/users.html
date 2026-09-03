@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="usr_page_title">Управление пользователями</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --item-hover: #f1f5f9;
+            --item-active-bg: #eff6ff;
+            --item-active-border: #3b82f6;
+            --danger-bg: #fef2f2;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --item-hover: #334155;
+            --item-active-bg: rgba(59, 130, 246, 0.2);
+            --item-active-border: #38bdf8;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body { margin: 0 !important; padding: 0 !important; height: 100vh !important; overflow: hidden !important; }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); }
+        .header p { margin: 2px 0 0 0; color: var(--text-muted); font-size: 12px; }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; min-height: 0; }
+
+        /* Колонки */
+        .col { display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: 0.3s; }
+        .col-left { width: 320px; flex-shrink: 0; }
+        .col-right { flex: 1; min-width: 0; }
+
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+
+        /* Список пользователей */
+        .user-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+        .user-item { padding: 12px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        .user-item:hover { background: var(--item-hover); }
+        .user-item.active { background: var(--item-active-bg); border-left: 4px solid var(--item-active-border); }
+        .user-item .u-name { font-weight: bold; font-size: 14px; }
+        .user-item .u-role { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--border-color); color: var(--text-muted); font-weight: bold; text-transform: uppercase; }
+        .user-item.active .u-role { background: var(--item-active-border); color: #fff; }
+
+        /* Форма редактирования */
+        .form-area { padding: 20px; overflow-y: auto; flex: 1; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: var(--text-muted); }
+        .form-group input[type="text"], .form-group input[type="password"], .form-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box; outline: none; transition: 0.2s; }
+        .form-group input:focus, .form-group select:focus { border-color: #3b82f6; }
+        .form-group input:disabled, .form-group select:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Сетка чекбоксов ролей */
+        .roles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .role-check { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-main); cursor: pointer; transition: 0.2s; font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .role-check:hover { border-color: #3b82f6; }
+        .role-check input { width: 16px; height: 16px; cursor: pointer; margin: 0; }
+
+        .btn { padding: 8px 15px; border-radius: 4px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.success { background: #10b981; color: white; }
+        .btn.success:hover { background: #059669; }
+        .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .btn.danger:hover { background: #ef4444; color: white; }
+
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); text-align: center; }
+        .empty-state span { font-size: 48px; opacity: 0.5; margin-bottom: 15px; }
+
+        #toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn" style="background:var(--bg-card); color:var(--text-main); border: 1px solid var(--border-color);" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 data-i18n="usr_title">👥 Управление пользователями</h2>
+            <p data-i18n="usr_subtitle">Настройка аккаунтов, паролей и прав доступа к модулям</p>
+        </div>
+    </div>
+</div>
+
+<div class="workspace">
+    <!-- КОЛОНКА 1: Список -->
+    <div class="col col-left">
+        <div class="panel-head">
+            <span data-i18n="usr_list_title">Пользователи</span>
+            <button class="btn primary" style="padding: 4px 10px;" onclick="createNewUser()" data-i18n="usr_btn_add">+ Добавить</button>
+        </div>
+        <ul class="user-list" id="user-list">
+            <!-- Рендерится через JS -->
+        </ul>
+    </div>
+
+    <!-- КОЛОНКА 2: Форма -->
+    <div class="col col-right" id="form-container">
+        <div class="empty-state" id="empty-state">
+            <span>👈</span>
+            <div data-i18n="usr_empty_state">Выберите пользователя из списка для редактирования или создайте нового.</div>
+        </div>
+
+        <div id="user-editor" style="display: none; height: 100%; flex-direction: column;">
+            <div class="panel-head">
+                <span id="editor-title">Редактирование пользователя</span>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn danger" id="btn-delete" onclick="deleteUser()" data-i18n="usr_btn_delete">Удалить</button>
+                    <button class="btn success" onclick="saveUser()" data-i18n="usr_btn_save">💾 Сохранить</button>
+                </div>
+            </div>
+
+            <div class="form-area">
+                <input type="hidden" id="u_id">
+
+                <div style="display: flex; gap: 20px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label data-i18n="usr_lbl_login">Логин (Username)</label>
+                        <input type="text" id="u_username" placeholder="Например: admin">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label data-i18n="usr_lbl_role">Системная роль</label>
+                        <select id="u_role" onchange="toggleGroupsAccess()">
+                            <option value="user" data-i18n="usr_opt_user">Пользователь</option>
+                            <option value="admin" data-i18n="usr_opt_admin">Администратор (Полный доступ)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Блок пароля -->
+                <div class="form-group" style="background: var(--bg-main); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); margin-top: 10px;">
+                    <label data-i18n="usr_lbl_security">Безопасность</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="password" id="u_password" placeholder="Новый пароль (оставьте пустым, если не меняете)" style="flex: 1;">
+                        <button class="btn secondary" onclick="resetPassword()" style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);" data-i18n="usr_btn_reset">Сбросить по умолчанию</button>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 5px;" data-i18n="usr_hint_pass">Пароль по умолчанию при сбросе: <b style="color:var(--text-main)">root</b></div>
+                </div>
+
+                <hr style="border:0; border-top: 1px solid var(--border-color); margin: 25px 0;">
+
+                <h3 style="margin: 0 0 15px 0; font-size: 15px; color: var(--text-main);" data-i18n="usr_lbl_groups">Доступ к модулям (Группы)</h3>
+                <div id="admin-notice" style="display: none; padding: 10px; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; font-size: 13px; font-weight: bold; margin-bottom: 15px;" data-i18n="usr_msg_admin_access">
+                    У Администратора автоматически есть доступ ко всем вкладкам.
+                </div>
+
+                <div class="roles-grid" id="groups-container">
+                    <label class="role-check"><input type="checkbox" value="dashboard"> <span>Главный Дашборд</span></label>
+                    <label class="role-check"><input type="checkbox" value="calls"> <span>Вызовы и ESB</span></label>
+                    <label class="role-check"><input type="checkbox" value="tasks"> <span>Задачи и ТЗ</span></label>
+                    <label class="role-check"><input type="checkbox" value="mapper"> <span>Data Mapper & Catalog</span></label>
+                    <label class="role-check"><input type="checkbox" value="constructors"> <span>Конструкторы (WSDL/XSD/Mermaid)</span></label>
+                    <label class="role-check"><input type="checkbox" value="converters"> <span>Конвертеры</span></label>
+                    <label class="role-check"><input type="checkbox" value="excel"> <span>Экспорт в Excel</span></label>
+                    <label class="role-check"><input type="checkbox" value="validation"> <span>Валидация и Утилиты</span></label>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    // Универсальная функция перевода (БЕЗ РЕКУРСИИ)
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let USERS = [];
+    let currentUserId = null;
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+
+        // Подтягиваем данные авторизации из localStorage и вшиваем их во все AJAX-запросы
+        const storedUser = localStorage.getItem('esb_user');
+        if (storedUser) {
+            try {
+                const currentUser = JSON.parse(storedUser);
+                $.ajaxSetup({ headers: { 'X-User-Id': currentUser.id, 'X-User-Role': currentUser.role } });
+            } catch(e) {}
+        } else {
+            // Фолбэк: если пользователь не авторизован локально, выдаем дефолтные права рута
+            $.ajaxSetup({ headers: { 'X-User-Id': '1', 'X-User-Role': 'admin' } });
+        }
+
+        loadUsers();
+    });
+
+    function showToast(msg, isError = false) {
+        const toast = $('#toast');
+        toast.text(msg).css('background', isError ? '#ef4444' : '#10b981').fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 2000);
+    }
+
+    // === API MOCKS / REQUESTS ===
+    function loadUsers() {
+        $.get('/api/users')
+            .done(function(data) {
+                USERS = Array.isArray(data) ? data : [];
+                if(USERS.length === 0) seedDefaultAdmin(); // Если база пустая, создаем root
+                else renderUserList();
+            })
+            .fail(function() {
+                // Фолбэк для демонстрации (если бэкенд не отвечает)
+                const localUsers = localStorage.getItem('mock_users');
+                if (localUsers) {
+                    USERS = JSON.parse(localUsers);
+                } else {
+                    seedDefaultAdmin();
+                }
+                renderUserList();
+            });
+    }
+
+    function seedDefaultAdmin() {
+        USERS = [
+            { id: 1, username: 'root', role: 'admin', groups: [], is_root: true }
+        ];
+        localStorage.setItem('mock_users', JSON.stringify(USERS));
+        renderUserList();
+    }
+
+    // === UI RENDERING ===
+    function renderUserList() {
+        const list = $('#user-list').empty();
+        USERS.forEach(u => {
+            const isActive = u.id === currentUserId ? 'active' : '';
+            const roleName = u.role === 'admin' ? t('usr_opt_admin', 'Admin') : t('usr_opt_user', 'User');
+            list.append(`
+                <li class="user-item ${isActive}" onclick="selectUser(${u.id})">
+                    <span class="u-name">${escapeHtml(u.username)}</span>
+                    <span class="u-role">${roleName}</span>
+                </li>
+            `);
+        });
+    }
+
+    window.createNewUser = function() {
+        currentUserId = 'new';
+        $('.user-item').removeClass('active');
+
+        $('#empty-state').hide();
+        $('#user-editor').css('display', 'flex');
+        $('#editor-title').text(t('usr_title_new', 'Создание нового пользователя'));
+
+        $('#u_id').val('');
+        $('#u_username').val('').prop('disabled', false);
+        $('#u_password').val('');
+        $('#u_role').val('user').prop('disabled', false);
+        $('#btn-delete').hide();
+
+        // Сброс чекбоксов
+        $('#groups-container input[type="checkbox"]').prop('checked', false);
+        toggleGroupsAccess();
+    }
+
+    window.selectUser = function(id) {
+        currentUserId = id;
+        const user = USERS.find(u => u.id === id);
+        if (!user) return;
+
+        renderUserList(); // Обновит active класс
+
+        $('#empty-state').hide();
+        $('#user-editor').css('display', 'flex');
+        $('#editor-title').text(t('usr_title_edit', 'Редактирование: ') + escapeHtml(user.username));
+
+        $('#u_id').val(user.id);
+        $('#u_username').val(user.username);
+        $('#u_password').val(''); // Пароль не показываем
+        $('#u_role').val(user.role);
+
+        // Защита Root
+        if (user.username === 'root' || user.is_root) {
+            $('#u_username').prop('disabled', true);
+            $('#u_role').prop('disabled', true);
+            $('#btn-delete').hide();
+        } else {
+            $('#u_username').prop('disabled', false);
+            $('#u_role').prop('disabled', false);
+            $('#btn-delete').show();
+        }
+
+        // Выставляем чекбоксы
+        $('#groups-container input[type="checkbox"]').prop('checked', false);
+        if (user.groups && Array.isArray(user.groups)) {
+            user.groups.forEach(g => {
+                $(`#groups-container input[value="${g}"]`).prop('checked', true);
+            });
+        }
+
+        toggleGroupsAccess();
+    }
+
+    window.toggleGroupsAccess = function() {
+        const role = $('#u_role').val();
+        if (role === 'admin') {
+            $('#groups-container').css('opacity', '0.5').css('pointer-events', 'none');
+            $('#admin-notice').slideDown(200);
+        } else {
+            $('#groups-container').css('opacity', '1').css('pointer-events', 'auto');
+            $('#admin-notice').slideUp(200);
+        }
+    }
+
+    window.resetPassword = function() {
+        const defPass = 'root';
+        $('#u_password').val(defPass);
+        showToast(t('usr_msg_pass_reset', 'Пароль установлен по умолчанию. Нажмите Сохранить.'));
+    }
+
+    window.saveUser = function() {
+        const id = $('#u_id').val();
+        const username = $('#u_username').val().trim();
+        const password = $('#u_password').val().trim();
+        const role = $('#u_role').val();
+
+        if (!username) return alert(t('usr_err_name', 'Имя пользователя не может быть пустым!'));
+
+        let groups = [];
+        if (role !== 'admin') {
+            $('#groups-container input[type="checkbox"]:checked').each(function() {
+                groups.push($(this).val());
+            });
+        }
+
+        const payload = {
+            id: id ? parseInt(id) : null,
+            username: username,
+            role: role,
+            groups: groups
+        };
+
+        if (password) payload.password = password;
+
+        // Отправка на бэкенд
+        $.ajax({
+            url: '/api/users',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(res) {
+                showToast(t('usr_msg_saved', 'Пользователь сохранен!'));
+                loadUsers(); // Перезагружаем список
+            },
+            error: function(xhr) {
+                // Фолбэк для демо без бэкенда
+                if (xhr.status === 404) {
+                    if (id) {
+                        const idx = USERS.findIndex(u => u.id == id);
+                        if (idx > -1) {
+                            USERS[idx].username = username;
+                            USERS[idx].role = role;
+                            USERS[idx].groups = groups;
+                        }
+                    } else {
+                        payload.id = Date.now();
+                        USERS.push(payload);
+                    }
+                    localStorage.setItem('mock_users', JSON.stringify(USERS));
+                    showToast(t('usr_msg_saved', 'Пользователь сохранен! (Local)'));
+                    loadUsers();
+                } else {
+                    let errorMsg = xhr.responseText;
+                    try {
+                        const parsedErr = JSON.parse(xhr.responseText);
+                        if (parsedErr.error) errorMsg = parsedErr.error;
+                    } catch(e) {}
+                    showToast('Ошибка сохранения: ' + errorMsg, true);
+                }
+            }
+        });
+    }
+
+    window.deleteUser = function() {
+        const id = $('#u_id').val();
+        if (!id) return;
+
+        if (confirm(t('usr_conf_del', 'Вы уверены, что хотите удалить этого пользователя?'))) {
+            $.ajax({
+                url: `/api/users/${id}`,
+                type: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({id: id}),
+                success: function() {
+                    showToast(t('usr_msg_deleted', 'Пользователь удален.'));
+                    $('#user-editor').hide();
+                    $('#empty-state').show();
+                    loadUsers();
+                },
+                error: function(xhr) {
+                    // Фолбэк для демо
+                    if (xhr.status === 404) {
+                        USERS = USERS.filter(u => u.id != id);
+                        localStorage.setItem('mock_users', JSON.stringify(USERS));
+                        showToast(t('usr_msg_deleted', 'Пользователь удален. (Local)'));
+                        $('#user-editor').hide();
+                        $('#empty-state').show();
+                        loadUsers();
+                    } else {
+                        let errorMsg = xhr.responseText;
+                        try {
+                            const parsedErr = JSON.parse(xhr.responseText);
+                            if (parsedErr.error) errorMsg = parsedErr.error;
+                        } catch(e) {}
+                        showToast('Ошибка удаления: ' + errorMsg, true);
+                    }
+                }
+            });
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

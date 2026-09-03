@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Утилиты Разработчика</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        body { background: #f4f7f9; margin: 0; padding: 20px; height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+        .header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-shrink: 0; }
+
+        .utils-container {
+            flex: 1; display: flex; background: #fff; border: 1px solid #e2e8f0;
+            border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+
+        /* Боковое меню утилит */
+        .utils-sidebar {
+            width: 240px; background: #f8fafc; border-right: 1px solid #e2e8f0;
+            display: flex; flex-direction: column; padding: 10px 0; overflow-y: auto;
+        }
+        .util-tab {
+            padding: 12px 20px; cursor: pointer; color: #475569; font-weight: 600;
+            font-size: 13px; border-left: 3px solid transparent; transition: 0.2s;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .util-tab:hover { background: #f1f5f9; color: #1e293b; }
+        .util-tab.active { background: #eff6ff; color: #2563eb; border-left-color: #2563eb; }
+
+        /* Рабочая область утилиты */
+        .util-content {
+            flex: 1; padding: 25px; overflow-y: auto; display: none; flex-direction: column; gap: 15px;
+        }
+        .util-content.active { display: flex; }
+
+        .util-title { margin: 0 0 10px 0; color: #1e293b; font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
+
+        /* Текстовые поля */
+        .io-grid { display: flex; gap: 20px; flex: 1; min-height: 300px; }
+        .io-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .io-col label { font-weight: 600; color: #475569; font-size: 12px; }
+        textarea {
+            flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+            font-family: 'Consolas', monospace; font-size: 13px; resize: none; background: #fafafa;
+        }
+        textarea:focus { border-color: #3b82f6; background: #fff; outline: none; }
+
+        /* Кнопки */
+        .action-row { display: flex; gap: 10px; margin-top: 10px; align-items: center; justify-content: center; }
+        .badge-error { background: #fee2e2; color: #dc2626; padding: 8px 12px; border-radius: 4px; font-size: 12px; display: none; font-weight: bold;}
+
+        /* --- СТИЛИ ДЛЯ КРОН КОНСТРУКТОРА --- */
+        .cron-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; }
+        .cron-col { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; }
+        .cron-col h4 { margin: 0 0 10px 0; color: #334155; font-size: 13px; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;}
+        .cron-col select, .cron-col input { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 10px; font-size: 13px; box-sizing: border-box;}
+        .cron-result { font-size: 32px; font-weight: 800; color: #1e40af; text-align: center; letter-spacing: 5px; background: #eff6ff; padding: 20px; border-radius: 8px; border: 2px dashed #bfdbfe; margin-top: 20px;}
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+    <h2 style="margin:0; font-size: 20px; color: #1e293b;">Набор Утилит (DevTools)</h2>
+</div>
+
+<div class="utils-container">
+    <!-- Меню утилит -->
+    <div class="utils-sidebar">
+        <div class="util-tab active" data-target="tab-jwt">🔐 JWT Decoder</div>
+        <div class="util-tab" data-target="tab-format">📝 SQL/XML Форматтер</div>
+        <div class="util-tab" data-target="tab-base64">📦 Base64 Encode/Decode</div>
+        <div class="util-tab" data-target="tab-url">🔗 URL Encode/Decode</div>
+        <div class="util-tab" data-target="tab-uuid">🆔 Генератор UUID</div>
+        <div class="util-tab" data-target="tab-cron">⏱️ Cron Конструктор</div> <!-- ДОБАВЛЕНО -->
+    </div>
+
+    <!-- 1. JWT DECODER -->
+    <div class="util-content active" id="tab-jwt">
+        <h3 class="util-title">JSON Web Token (JWT) Decoder</h3>
+        <p style="font-size: 12px; color: #666; margin: 0;">Вставьте токен (ey...). Данные не отправляются на сервер, декодирование происходит локально.</p>
+        <div class="badge-error" id="jwt-error"></div>
+
+        <div class="io-col" style="flex: 0 0 120px;">
+            <label>Encoded JWT Token:</label>
+            <textarea id="jwt-input" placeholder="eyJhbGciOiJIUzI1NiIsIn..."></textarea>
+        </div>
+
+        <div class="io-grid" style="margin-top: 10px;">
+            <div class="io-col">
+                <label style="color: #9333ea;">Header (Algorithm & Token Type):</label>
+                <textarea id="jwt-header" readonly style="background: #faf5ff; border-color: #e9d5ff;"></textarea>
+            </div>
+            <div class="io-col">
+                <label style="color: #059669;">Payload (Data):</label>
+                <textarea id="jwt-payload" readonly style="background: #f0fdf4; border-color: #bbf7d0;"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. ФОРМАТТЕР КОДА (SQL/XML/JSON) -->
+    <div class="util-content" id="tab-format">
+        <h3 class="util-title">Форматирование логов (Beautifier)</h3>
+        <p style="font-size: 12px; color: #666; margin: 0;">Позволяет мгновенно превратить "сплющенный" лог из БД или Kibana в читаемый вид.</p>
+        <div class="badge-error" id="fmt-error"></div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+            <button class="primary" onclick="formatCode('json')" style="background:#4f46e5; border-color:#4f46e5; width:120px;">{ } JSON</button>
+            <button class="primary" onclick="formatCode('xml')" style="background:#059669; border-color:#059669; width:120px;">&lt; &gt; XML / SOAP</button>
+            <button class="primary" onclick="formatCode('sql')" style="background:#0284c7; border-color:#0284c7; width:120px;">≡ SQL</button>
+            <div style="width:1px; background:#e2e8f0; margin: 0 10px;"></div>
+            <button class="secondary" onclick="minifyCode()" title="Удалить все переносы строк и пробелы">Сжать (Minify)</button>
+            <button class="secondary" onclick="copyToClipboard('fmt-io')">📋 Копировать</button>
+        </div>
+
+        <div class="io-col" style="flex: 1;">
+            <textarea id="fmt-io" placeholder="Вставьте сплошной текст лога или скрипта сюда..." style="height: 100%;"></textarea>
+        </div>
+    </div>
+
+    <!-- 3. BASE64 -->
+    <div class="util-content" id="tab-base64">
+        <h3 class="util-title">Base64 Encode / Decode</h3>
+        <p style="font-size: 12px; color: #666; margin: 0;">Поддерживает кодировку UTF-8 (Кириллица).</p>
+        <div class="badge-error" id="b64-error"></div>
+
+        <div class="io-grid">
+            <div class="io-col">
+                <label>Текст (Plain Text):</label>
+                <textarea id="b64-plain" placeholder="Введите обычный текст..."></textarea>
+            </div>
+
+            <div class="io-col" style="flex: 0 0 auto; justify-content: center; align-items: center; gap: 15px;">
+                <button class="primary" onclick="doBase64('encode')" style="width: 120px;">Кодировать ➔</button>
+                <button class="secondary" onclick="doBase64('decode')" style="width: 120px;">⬅ Декодировать</button>
+            </div>
+
+            <div class="io-col">
+                <label>Base64 Строка:</label>
+                <textarea id="b64-encoded" placeholder="SGVsbG8gV29ybGQ="></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. URL ENCODE/DECODE -->
+    <div class="util-content" id="tab-url">
+        <h3 class="util-title">URL Encode / Decode</h3>
+        <div class="badge-error" id="url-error"></div>
+
+        <div class="io-grid">
+            <div class="io-col">
+                <label>Обычный URL / Текст:</label>
+                <textarea id="url-plain" placeholder="https://example.com/api?name=Иван&age=25"></textarea>
+            </div>
+
+            <div class="io-col" style="flex: 0 0 auto; justify-content: center; align-items: center; gap: 15px;">
+                <button class="primary" onclick="doUrl('encode')" style="width: 120px;">Кодировать ➔</button>
+                <button class="secondary" onclick="doUrl('decode')" style="width: 120px;">⬅ Декодировать</button>
+            </div>
+
+            <div class="io-col">
+                <label>Encoded URI Component:</label>
+                <textarea id="url-encoded" placeholder="https%3A%2F%2Fexample.com%2Fapi%3Fname%3D%D0%98%D0%B2%D0%B0%D0%BD%26age%3D25"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. UUID GENERATOR -->
+    <div class="util-content" id="tab-uuid">
+        <h3 class="util-title">Генератор UUID (v4)</h3>
+
+        <div style="display: flex; gap: 20px; align-items: flex-end; margin-bottom: 20px;">
+            <div style="width: 150px;">
+                <label style="font-weight: 600; font-size: 12px; display: block; margin-bottom: 5px;">Количество:</label>
+                <input type="number" id="uuid-count" value="5" min="1" max="500" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <button class="primary" onclick="generateUUIDs()" style="padding: 9px 20px;">⚡ Сгенерировать</button>
+        </div>
+
+        <div class="io-col" style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label>Результат:</label>
+                <button class="secondary btn-small" onclick="copyToClipboard('uuid-result')" style="padding: 4px 10px; font-size: 11px;">📋 Копировать все</button>
+            </div>
+            <textarea id="uuid-result" readonly></textarea>
+        </div>
+    </div>
+
+    <!-- 6. CRON BUILDER (ДОБАВЛЕНО) -->
+    <div class="util-content" id="tab-cron">
+        <h3 class="util-title">Cron Конструктор (Quartz / Spring)</h3>
+        <div class="cron-grid">
+            <!-- Секунды -->
+            <div class="cron-col">
+                <h4>Секунды</h4>
+                <label><input type="radio" name="c_sec" value="*" checked onchange="buildCron()"> Каждую (*) </label><br>
+                <label><input type="radio" name="c_sec" value="0" onchange="buildCron()"> В начале (0) </label><br>
+                <label><input type="radio" name="c_sec" value="custom" onchange="buildCron()"> Шаг (*/X): </label>
+                <input type="number" id="c_sec_val" value="15" min="1" max="59" oninput="$('input[name=c_sec][value=custom]').prop('checked',true); buildCron();">
+            </div>
+            <!-- Минуты -->
+            <div class="cron-col">
+                <h4>Минуты</h4>
+                <label><input type="radio" name="c_min" value="*" checked onchange="buildCron()"> Каждую (*) </label><br>
+                <label><input type="radio" name="c_min" value="0" onchange="buildCron()"> В начале (0) </label><br>
+                <label><input type="radio" name="c_min" value="custom" onchange="buildCron()"> Шаг (*/X): </label>
+                <input type="number" id="c_min_val" value="5" min="1" max="59" oninput="$('input[name=c_min][value=custom]').prop('checked',true); buildCron();">
+            </div>
+            <!-- Часы -->
+            <div class="cron-col">
+                <h4>Часы</h4>
+                <label><input type="radio" name="c_hr" value="*" checked onchange="buildCron()"> Каждый (*) </label><br>
+                <label><input type="radio" name="c_hr" value="exact" onchange="buildCron()"> Конкретный: </label>
+                <input type="number" id="c_hr_val" value="12" min="0" max="23" oninput="$('input[name=c_hr][value=exact]').prop('checked',true); buildCron();">
+            </div>
+            <!-- Дни месяца -->
+            <div class="cron-col">
+                <h4>День месяца</h4>
+                <label><input type="radio" name="c_dom" value="*" checked onchange="buildCron()"> Каждый (*) </label><br>
+                <label><input type="radio" name="c_dom" value="?" onchange="buildCron()"> Не важно (?) </label><br>
+                <label><input type="radio" name="c_dom" value="exact" onchange="buildCron()"> Число: </label>
+                <input type="number" id="c_dom_val" value="1" min="1" max="31" oninput="$('input[name=c_dom][value=exact]').prop('checked',true); buildCron();">
+            </div>
+            <!-- Месяцы -->
+            <div class="cron-col">
+                <h4>Месяц</h4>
+                <label><input type="radio" name="c_mon" value="*" checked onchange="buildCron()"> Каждый (*) </label><br>
+                <label><input type="radio" name="c_mon" value="exact" onchange="buildCron()"> Месяц №: </label>
+                <input type="number" id="c_mon_val" value="1" min="1" max="12" oninput="$('input[name=c_mon][value=exact]').prop('checked',true); buildCron();">
+            </div>
+            <!-- Дни недели -->
+            <div class="cron-col">
+                <h4>День недели</h4>
+                <label><input type="radio" name="c_dow" value="?" checked onchange="buildCron()"> Не важно (?) </label><br>
+                <label><input type="radio" name="c_dow" value="*" onchange="buildCron()"> Любой (*) </label><br>
+                <label><input type="radio" name="c_dow" value="MON-FRI" onchange="buildCron()"> По будням </label><br>
+            </div>
+        </div>
+
+        <div class="cron-result" id="cron-output">
+            * * * * * ?
+        </div>
+    </div>
+</div>
+
+<script>
+    $(function() {
+        // Табы
+        $('.util-tab').on('click', function() {
+            $('.util-tab').removeClass('active');
+            $('.util-content').removeClass('active');
+
+            $(this).addClass('active');
+            $('#' + $(this).data('target')).addClass('active');
+        });
+
+        // Слушатель для JWT (Авто-парсинг при вставке)
+        $('#jwt-input').on('input', parseJWT);
+
+        // Генерим UUID при загрузке страницы
+        generateUUIDs();
+
+        // Инициализация Cron
+        buildCron();
+    });
+
+    // --- JWT ЛОГИКА ---
+    function parseJWT() {
+        const token = $('#jwt-input').val().trim();
+        const errBox = $('#jwt-error');
+        const headBox = $('#jwt-header');
+        const payBox = $('#jwt-payload');
+
+        errBox.hide(); headBox.val(''); payBox.val('');
+        if(!token) return;
+
+        const parts = token.split('.');
+        if(parts.length !== 3) {
+            errBox.text('Неверный формат JWT. Ожидается 3 части, разделенные точкой.').show();
+            return;
+        }
+
+        try {
+            const headRaw = decodeBase64Url(parts[0]);
+            const payRaw = decodeBase64Url(parts[1]);
+
+            headBox.val(JSON.stringify(JSON.parse(headRaw), null, 4));
+            payBox.val(JSON.stringify(JSON.parse(payRaw), null, 4));
+        } catch(e) {
+            errBox.text('Ошибка парсинга Base64 или JSON: ' + e.message).show();
+        }
+    }
+
+    function decodeBase64Url(str) {
+        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) { base64 += '='; }
+        return decodeURIComponent(escape(window.atob(base64)));
+    }
+
+    // --- ФОРМАТТЕР ЛОГИКА ---
+    function formatCode(type) {
+        const errBox = $('#fmt-error').hide();
+        const io = $('#fmt-io');
+        let text = io.val().trim();
+        if (!text) return;
+
+        try {
+            if (type === 'json') {
+                io.val(JSON.stringify(JSON.parse(text), null, 4));
+            }
+            else if (type === 'xml') {
+                io.val(formatXml(text));
+            }
+            else if (type === 'sql') {
+                io.val(formatSql(text));
+            }
+            if(typeof showNotification === 'function') showNotification("Отформатировано!");
+        } catch(e) {
+            errBox.text("Ошибка: Неверный синтаксис. (" + e.message + ")").show();
+        }
+    }
+
+    function minifyCode() {
+        const io = $('#fmt-io');
+        let text = io.val();
+        if (!text) return;
+
+        text = text.replace(/\r?\n|\r/g, '').replace(/\s{2,}/g, ' ');
+        text = text.replace(/>\s+</g, '><');
+
+        io.val(text.trim());
+        if(typeof showNotification === 'function') showNotification("Код сжат (Minify)!");
+    }
+
+    function formatXml(xml) {
+        let formatted = '';
+        let reg = /(>)(<)(\/*)/g;
+        xml = xml.replace(reg, '$1\r\n$2$3');
+        let pad = 0;
+        xml.split('\r\n').forEach(function(node) {
+            let indent = 0;
+            if (node.match( /.+<\/\w[^>]*>$/ )) indent = 0;
+            else if (node.match( /^<\/\w/ )) {
+                if (pad != 0) pad -= 1;
+            } else if (node.match( /^<\w[^>]*[^\/]>.*$/ )) indent = 1;
+            else indent = 0;
+
+            let padding = '';
+            for (let i = 0; i < pad; i++) padding += '  ';
+            formatted += padding + node + '\r\n';
+            pad += indent;
+        });
+        return formatted.trim();
+    }
+
+    function formatSql(sql) {
+        let formatted = sql.replace(/\s+/g, ' ');
+        const keywords = [
+            'SELECT', 'FROM', 'WHERE', 'AND ', 'OR ', 'ORDER BY',
+            'GROUP BY', 'HAVING', 'LIMIT', 'LEFT JOIN', 'RIGHT JOIN',
+            'INNER JOIN', 'JOIN', 'INSERT INTO', 'VALUES', 'UPDATE', 'SET'
+        ];
+
+        keywords.forEach(kw => {
+            const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+            formatted = formatted.replace(regex, `\n${kw.toUpperCase()}`);
+        });
+
+        formatted = formatted.replace(/\(\s*SELECT/gi, '(\n  SELECT');
+        return formatted.trim();
+    }
+
+    // --- BASE64 ЛОГИКА ---
+    function doBase64(action) {
+        const errBox = $('#b64-error');
+        errBox.hide();
+        try {
+            if(action === 'encode') {
+                const plain = $('#b64-plain').val();
+                const encoded = window.btoa(unescape(encodeURIComponent(plain)));
+                $('#b64-encoded').val(encoded);
+            } else {
+                const b64 = $('#b64-encoded').val().trim();
+                const decoded = decodeURIComponent(escape(window.atob(b64)));
+                $('#b64-plain').val(decoded);
+            }
+        } catch(e) {
+            errBox.text('Ошибка обработки: Проверьте правильность строки.').show();
+        }
+    }
+
+    // --- URL ЛОГИКА ---
+    function doUrl(action) {
+        const errBox = $('#url-error');
+        errBox.hide();
+        try {
+            if(action === 'encode') {
+                $('#url-encoded').val(encodeURIComponent($('#url-plain').val()));
+            } else {
+                $('#url-plain').val(decodeURIComponent($('#url-encoded').val()));
+            }
+        } catch(e) {
+            errBox.text('Ошибка обработки URL.').show();
+        }
+    }
+
+    // --- UUID ЛОГИКА ---
+    function generateUUIDs() {
+        let count = parseInt($('#uuid-count').val()) || 1;
+        if(count > 1000) count = 1000;
+        let res = [];
+        for(let i=0; i<count; i++) {
+            res.push(crypto.randomUUID ? crypto.randomUUID() : 'xxxx-xxxx-xxxx-xxxx'.replace(/[x]/g, function(c) {
+                var r = Math.random() * 16 | 0; return r.toString(16);
+            }));
+        }
+        $('#uuid-result').val(res.join('\n'));
+    }
+
+    // --- ЛОГИКА CRON BUILDER (ДОБАВЛЕНО) ---
+    function getVal(name) {
+        const type = $(`input[name=${name}]:checked`).val();
+        if (type === 'custom') return `*/${$(`#${name}_val`).val()}`;
+        if (type === 'exact') return $(`#${name}_val`).val();
+        return type;
+    }
+
+    function buildCron() {
+        const sec = getVal('c_sec');
+        const min = getVal('c_min');
+        const hr = getVal('c_hr');
+        const dom = getVal('c_dom');
+        const mon = getVal('c_mon');
+        const dow = getVal('c_dow');
+
+        // Quartz/Spring запрещает указывать и ДеньМесяца и ДеньНедели одновременно. Одно должно быть '?'
+        let finalDom = dom;
+        let finalDow = dow;
+
+        if (finalDom !== '?' && finalDow !== '?') {
+            if ($('input[name=c_dom]:focus').length > 0 || $(`#c_dom_val:focus`).length > 0) {
+                finalDow = '?';
+                $('input[name=c_dow][value="?"]').prop('checked', true);
+            } else {
+                finalDom = '?';
+                $('input[name=c_dom][value="?"]').prop('checked', true);
+            }
+        }
+
+        const cronStr = `${sec} ${min} ${hr} ${finalDom} ${mon} ${finalDow}`;
+        $('#cron-output').text(cronStr);
+    }
+
+    function copyToClipboard(id) {
+        const el = document.getElementById(id);
+        el.select();
+        document.execCommand('copy');
+        if(typeof showNotification === 'function') showNotification('Скопировано в буфер!');
+    }
+</script>
+</body>
+</html>

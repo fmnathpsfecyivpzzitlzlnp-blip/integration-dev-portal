@@ -1,54 +1,205 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>Редактор XML/JSON</title>
+    <title data-i18n="ed_page_title">Редактор XML/JSON</title>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="libs/themes/default/style.min.css"/>
     <link rel="stylesheet" href="style.css">
+
     <style>
-        .editor-container { display: flex; height: calc(100vh - 230px); gap: 10px; margin-top: 10px; }
-        #json-editor { width: 40%; height: 100%; font-family: monospace; font-size: 14px; box-sizing: border-box; }
-        #tree-viewer { width: 60%; height: 100%; overflow: auto; border: 1px solid #ccc; background-color: #fff; box-sizing: border-box; }
-        .controls-top { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .controls-top button, .controls-top select { padding: 8px 12px; }
-        .controls-top input { flex-grow: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;}
-        .editor-header-bar { background-color: #f7f7f7; padding: 8px; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
-        .vakata-context { z-index: 10000; }
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --tree-bg: #ffffff;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --tree-bg: #1e293b;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: var(--bg-main);
+        }
+
+        .editor-header-bar {
+            background: var(--bg-header);
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: 0.3s;
+        }
+
+        .controls-top {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            transition: 0.3s;
+        }
+
+        .controls-top label { font-weight: 600; font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+
+        .controls-top input, .controls-top select, .editor-header-bar select {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-size: 13px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .controls-top input { flex-grow: 1; }
+        .controls-top input:focus, .controls-top select:focus, .editor-header-bar select:focus { border-color: #3b82f6; }
+
+        .btn { padding: 8px 15px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; transition: 0.2s; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-secondary { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+        .btn-secondary:hover { background: #3b82f6; color: white; }
+        .btn-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .btn-danger:hover { background: #ef4444; color: white; }
+
+        .editor-container {
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            min-height: 0; /* Важно для корректного скролла внутри flex */
+        }
+
+        #json-editor {
+            width: 40%;
+            height: 100%;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text-main);
+            resize: none;
+            outline: none;
+            transition: 0.3s;
+        }
+        #json-editor:focus { border-color: #3b82f6; }
+
+        #tree-viewer {
+            width: 60%;
+            height: 100%;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            background: var(--tree-bg);
+            border-radius: 6px;
+            box-sizing: border-box;
+            padding: 15px;
+            transition: 0.3s;
+        }
+
+        .vakata-context { z-index: 10000; font-family: 'Segoe UI', sans-serif; }
+
+        /* Адаптация текста дерева под темную тему */
+        body.dark-theme .jstree-default .jstree-anchor { color: var(--text-main); }
+        body.dark-theme .jstree-default .jstree-hovered { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        body.dark-theme .jstree-default .jstree-clicked { background: rgba(59, 130, 246, 0.4); border-radius: 4px; color: white; }
+
+        #notification { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
+    <script src="utils.js"></script>
 </head>
 <body>
 
 <div class="main-content">
     <div class="editor-header-bar">
-        <span><b>Формат:</b>
-            <select id="format-select">
-                <option value="json">JSON</option>
-                <option value="xml">XML</option>
-            </select>
-        </span>
-        <div>
-            <button id="btn-beautify">1. Разобрать</button>
-            <button id="btn-to-text">3. Собрать</button>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button onclick="window.location.href='index.html'" class="btn btn-secondary" style="border: none; background: transparent; padding: 0;" data-i18n="btn_home">🏠 Домой</button>
+            <h2 style="margin: 0; font-size: 20px;" data-i18n="ed_title">Редактор XML/JSON</h2>
+        </div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="display: flex; align-items: center; gap: 8px;">
+                <b style="font-size: 13px; color: var(--text-muted);" data-i18n="ed_lbl_format">Формат:</b>
+                <select id="format-select">
+                    <option value="json">JSON</option>
+                    <option value="xml">XML</option>
+                </select>
+            </span>
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-beautify" class="btn btn-primary" data-i18n="ed_btn_parse">1. Разобрать</button>
+                <button id="btn-to-text" class="btn btn-success" data-i18n="ed_btn_build">3. Собрать</button>
+            </div>
         </div>
     </div>
 
     <div class="controls-top">
-        <label for="url-input">Загрузить по URL:</label>
+        <label for="url-input" data-i18n="ed_lbl_url">Загрузить по URL:</label>
         <input type="text" id="url-input" placeholder="http://.../data.json">
-        <button id="btn-fetch-url">Загрузить</button>
+        <button id="btn-fetch-url" class="btn btn-secondary" data-i18n="ed_btn_load">Загрузить</button>
     </div>
 
     <div class="controls-top">
-        <label for="doc-select">Сохраненные документы:</label>
-        <select id="doc-select"></select>
-        <button id="btn-load-doc">Загрузить</button>
-        <button id="btn-delete-doc">Удалить</button>
+        <label for="doc-select" data-i18n="ed_lbl_docs">Сохраненные документы:</label>
+        <select id="doc-select" style="min-width: 200px;"></select>
+        <button id="btn-load-doc" class="btn btn-secondary" data-i18n="ed_btn_load">Загрузить</button>
+        <button id="btn-delete-doc" class="btn btn-danger" data-i18n="ed_btn_del">Удалить</button>
     </div>
 
     <div class="controls-top">
-        <label for="save-name-input">Имя для сохранения:</label>
+        <label for="save-name-input" data-i18n="ed_lbl_save">Имя для сохранения:</label>
         <input type="text" id="save-name-input" placeholder="my_document1">
-        <button id="btn-save-doc">Сохранить на сервере</button>
+        <button id="btn-save-doc" class="btn btn-success" data-i18n="ed_btn_save_srv">Сохранить на сервере</button>
     </div>
 
     <div class="editor-container">
@@ -57,12 +208,29 @@
     </div>
 </div>
 
-<div id="notification" class="notification"></div>
+<div id="notification"></div>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+<script src="libs/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>H
 <script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+         try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
         $('#tree-viewer').jstree({
             'core': { 'check_callback': true, 'data': [], 'themes': { 'stripes': true }, 'force_text': true },
             'plugins': ['contextmenu', 'dnd', 'types'],
@@ -74,17 +242,17 @@
         function customMenu(node) {
             const tree = $('#tree-viewer').jstree(true);
             let items = {
-                create: { label: 'Создать...', submenu: {
-                        create_value: { 'label': 'Значение', 'action': () => createChildNode(node, 'value') },
-                        create_object: { 'label': 'Объект', 'action': () => createChildNode(node, 'object') },
-                        create_array: { 'label': 'Массив', 'action': () => createChildNode(node, 'array') }
+                create: { label: t('ed_ctx_create', 'Создать...'), submenu: {
+                        create_value: { 'label': t('ed_ctx_val', 'Значение'), 'action': () => createChildNode(node, 'value') },
+                        create_object: { 'label': t('ed_ctx_obj', 'Объект'), 'action': () => createChildNode(node, 'object') },
+                        create_array: { 'label': t('ed_ctx_arr', 'Массив'), 'action': () => createChildNode(node, 'array') }
                     }},
-                rename: { 'label': 'Переименовать / Изменить', 'action': () => tree.edit(node) },
-                delete: { 'label': 'Удалить', 'action': () => tree.delete_node(node) },
+                rename: { 'label': t('ed_ctx_ren', 'Переименовать / Изменить'), 'action': () => tree.edit(node) },
+                delete: { 'label': t('ed_ctx_del', 'Удалить'), 'action': () => tree.delete_node(node) },
                 sep1: { 'separator': true },
-                cut: { 'label': 'Вырезать', 'action': (data) => $.jstree.reference(data.reference).cut($.jstree.reference(data.reference).get_node(data.reference)) },
-                copy: { 'label': 'Копировать', 'action': (data) => $.jstree.reference(data.reference).copy($.jstree.reference(data.reference).get_node(data.reference)) },
-                paste: { 'label': 'Вставить', 'action': (data) => $.jstree.reference(data.reference).paste($.jstree.reference(data.reference).get_node(data.reference)) }
+                cut: { 'label': t('ed_ctx_cut', 'Вырезать'), 'action': (data) => $.jstree.reference(data.reference).cut($.jstree.reference(data.reference).get_node(data.reference)) },
+                copy: { 'label': t('ed_ctx_copy', 'Копировать'), 'action': (data) => $.jstree.reference(data.reference).copy($.jstree.reference(data.reference).get_node(data.reference)) },
+                paste: { 'label': t('ed_ctx_paste', 'Вставить'), 'action': (data) => $.jstree.reference(data.reference).paste($.jstree.reference(data.reference).get_node(data.reference)) }
             };
 
             if (!tree.can_paste()) { delete items.paste; }
@@ -96,14 +264,6 @@
             return items;
         }
 
-        let notificationTimeout;
-        function showNotification(message, isError = false) {
-            const notification = $('#notification');
-            notification.text(message).removeClass('error').show();
-            if(isError) notification.addClass('error');
-            clearTimeout(notificationTimeout);
-            notificationTimeout = setTimeout(() => notification.fadeOut(), 4000);
-        }
         const textValue = (val) => JSON.stringify(val);
         let nodeIdCounter = 0;
 
@@ -128,7 +288,7 @@
             const rootContainerNode = tree.get_node(startNodeId);
 
             if (!rootContainerNode || !rootContainerNode.children || rootContainerNode.children.length === 0) {
-                throw new Error("Дерево пустое или не было разобрано. Нечего собирать.");
+                throw new Error(t('ed_err_empty_tree', "Дерево пустое или не было разобрано. Нечего собирать."));
             }
 
             const rootNodeId = rootContainerNode.children[0];
@@ -136,7 +296,7 @@
             function build(currentId) {
                 const node = tree.get_node(currentId);
                 if (!node) {
-                    throw new Error(`Структура дерева нарушена: узел '${currentId}' не найден.`);
+                    throw new Error(t('ed_err_struct', `Структура дерева нарушена: узел '${currentId}' не найден.`));
                 }
 
                 if (!node.data) {
@@ -216,6 +376,12 @@
             }
         }
 
+        function showNotification(msg, isErr = false) {
+            const toast = $('#notification');
+            toast.text(msg).css('background', isErr ? '#ef4444' : '#10b981').fadeIn(200);
+            setTimeout(() => toast.fadeOut(300), 2500);
+        }
+
         $('#btn-beautify').on('click', function() {
             const text = $('#json-editor').val(); const format = $('#format-select').val();
             if (!text.trim()) { return; }
@@ -230,14 +396,13 @@
                     if (typeof jsonData === 'object' && jsonData !== null) {
                         treeData = jsonToTreeData(jsonData, 'root');
                     } else {
-                        // Обработка случая, если пришел не объект (например, просто число или строка)
                         treeData = { id: 'root', text: 'root', type: 'object', children: [ jsonToTreeData(jsonData, 'value') ]};
                     }
                     $('#tree-viewer').jstree(true).settings.core.data = [treeData];
                     $('#tree-viewer').jstree(true).refresh(true);
-                    showNotification("Данные разобраны в дерево.");
+                    showNotification(t('ed_msg_parsed', "Данные разобраны в дерево."));
                 },
-                error: (xhr) => showNotification(`Ошибка разбора: ${JSON.parse(xhr.responseText).message}`, true)
+                error: (xhr) => showNotification(t('ed_err_parse', `Ошибка разбора: `) + JSON.parse(xhr.responseText).message, true)
             });
         });
 
@@ -253,19 +418,19 @@
                     success: (content) => {
                         if (btnId === 'btn-to-text') {
                             $('#json-editor').val(content);
-                            showNotification("Дерево собрано в текст.");
+                            showNotification(t('ed_msg_build', "Дерево собрано в текст."));
                         } else if (btnId === 'btn-save-doc') {
                             const name = $('#save-name-input').val().trim();
-                            if (!name) { showNotification("Введите имя для сохранения.", true); return; }
+                            if (!name) { showNotification(t('ed_err_name', "Введите имя для сохранения."), true); return; }
                             $.ajax({
                                 url: "/api/documents", type: 'POST',
                                 contentType: 'application/json', data: JSON.stringify({ name: name, content: content }),
-                                success: () => { showNotification("Документ сохранен."); loadDocList(); },
-                                error: () => showNotification("Ошибка сохранения на сервере.", true)
+                                success: () => { showNotification(t('ed_msg_saved', "Документ сохранен.")); loadDocList(); },
+                                error: () => showNotification(t('ed_err_srv_save', "Ошибка сохранения на сервере."), true)
                             });
                         }
                     },
-                    error: (xhr) => showNotification(`Ошибка сериализации: ${xhr.responseText}`, true)
+                    error: (xhr) => showNotification(t('ed_err_ser', `Ошибка сериализации: `) + xhr.responseText, true)
                 });
             } catch(err) {
                 console.error("Детальная ошибка сборки:", err);
@@ -287,14 +452,14 @@
                     $('#format-select').val(data.trim().startsWith('<') ? 'xml' : 'json');
                     $('#btn-beautify').trigger('click');
                 },
-                error: (xhr) => showNotification(`Ошибка загрузки: ${JSON.parse(xhr.responseText).message}`, true)
+                error: (xhr) => showNotification(t('ed_err_load', `Ошибка загрузки: `) + JSON.parse(xhr.responseText).message, true)
             });
         });
 
         function loadDocList() {
             $.get("/api/documents", (docs) => {
                 const select = $("#doc-select").empty();
-                select.append($('<option>', { value: '', text: 'Выберите документ...' }));
+                select.append($('<option>', { value: '', text: t('ed_opt_sel_doc', 'Выберите документ...') }));
                 docs.forEach(doc => select.append($('<option>', { value: doc.id, text: doc.name })));
             });
         }
@@ -312,20 +477,21 @@
 
         $('#btn-delete-doc').on('click', function() {
             const docId = $("#doc-select").val(); if (!docId) return;
-            if (confirm("Вы уверены, что хотите удалить этот документ?")) {
-                $.ajax({ url: `/api/documents/${docId}`, type: 'DELETE', success: () => { showNotification("Документ удален."); loadDocList(); } });
+            if (confirm(t('ed_conf_del', "Вы уверены, что хотите удалить этот документ?"))) {
+                $.ajax({ url: `/api/documents/${docId}`, type: 'DELETE', success: () => { showNotification(t('ed_msg_del', "Документ удален.")); loadDocList(); } });
             }
         });
 
-        $('#json-editor').val(`{
-    "userId": { "type": "increment", "start": 1001, "step": 1 },
-    "userName": { "type": "random", "values": [ "Alice", "Bob", "Charlie", "Елена" ] },
-    "описание": "Пример с кириллицей"
-}`);
+        $('#json-editor').val(`{\n    "userId": { "type": "increment", "start": 1001, "step": 1 },\n    "userName": { "type": "random", "values": [ "Alice", "Bob", "Charlie", "Елена" ] },\n    "описание": "Пример с кириллицей"\n}`);
         $('#url-input').val('https://api.coindesk.com/v1/bpi/currentprice.json');
 
         loadDocList();
     });
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 </script>
 
 </body>

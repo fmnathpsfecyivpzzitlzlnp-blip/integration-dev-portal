@@ -1,114 +1,209 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <title>Управление метками</title>
+  <title data-i18n="lbl_page_title">Управление метками</title>
   <meta charset="UTF-8">
+
   <!-- Библиотеки -->
   <script src="libs/jquery-3.6.0.min.js"></script>
+  <script src="utils.js"></script>
+
+  <!-- CodeMirror (Подсветка синтаксиса) -->
+  <link rel="stylesheet" href="libs/codemirror.min.css">
+  <link rel="stylesheet" href="libs/dracula.min.css">
+  <script src="libs/codemirror.min.js"></script>
+  <script src="libs/javascript.min.js"></script>
+  <script src="libs/xml.min.js"></script>
+  <script src="libs/sql.min.js"></script>
+  <script src="libs/clike.min.js"></script>
+
   <!-- Общие стили -->
   <link rel="stylesheet" href="style.css">
+
   <style>
+    /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+    :root {
+      --bg-main: #f4f7f9;
+      --bg-card: #ffffff;
+      --bg-header: #f8fafc;
+      --text-main: #334155;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --input-bg: #f8fafc;
+      --badge-bg: #eff6ff;
+      --badge-border: #bfdbfe;
+      --badge-text: #1d4ed8;
+      --card-hover: #f1f5f9;
+    }
+
+    body.dark-theme {
+      --bg-main: #0f172a;
+      --bg-card: #1e293b;
+      --bg-header: #0f172a;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --input-bg: #0f172a;
+      --badge-bg: rgba(59, 130, 246, 0.2);
+      --badge-border: #3b82f6;
+      --badge-text: #60a5fa;
+      --card-hover: #334155;
+    }
+
     /* === Глобальные стили === */
+    html, body { margin: 0 !important; padding: 0 !important; height: 100vh !important; overflow: hidden !important; }
+
     body {
-      background-color: #f4f7f9;
-      margin: 0;
-      padding: 0;
-      height: 100vh;
-      overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      flex-direction: column;
+      background-color: var(--bg-main) !important;
+      font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+      display: flex !important;
+      flex-direction: column !important;
+      color: var(--text-main) !important;
+      transition: background 0.3s, color 0.3s;
+      box-sizing: border-box !important;
     }
 
     /* === ХЕДЕР СТРАНИЦЫ === */
     .page-header {
       padding: 20px 20px 5px 20px;
-      background: #f4f7f9;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
     }
 
-    /* === УЛУЧШЕННАЯ ПАНЕЛЬ УПРАВЛЕНИЯ === */
-    .controls {
-      background: #fff;
-      padding: 20px;
-      margin: 0 20px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
+    /* === ЦЕНТРАЛЬНЫЙ ПОИСК (HERO SECTION) === */
+    .search-hero {
+      background: var(--bg-card);
+      margin: 0 20px 15px 20px;
+      padding: 25px 30px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03);
       display: flex;
-      gap: 15px;
+      flex-direction: column;
       align-items: center;
       flex-shrink: 0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      transition: 0.3s;
     }
 
-    /* Обертка для поиска с иконкой */
-    .search-wrapper {
-      flex-grow: 1;
+    .search-input-wrapper {
       position: relative;
+      width: 100%;
+      max-width: 800px;
       display: flex;
       align-items: center;
+      gap: 15px;
     }
 
-    /* Иконка внутри инпута */
-    .search-icon {
+    .search-icon-big {
       position: absolute;
-      left: 12px;
-      font-size: 16px;
-      color: #94a3b8;
+      left: 20px;
+      font-size: 22px;
+      color: var(--text-muted);
       pointer-events: none;
     }
 
-    /* Поле поиска */
     #search-input {
       width: 100%;
-      height: 44px;
-      padding: 10px 15px 10px 40px; /* Отступ слева под иконку */
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      font-size: 14px;
+      height: 56px;
+      padding: 10px 20px 10px 55px;
+      border: 2px solid var(--border-color);
+      border-radius: 30px;
+      font-size: 16px;
       outline: none;
-      background-color: #f8fafc;
+      background-color: var(--input-bg);
+      color: var(--text-main);
       transition: all 0.2s;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
       box-sizing: border-box;
     }
 
     #search-input:focus {
-      background-color: #fff;
+      background-color: var(--bg-card);
       border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
     }
 
-    /* Селект категорий */
-    #category-filter {
-      height: 44px;
-      padding: 0 30px 0 12px;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      background-color: white;
-      min-width: 180px;
+    /* --- ТОП МЕТКИ (БЫСТРЫЙ ДОСТУП) --- */
+    .top-labels-container {
+      width: 100%;
+      max-width: 1000px;
+      margin-top: 20px;
+    }
+
+    .top-labels-header {
       font-size: 13px;
-      cursor: pointer;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
 
-    /* Кнопка добавления */
+    .top-labels-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .top-label-badge {
+      background: var(--badge-bg);
+      border: 1px solid var(--badge-border);
+      color: var(--badge-text);
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+    }
+    .top-label-badge:hover { background: #3b82f6; color: white; border-color: #2563eb; transform: translateY(-2px); }
+    .top-label-badge .usage { background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 10px; font-size: 10px; }
+    body.dark-theme .top-label-badge:hover .usage { background: rgba(255,255,255,0.2); }
+
+    /* Панель фильтров */
+    .filters-bar {
+      margin: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    #category-filter {
+      height: 40px;
+      padding: 0 30px 0 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--bg-card);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      outline: none;
+      transition: 0.3s;
+    }
+    #category-filter:focus { border-color: #3b82f6; }
+
     #add-category-btn {
-      height: 44px;
+      height: 40px;
       padding: 0 20px;
-      white-space: nowrap;
       font-weight: 600;
       font-size: 14px;
-      border: 1px solid #ccc;
-      background: #fff;
-      color: #555;
-      border-radius: 4px;
+      border: none;
+      background: #10b981;
+      color: #fff;
+      border-radius: 6px;
       cursor: pointer;
+      transition: 0.2s;
     }
-    #add-category-btn:hover {
-      background: #f1f5f9;
-    }
+    #add-category-btn:hover { background: #059669; }
 
     /* --- Основной контейнер --- */
     #labels-container {
@@ -118,120 +213,115 @@
     }
 
     /* --- СЕТКА МЕТОК (GRID) --- */
-    .category-block {
-      margin-bottom: 30px;
-    }
+    .category-block { margin-bottom: 30px; }
 
     .category-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 2px solid var(--border-color);
       padding-bottom: 10px;
       margin-bottom: 15px;
+      transition: 0.3s;
     }
 
     .category-header h3 {
       margin: 0;
-      font-size: 15px;
-      color: #334155;
+      font-size: 18px;
+      color: var(--text-main);
       font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
     }
 
-    /* Действия категории */
     .cat-actions button {
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 4px;
       border: 1px solid transparent;
-      font-size: 11px;
+      font-size: 12px;
+      font-weight: bold;
       cursor: pointer;
       margin-left: 5px;
+      transition: 0.2s;
     }
-    .add-lbl-btn { background: #fff; border-color: #ccc; color: #555; }
-    .del-cat-btn { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+    .add-lbl-btn { background: var(--bg-header); border-color: var(--border-color); color: var(--text-main); }
+    .add-lbl-btn:hover { background: var(--card-hover); }
+    .del-cat-btn { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2); }
+    .del-cat-btn:hover { background: #ef4444; color: white; }
 
     .labels-list {
       display: grid;
-      /* Адаптивность: колонки от 300px */
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 20px;
     }
 
     /* Карточка метки */
     .label-item {
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 15px;
       display: flex;
       flex-direction: column;
-      transition: transform 0.2s, box-shadow 0.2s;
-      position: relative;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.3s, background 0.3s;
       height: 200px;
       overflow: hidden;
     }
 
     .label-item:hover {
       transform: translateY(-3px);
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-      border-color: #cbd5e1;
+      box-shadow: 0 10px 20px -5px rgba(0,0,0,0.08);
+      border-color: #3b82f6;
     }
 
-    /* Заголовок внутри карточки */
     .label-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 10px;
-      height: 24px;
     }
 
     .label-title {
       font-weight: 700;
-      color: #1e293b;
-      font-size: 14px;
+      color: var(--text-main);
+      font-size: 15px;
       cursor: pointer;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 80%;
       display: inline-block;
+      transition: 0.2s;
     }
-    .label-title:hover { color: #2563eb; text-decoration: underline; }
+    .label-title:hover { color: #3b82f6; }
 
     .usage-badge {
-      font-size: 10px;
-      background: #f1f5f9;
-      color: #64748b;
+      font-size: 11px;
+      background: var(--bg-header);
+      color: var(--text-muted);
       padding: 2px 6px;
       border-radius: 4px;
-      font-weight: 600;
+      font-weight: bold;
     }
 
     /* Превью текста с градиентной маской */
     .label-preview {
-      background: #f8fafc;
-      border: 1px solid #f1f5f9;
-      border-radius: 4px;
+      background: var(--bg-header);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
       padding: 10px;
       font-family: 'Consolas', monospace;
-      font-size: 11px;
-      color: #64748b;
+      font-size: 12px;
+      color: var(--text-muted);
       flex-grow: 1;
       overflow: hidden;
       margin-bottom: 15px;
       cursor: pointer;
       word-break: break-all;
-
-      /* Стандарт CSS Level 1 Masking */
-      -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
-      mask-image: linear-gradient(180deg, #000 60%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, #000 50%, transparent 100%);
+      mask-image: linear-gradient(180deg, #000 50%, transparent 100%);
+      transition: 0.3s;
     }
-    .label-preview:hover { background: #f1f5f9; border-color: #e2e8f0; }
+    .label-preview:hover { filter: brightness(0.95); border-color: #3b82f6; }
 
-    /* Подвал карточки */
     .label-footer {
       display: flex;
       gap: 10px;
@@ -241,90 +331,108 @@
 
     .btn-copy {
       flex: 1;
-      background: #eff6ff;
-      color: #3b82f6;
-      border: 1px solid #dbeafe;
-      padding: 6px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      border: 1px solid var(--badge-border);
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
       cursor: pointer;
+      transition: 0.2s;
     }
-    .btn-copy:hover { background: #3b82f6; color: white; }
+    .btn-copy:hover { background: #3b82f6; color: white; border-color: #2563eb; }
 
     .action-icons { display: flex; gap: 5px; }
     .action-icons button {
       background: transparent;
       border: none;
       cursor: pointer;
-      font-size: 14px;
-      padding: 5px;
+      font-size: 16px;
+      padding: 5px 8px;
       border-radius: 4px;
-      color: #94a3b8;
+      color: var(--text-muted);
+      transition: 0.2s;
     }
-    .action-icons button:hover { background: #f1f5f9; color: #334155; }
-    .action-icons button.del:hover { background: #fef2f2; color: #ef4444; }
+    .action-icons button:hover { background: var(--border-color); color: var(--text-main); }
+    .action-icons button.del:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 
-    /* Модальные окна */
-    .modal {
-      display: none; position: fixed; z-index: 2000; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
-      justify-content: center; align-items: center;
-    }
-    .modal-content {
-      background: #fff; padding: 25px; border-radius: 8px; width: 700px; max-width: 95%;
-      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column;
-    }
-    .modal-close { float: right; font-size: 24px; cursor: pointer; color: #aaa; margin-top:-10px; }
-    .modal-close:hover { color: #333; }
-
-    /* Стандартные кнопки в модалках */
+    /* Стандартные модалки */
     button.primary { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight:600; cursor:pointer;}
-    button.secondary { background: #fff; color: #555; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor:pointer;}
+    button.primary:hover { background: #1d4ed8; }
+    button.secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 4px; cursor:pointer; transition: 0.2s;}
+    button.secondary:hover { filter: brightness(0.95); }
 
-    textarea {
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
+    .modal-content { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding:25px; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.2); }
+    .modal-content label { color: var(--text-main); font-size: 13px; }
+    .modal-content input, .modal-content textarea, .modal-content select { background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border-color); }
+    .modal-content input:focus, .modal-content textarea:focus, .modal-content select:focus { border-color: #3b82f6; outline: none; }
+
+    /* Стили для CodeMirror внутри модалки просмотра */
+    .CodeMirror {
+      height: auto !important;
+      max-height: 60vh;
+      border-radius: 6px;
       font-family: 'Consolas', monospace;
-      width: 100%;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 10px;
-      resize: vertical;
-      box-sizing: border-box;
+      font-size: 14px;
     }
 
-    /* Тост уведомления */
-    .notification {
-      position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: white;
-      padding: 12px 20px; border-radius: 6px; font-size: 13px; display: none; z-index: 3000;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    /* Кастомный селект синтаксиса в модалке */
+    .syntax-select {
+      background: var(--input-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: bold;
+      outline: none;
+      cursor: pointer;
     }
-    .notification.error { background: #ef4444; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-main); }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+    /* Окно Онбординга */
+    .onboarding-card { background: var(--bg-card); border: 1px solid #3b82f6; border-radius: 12px; padding: 30px; max-width: 600px; margin: 0 auto; text-align: center; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.1); }
+    .onboarding-card h2 { color: var(--text-main); margin-top: 0; }
+    .onboarding-card p { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+    .onboarding-list { text-align: left; background: var(--bg-header); padding: 20px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: var(--text-main); }
+    .onboarding-list ul { margin: 0; padding-left: 20px; }
+    .onboarding-list li { margin-bottom: 8px; }
   </style>
 </head>
 <body>
 
-<!-- Заголовок страницы -->
 <div class="page-header">
   <div style="display:flex; align-items:center; gap:15px;">
-    <button onclick="window.location.href='index.html'" class="secondary">← На главную</button>
-    <h2 style="margin:0; font-size:20px; color:#1e293b;">База Знаний (Метки)</h2>
+    <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 На главную</button>
+    <h2 style="margin:0; font-size:22px;" data-i18n="lbl_page_title">База Знаний (Метки)</h2>
   </div>
-  <div style="font-size:12px; color:#64748b;">Хранение: Database</div>
 </div>
 
-<!-- Панель управления -->
-<div class="controls">
-  <!-- Обертка поиска -->
-  <div class="search-wrapper">
-    <span class="search-icon">🔍</span>
-    <input type="text" id="search-input" placeholder="Быстрый поиск по меткам (название или код)...">
+<!-- ЦЕНТРАЛЬНЫЙ ПОИСК И ЧАСТЫЕ МЕТКИ -->
+<div class="search-hero">
+  <div class="search-input-wrapper">
+    <span class="search-icon-big">🔍</span>
+    <input type="text" id="search-input" placeholder="Введите название или фрагмент кода для поиска..." autocomplete="off">
   </div>
 
-  <select id="category-filter">
-    <option value="">Все категории</option>
-  </select>
+  <div class="top-labels-container" id="top-labels-section" style="display: none;">
+    <div class="top-labels-header" data-i18n="lbl_top_labels">🔥 Часто используемые метки</div>
+    <div class="top-labels-grid" id="top-labels-grid">
+      <!-- Генерируется JS -->
+    </div>
+  </div>
+</div>
 
-  <button id="add-category-btn">+ Категория</button>
+<div class="filters-bar">
+  <select id="category-filter">
+    <option value="" data-i18n="lbl_all_cat">📁 Все категории</option>
+  </select>
+  <button id="add-category-btn" data-i18n="lbl_btn_new_cat">+ Новая категория</button>
 </div>
 
 <!-- Основной контент -->
@@ -332,46 +440,107 @@
 
 <!-- MODAL: Create/Edit -->
 <div id="label-modal" class="modal">
-  <div class="modal-content">
-    <span class="modal-close modal-close-btn">&times;</span>
-    <h2 id="modal-title" style="margin-top:0;">Новая метка</h2>
+  <div class="modal-content" style="width: 600px;">
+    <span class="modal-close modal-close-btn" style="float: right; font-size: 24px; cursor: pointer; color: var(--text-muted);">&times;</span>
+    <h2 id="modal-title" style="margin-top:0;" data-i18n="lbl_modal_new">Новая метка</h2>
     <input type="hidden" id="modal-label-id">
-    <input type="hidden" id="modal-category-id">
 
-    <label style="font-weight:600; margin-bottom:5px; display:block;">Название метки</label>
-    <input type="text" id="modal-label-title" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px; box-sizing:border-box;" placeholder="Пример: Auth Header">
+    <label style="font-weight:600; margin-bottom:5px; display:block;" data-i18n="lbl_modal_cat">Категория</label>
+    <select id="modal-category-id" style="width:100%; padding:10px; border-radius:4px; margin-bottom:15px; font-size: 14px; font-weight: bold;"></select>
 
-    <label style="font-weight:600; margin-bottom:5px; display:block;">Содержимое</label>
-    <textarea id="modal-label-content" style="min-height: 250px; font-size:12px; background:#f9fafb;"></textarea>
+    <label style="font-weight:600; margin-bottom:5px; display:block;" data-i18n="lbl_modal_name">Название метки</label>
+    <input type="text" id="modal-label-title" style="width:100%; padding:10px; border-radius:4px; margin-bottom:15px; box-sizing:border-box; font-size: 14px;">
 
-    <div style="text-align:right; margin-top:15px;">
-      <button class="secondary modal-close-btn" style="margin-right:10px;">Отмена</button>
-      <button id="save-label-btn" class="primary">Сохранить</button>
+    <label style="font-weight:600; margin-bottom:5px; display:block;" data-i18n="lbl_modal_content">Содержимое кода / Текст</label>
+    <textarea id="modal-label-content" style="min-height: 250px; font-size:13px; font-family:'Consolas', monospace; padding: 10px; border-radius: 4px; width: 100%; box-sizing: border-box;"></textarea>
+
+    <div style="text-align:right; margin-top:20px;">
+      <button class="secondary modal-close-btn" style="margin-right:10px;" data-i18n="btn_cancel">Отмена</button>
+      <button id="save-label-btn" class="primary" data-i18n="btn_save">Сохранить</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: View -->
+<!-- MODAL: View with CodeMirror -->
 <div id="view-modal" class="modal">
-  <div class="modal-content" style="width:800px;">
-    <span class="modal-close modal-close-btn">&times;</span>
-    <h2 id="view-modal-title" style="margin-top:0;"></h2>
-    <div style="position:relative;">
-      <pre id="view-modal-content" style="background:#f1f5f9; padding:15px; border-radius:6px; overflow:auto; max-height:60vh; font-size:12px; color:#333; white-space: pre-wrap; font-family: 'Consolas', monospace; margin:0;"></pre>
-      <button id="view-modal-copy-btn" style="position:absolute; top:10px; right:10px; background:#3b82f6; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer;">📋 Копировать</button>
+  <div class="modal-content" style="width:900px; max-width:95%;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+      <h2 id="view-modal-title" style="margin:0; font-size: 18px; border:none; padding:0;"></h2>
+
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <select id="syntax-selector" class="syntax-select" onchange="changeSyntaxMode()">
+          <option value="text/plain" data-i18n="lbl_syn_plain">Без подсветки (Plain)</option>
+          <option value="application/json">JSON</option>
+          <option value="text/x-java">Groovy / Java</option>
+          <option value="text/x-sql">SQL</option>
+          <option value="application/xml">XML</option>
+        </select>
+        <button id="view-modal-copy-btn" style="background:#10b981; color:white; border:none; padding:6px 15px; border-radius:4px; font-size:13px; font-weight:bold; cursor:pointer; transition:0.2s;" data-i18n="btn_copy_code">📋 Копировать код</button>
+        <span class="modal-close modal-close-btn" style="cursor: pointer; font-size: 28px; color: var(--text-muted); line-height: 1;">&times;</span>
+      </div>
     </div>
+
+    <!-- Область для CodeMirror -->
+    <textarea id="view-modal-content"></textarea>
   </div>
 </div>
 
-<div id="notification" class="notification"></div>
+<div id="notification" style="position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
 
 <script>
+  // Безопасная функция перевода (без рекурсии)
+  function t(key, defaultStr) {
+    try {
+      const lang = localStorage.getItem('app_lang') || 'ru';
+      const dictStr = localStorage.getItem('portal_dictionary');
+      if (dictStr) {
+        const dict = JSON.parse(dictStr)[lang];
+        if (dict && dict[key]) return dict[key];
+      }
+    } catch(e) {}
+    return defaultStr;
+  }
+
+  // Фикс ошибки ReferenceError: debounce is not defined
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      const context = this;
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(context, args), wait);
+    };
+  }
+
+  let allCategories = [];
+  let allLabels = [];
+  let viewerCM = null;
+
   $(function () {
-    let allCategories = [];
-    let allLabels = [];
+    if(typeof initLocalization === 'function') initLocalization();
+    const isDark = localStorage.getItem('global_dark_theme') === 'true';
+    if(typeof applyTheme === 'function') applyTheme(isDark);
+
+    // Локализация плейсхолдеров
+    $('#search-input').attr('placeholder', t('lbl_ph_search', 'Введите название или фрагмент кода для поиска...'));
+    $('#modal-label-title').attr('placeholder', t('lbl_ph_modal_title', 'Пример: Auth Header JSON'));
 
     const labelModal = $('#label-modal');
     const viewModal = $('#view-modal');
+
+    // Инициализация CodeMirror в модалке просмотра
+    viewerCM = CodeMirror.fromTextArea(document.getElementById('view-modal-content'), {
+      mode: "text/plain",
+      lineNumbers: true,
+      theme: isDark ? "dracula" : "default",
+      readOnly: true,
+      lineWrapping: true,
+      matchBrackets: true
+    });
+
+    window.addEventListener('themeChanged', function(e) {
+      viewerCM.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+    });
 
     // === LOAD DATA (AJAX) ===
     function loadAllDataAndRender() {
@@ -381,7 +550,64 @@
 
         renderPage(allCategories, allLabels);
         updateCategoryFilter(allCategories);
-      }).fail(() => showNotification("Ошибка загрузки данных с сервера", true));
+        renderTopLabels(allLabels);
+      }).fail(() => showNotification(t('lbl_err_load', "Ошибка загрузки данных с сервера"), true));
+    }
+
+    // === УМНЫЙ СТАРТ: СОЗДАНИЕ ДЕФОЛТНОЙ СТРУКТУРЫ ===
+    window.createStandardCategories = async function() {
+      const btn = $('#btn-auto-create');
+      btn.prop('disabled', true).text('⏳ ' + t('lbl_creating', 'Создание...'));
+
+      const standardCats = [
+        "01. Регламенты и Коммуникации",
+        "02. Аналитика и Архитектура",
+        "03. Разработка (Сниппеты)",
+        "04. Тестирование (QA & Mocks)",
+        "05. Инфраструктура и Прод"
+      ];
+
+      try {
+        for (let name of standardCats) {
+          await $.ajax({
+            url: '/api/labels/category',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({name: name})
+          });
+        }
+        showNotification("✅ " + t('lbl_base_created', "Базовая структура успешно создана!"));
+        loadAllDataAndRender();
+      } catch (e) {
+        showNotification(t('lbl_err_base_create', "Ошибка создания структуры"), true);
+        btn.prop('disabled', false).text(t('lbl_btn_base_create', 'Создать базовую структуру'));
+      }
+    };
+
+    // === RENDER TOP LABELS ===
+    function renderTopLabels(labels) {
+      const topContainer = $('#top-labels-section');
+      const grid = $('#top-labels-grid').empty();
+
+      const topLabels = [...labels]
+              .filter(l => (l.usage_count || 0) > 0)
+              .sort((a,b) => b.usage_count - a.usage_count)
+              .slice(0, 6);
+
+      if (topLabels.length === 0) {
+        topContainer.hide();
+        return;
+      }
+
+      topLabels.forEach(label => {
+        grid.append(`
+                <div class="top-label-badge view-label-btn" data-label-id="${label.id}" title="${t('lbl_hint_view', 'Просмотр')}">
+                    ${escapeHtml(label.title)}
+                    <span class="usage">${label.usage_count}</span>
+                </div>
+            `);
+      });
+      topContainer.fadeIn();
     }
 
     // === RENDER PAGE STRUCTURE ===
@@ -390,80 +616,101 @@
 
       if (categories.length === 0) {
         container.html(`
-                <div style="text-align:center; padding:40px; color:#94a3b8;">
-                    <h2>База знаний пуста</h2>
-                    <p>Начните с создания категории</p>
+            <div class="onboarding-card">
+                <span style="font-size: 48px; display: block; margin-bottom: 10px;">💡</span>
+                <h2>${t('lbl_empty_title', 'База знаний пуста')}</h2>
+                <p>${t('lbl_empty_desc', 'База знаний (метки) — это место для хранения сниппетов кода, шаблонов писем, тестовых JSON и частых команд, чтобы не искать их по чатам.')}</p>
+                <div class="onboarding-list">
+                    <strong>${t('lbl_empty_rec', 'Рекомендуемая структура:')}</strong>
+                    <ul>
+                        <li><b>${t('lbl_empty_1', 'Регламенты:')}</b> ${t('lbl_empty_1_desc', 'Шаблоны писем на релиз, чеклисты.')}</li>
+                        <li><b>${t('lbl_empty_2', 'Аналитика:')}</b> ${t('lbl_empty_2_desc', 'WSDL/Swagger ссылки, контракты.')}</li>
+                        <li><b>${t('lbl_empty_3', 'Разработка:')}</b> ${t('lbl_empty_3_desc', 'Groovy/SQL сниппеты, маппинги.')}</li>
+                        <li><b>${t('lbl_empty_4', 'Тестирование:')}</b> ${t('lbl_empty_4_desc', 'cURL команды, моки, тестовые учётки.')}</li>
+                        <li><b>${t('lbl_empty_5', 'Инфраструктура:')}</b> ${t('lbl_empty_5_desc', 'Скрипты отката, команды логов.')}</li>
+                    </ul>
                 </div>
-            `);
+                <button id="btn-auto-create" class="primary" style="font-size: 16px; padding: 12px 24px;" onclick="createStandardCategories()">⚡ ${t('lbl_btn_base_create', 'Создать базовую структуру')}</button>
+            </div>
+        `);
         return;
       }
 
-      categories.forEach(cat => {
-        // Отрисовка блока категории
+      const sortedCategories = [...categories].sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        const badWords = ['dev', 'test', 'пропуск', 'архив'];
+
+        const aIsBad = badWords.some(w => aName.includes(w));
+        const bIsBad = badWords.some(w => bName.includes(w));
+
+        if (aIsBad && !bIsBad) return 1;
+        if (!aIsBad && bIsBad) return -1;
+        return aName.localeCompare(bName);
+      });
+
+      sortedCategories.forEach(cat => {
         const section = $(`
               <div class="category-block" data-category-id="${cat.id}">
                 <div class="category-header">
-                    <h3>${escapeHtml(cat.name)}</h3>
+                    <h3>📁 ${escapeHtml(cat.name)}</h3>
                     <div class="cat-actions">
-                        <button class="add-label-btn add-lbl-btn">+ Метка</button>
-                        <button class="delete-category-btn del-cat-btn">Удалить категорию</button>
+                        <button class="add-label-btn add-lbl-btn">+ ${t('lbl_btn_add_lbl', 'Добавить метку')}</button>
+                        <button class="delete-category-btn del-cat-btn">🗑 ${t('lbl_btn_del_cat', 'Удалить категорию')}</button>
                     </div>
                 </div>
-                <div class="labels-list">
-                    <!-- Сюда вставим карточки -->
-                </div>
+                <div class="labels-list"></div>
               </div>`);
-
         container.append(section);
       });
 
-      // Вставка карточек в нужные блоки
       renderGrid(labels);
     }
 
     // === RENDER GRID OF CARDS ===
     function renderGrid(labels) {
-      // Очистка контейнеров внутри категорий
       $('.labels-list').empty();
 
       labels.forEach(label => {
-        // Подготовка превью (первые ~150 симв)
         let preview = label.content || '';
-        const maxLen = 180;
-        if(preview.length > maxLen) {
-          preview = preview.substring(0, maxLen);
-        }
+        const maxLen = 200;
+        if(preview.length > maxLen) preview = preview.substring(0, maxLen) + '...';
 
         const card = `
               <div class="label-item" data-label-id="${label.id}">
                   <div class="label-header">
                       <span class="label-title view-label-btn" title="${escapeHtml(label.title)}">${escapeHtml(label.title)}</span>
-                      <span class="usage-badge" title="Скопировано раз">★ ${label.usage_count || 0}</span>
+                      <span class="usage-badge" title="${t('lbl_hint_copied', 'Скопировано раз')}">★ ${label.usage_count || 0}</span>
                   </div>
 
-                  <div class="label-preview view-label-btn" title="Кликни для просмотра полного текста">
+                  <div class="label-preview view-label-btn" title="${t('lbl_hint_click_view', 'Кликни для просмотра полного текста')}">
 ${escapeHtml(preview)}
                   </div>
 
                   <div class="label-footer">
-                      <button class="btn-copy copy-label-btn" title="Скопировать содержимое в буфер">📋 Копировать</button>
+                      <button class="btn-copy copy-label-btn" title="${t('lbl_hint_copy', 'Скопировать содержимое в буфер')}">📋 ${t('btn_copy', 'Скопировать')}</button>
                       <div class="action-icons">
-                        <button class="edit-label-btn" title="Редактировать">✎</button>
-                        <button class="delete-label-btn del" title="Удалить метку">🗑</button>
+                        <button class="edit-label-btn" title="${t('btn_edit', 'Редактировать')}">✎</button>
+                        <button class="delete-label-btn del" title="${t('btn_delete', 'Удалить метку')}">🗑</button>
                       </div>
                   </div>
               </div>`;
 
-        // Вставляем в список соответствующей категории
         $(`.category-block[data-category-id="${label.category_id}"] .labels-list`).append(card);
       });
 
-      // Если в категории нет меток, показываем заглушку
       $('.category-block').each(function() {
         if ($(this).find('.label-item').length === 0) {
-          $(this).find('.labels-list').html(
-                  `<div style="grid-column:1/-1; text-align:center; padding:25px; border:2px dashed #e2e8f0; border-radius:8px; color:#cbd5e1;">В этой категории пока нет меток</div>`
-          );
+          if ($('#search-input').val().trim()) {
+            $(this).hide();
+          } else {
+            $(this).show();
+            $(this).find('.labels-list').html(
+                    `<div style="grid-column:1/-1; text-align:center; padding:30px; border:2px dashed var(--border-color); border-radius:8px; color:var(--text-muted); font-weight: bold;">${t('lbl_msg_cat_empty', 'Категория пуста')}</div>`
+            );
+          }
+        } else {
+          $(this).show();
         }
       });
     }
@@ -472,7 +719,7 @@ ${escapeHtml(preview)}
       const filter = $('#category-filter');
       const current = filter.val();
       filter.find('option:not(:first)').remove();
-      categories.forEach(cat => filter.append(`<option value="${cat.id}">${escapeHtml(cat.name)}</option>`));
+      [...categories].sort((a,b) => a.name.localeCompare(b.name)).forEach(cat => filter.append(`<option value="${cat.id}">${escapeHtml(cat.name)}</option>`));
       if(current) filter.val(current);
     }
 
@@ -480,7 +727,7 @@ ${escapeHtml(preview)}
 
     // 1. Добавить категорию
     $('#add-category-btn').on('click', function() {
-      const name = prompt("Название новой категории:");
+      const name = prompt(t('lbl_prompt_new_cat', "Название новой категории:"));
       if(name && name.trim()){
         $.ajax({
           url: '/api/labels/category',
@@ -488,14 +735,14 @@ ${escapeHtml(preview)}
           contentType:'application/json',
           data: JSON.stringify({name: name.trim()}),
           success: loadAllDataAndRender,
-          error: () => showNotification("Ошибка создания категории", true)
+          error: () => showNotification(t('lbl_err_cat_add', "Ошибка создания категории"), true)
         });
       }
     });
 
     // 2. Удалить категорию
     $('#labels-container').on('click', '.delete-category-btn', function() {
-      if(!confirm('Удалить категорию и ВСЕ метки в ней?')) return;
+      if(!confirm(t('lbl_conf_del_cat', 'ВНИМАНИЕ! Удалить категорию и ВСЕ метки внутри неё? Действие необратимо.'))) return;
       const cid = $(this).closest('.category-block').data('category-id');
       $.ajax({
         url: '/api/labels/category',
@@ -503,12 +750,12 @@ ${escapeHtml(preview)}
         contentType:'application/json',
         data: JSON.stringify({id: cid}),
         success: loadAllDataAndRender,
-        error: () => showNotification("Ошибка удаления категории", true)
+        error: () => showNotification(t('lbl_err_del', "Ошибка удаления"), true)
       });
     });
 
     // 3. Поиск
-    $('#search-input').on('keyup', debounce(doSearch, 300));
+    $('#search-input').on('keyup', debounce(doSearch, 200));
     $('#category-filter').on('change', doSearch);
 
     function doSearch() {
@@ -520,15 +767,7 @@ ${escapeHtml(preview)}
       if(cid) params.categoryId = cid;
 
       $.get('/api/labels/search', params, function(data) {
-        // Перерисовываем только сетку меток (категории остаются, пустые скрываются внутри grid render)
-        // Но правильнее перерендерить всю сетку, чтобы пустые категории тоже обновились
-        // Для простоты перерисовываем грид внутри существующих DOM категорий
-
-        // Если пришли фильтрованные данные, возможно некоторых категорий в них нет.
-        // Поэтому, очищаем всё перед отрисовкой конкретного поиска
-
-        if(!data) data = [];
-        renderGrid(data);
+        renderGrid(data || []);
       });
     }
 
@@ -536,12 +775,14 @@ ${escapeHtml(preview)}
     $('#labels-container').on('click', '.add-label-btn', function() {
       const cid = $(this).closest('.category-block').data('category-id');
 
-      // Reset Form
+      const catSelect = $('#modal-category-id').empty();
+      allCategories.forEach(c => catSelect.append(new Option(c.name, c.id)));
+      catSelect.val(cid);
+
       $('#modal-label-id').val('');
-      $('#modal-category-id').val(cid);
       $('#modal-label-title').val('');
       $('#modal-label-content').val('');
-      $('#modal-title').text('Новая метка');
+      $('#modal-title').text(t('lbl_modal_new', 'Новая метка'));
 
       labelModal.css('display', 'flex').hide().fadeIn(200);
       setTimeout(() => $('#modal-label-title').focus(), 100);
@@ -552,11 +793,15 @@ ${escapeHtml(preview)}
       const lid = $(this).closest('.label-item').data('label-id');
       const label = allLabels.find(l => l.id === lid);
       if(label){
+        const catSelect = $('#modal-category-id').empty();
+        allCategories.forEach(c => catSelect.append(new Option(c.name, c.id)));
+
         $('#modal-label-id').val(label.id);
-        $('#modal-category-id').val(label.category_id);
+        catSelect.val(label.category_id);
         $('#modal-label-title').val(label.title);
         $('#modal-label-content').val(label.content);
-        $('#modal-title').text('Редактирование');
+        $('#modal-title').text(t('lbl_modal_edit', 'Редактирование метки'));
+
         labelModal.css('display', 'flex').hide().fadeIn(200);
       }
     });
@@ -568,7 +813,7 @@ ${escapeHtml(preview)}
       const title = $('#modal-label-title').val();
       const content = $('#modal-label-content').val();
 
-      if(!title.trim()) return alert('Введите название!');
+      if(!title.trim()) return alert(t('lbl_err_empty_name', 'Укажите название метки!'));
 
       const data = {
         id: lid ? parseInt(lid) : null,
@@ -583,17 +828,17 @@ ${escapeHtml(preview)}
         contentType:'application/json',
         data: JSON.stringify(data),
         success: () => {
-          labelModal.fadeOut(200);
+          labelModal.fadeOut(150);
           loadAllDataAndRender();
-          showNotification("Сохранено!");
+          showNotification(t('lbl_msg_saved', "Сохранено!"));
         },
-        error: (x) => alert("Ошибка: " + x.responseText)
+        error: (x) => alert(t('lbl_err_save', "Ошибка: ") + x.responseText)
       });
     });
 
     // 7. Удалить метку
     $('#labels-container').on('click', '.delete-label-btn', function() {
-      if(!confirm('Удалить метку?')) return;
+      if(!confirm(t('lbl_conf_del_lbl', 'Точно удалить метку?'))) return;
       const lid = $(this).closest('.label-item').data('label-id');
       $.ajax({
         url: '/api/labels/label',
@@ -604,26 +849,46 @@ ${escapeHtml(preview)}
       });
     });
 
-    // 8. Просмотр (Модалка View)
-    $('#labels-container').on('click', '.view-label-btn', function() {
-      const lid = $(this).closest('.label-item').data('label-id');
+    // 8. Просмотр (Модалка View CodeMirror)
+    $(document).on('click', '.view-label-btn', function() {
+      const lid = $(this).closest('[data-label-id]').data('label-id');
       const label = allLabels.find(l => l.id === lid);
       if(label){
         $('#view-modal-title').text(label.title);
-        $('#view-modal-content').text(label.content);
         $('#view-modal-copy-btn').data('lid', label.id);
-        viewModal.css('display','flex').hide().fadeIn(200);
+
+        let mode = "text/plain";
+        const txt = label.content.trim();
+        if (txt.startsWith('{') || txt.startsWith('[')) mode = "application/json";
+        else if (txt.startsWith('<')) mode = "application/xml";
+        else if (txt.toLowerCase().includes('select ') || txt.toLowerCase().includes('update ')) mode = "text/x-sql";
+        else if (txt.includes('def ') || txt.includes('import ') || txt.includes('println')) mode = "text/x-java";
+
+        $('#syntax-selector').val(mode);
+        viewerCM.setOption("mode", mode);
+        viewerCM.setValue(label.content);
+
+        viewModal.css('display','flex').hide().fadeIn(150);
+        setTimeout(() => viewerCM.refresh(), 50);
       }
     });
 
+    window.changeSyntaxMode = function() {
+      const newMode = $('#syntax-selector').val();
+      viewerCM.setOption("mode", newMode);
+    };
+
     // Копирование из модалки просмотра
     $('#view-modal-copy-btn').on('click', function() {
-      const txt = $('#view-modal-content').text();
+      const txt = viewerCM.getValue();
       const lid = $(this).data('lid');
       copyToClipboard(txt, lid);
+      const btn = $(this);
+      btn.text("✅ " + t('btn_copied', "Скопировано")).css("background", "#16a34a");
+      setTimeout(() => btn.text("📋 " + t('btn_copy_code', "Копировать код")).css("background", "#10b981"), 1500);
     });
 
-    // Копирование из карточки
+    // Копирование из карточки (быстрое)
     $('#labels-container').on('click', '.copy-label-btn', function() {
       const lid = $(this).closest('.label-item').data('label-id');
       const label = allLabels.find(l => l.id === lid);
@@ -631,52 +896,45 @@ ${escapeHtml(preview)}
     });
 
     // === UTILS ===
+    function showNotification(msg, isError = false) {
+      const notif = $('#notification');
+      notif.text(msg).css('background', isError ? '#ef4444' : '#10b981').fadeIn(200);
+      setTimeout(() => notif.fadeOut(300), 2000);
+    }
 
     function copyToClipboard(text, id) {
       navigator.clipboard.writeText(text).then(() => {
-        showNotification("Текст скопирован в буфер!");
-        // Счетчик инкрементим тихо
-        if(id) $.post('/api/labels/increment_usage', JSON.stringify({id:id}));
-      }).catch(err => showNotification('Ошибка копирования', true));
-    }
-
-    function escapeHtml(t) {
-      if(!t) return '';
-      return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    // Тост
-    let _nt;
-    function showNotification(msg, err) {
-      clearTimeout(_nt);
-      const n = $('#notification');
-      n.text(msg).removeClass('error').toggle(false);
-      if(err) n.addClass('error');
-      n.fadeIn();
-      _nt = setTimeout(() => n.fadeOut(), 2000);
-    }
-
-    function debounce(func, wait) {
-      let timeout;
-      return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-      };
+        showNotification(t('lbl_msg_copied', "Текст скопирован в буфер!"));
+        if(id) {
+          $.post('/api/labels/increment_usage', JSON.stringify({id:id})).done(function() {
+            const lbl = allLabels.find(l => l.id === id);
+            if(lbl) lbl.usage_count = (lbl.usage_count || 0) + 1;
+          });
+        }
+      }).catch(err => showNotification(t('lbl_err_copy', 'Ошибка копирования'), true));
     }
 
     // UI Helpers (Close Modals)
-    $('.modal-close, .modal-close-btn').on('click', function() {
-      $(this).closest('.modal').fadeOut(200);
+    $('.modal-close-btn').on('click', function() {
+      $(this).closest('.modal').fadeOut(150);
     });
     $(window).on('click', function(e) {
-      if ($(e.target).hasClass('modal')) {
-        $(e.target).fadeOut(200);
-      }
+      if ($(e.target).hasClass('modal')) $(e.target).fadeOut(150);
     });
 
     // Init
     loadAllDataAndRender();
   });
+
+  function escapeHtml(text) {
+    if (!text) return "";
+    return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+  }
 </script>
 
 </body>

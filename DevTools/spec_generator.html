@@ -2,22 +2,61 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Генератор Спецификации (Полная версия)</title>
-    <!-- Библиотеки -->
+    <title data-i18n="sg_page_title">Генератор Спецификации (Полная версия)</title>
     <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="libs/mermaid.min.js"></script>
-    <!-- Общие стили -->
+    <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* === СТИЛИ ЛАЯУТА === */
-        body { background:#f4f7f9; margin:0; height:100vh; display:flex; flex-direction:column; overflow:hidden; font-family:'Segoe UI', sans-serif; }
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-sidebar: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --header-bg: #2c3e50;
+            --preview-bg: #525659;
+            --block-bg: #ffffff;
+            --acc-head-bg: #f9fafb;
+            --acc-head-hover: #f0f9ff;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-sidebar: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --header-bg: #0b1120;
+            --preview-bg: #0f172a;
+            --block-bg: #1e293b;
+            --acc-head-bg: #334155;
+            --acc-head-hover: #475569;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            background: var(--bg-main) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
 
         /* Хедер */
         .header {
-            background:#2c3e50; height:50px; display:flex; justify-content:space-between; align-items:center;
-            padding:0 20px; color:#fff; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            background: var(--header-bg); height:50px; display:flex; justify-content:space-between; align-items:center;
+            padding:0 20px; color:#fff; flex-shrink:0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: background 0.3s;
         }
-        .btn-nav { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); color:white; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:13px; }
+        .btn-nav { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); color:white; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:13px; transition: 0.2s; }
         .btn-nav:hover { background:rgba(255,255,255,0.3); }
 
         .header-right { display:flex; gap:10px; align-items: center; }
@@ -26,7 +65,6 @@
         .btn-action { border:none; padding:7px 15px; border-radius:4px; font-weight:600; cursor:pointer; color:white; font-size:13px; transition: all 0.2s; }
         .btn-action:hover { opacity: 0.9; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transform: translateY(-1px); }
 
-        /* Цвета кнопок */
         .btn-yellow { background: #f59e0b; }
         .btn-green  { background: #10b981; }
         .btn-purple { background: #8b5cf6; }
@@ -38,58 +76,59 @@
         .workspace { display:flex; flex:1; overflow:hidden; }
 
         /* Сайдбар */
-        .sidebar { width:500px; min-width:500px; background:#fff; border-right:1px solid #ccc; display:flex; flex-direction:column; z-index:2; box-shadow:2px 0 10px rgba(0,0,0,0.05); }
+        .sidebar { width:500px; min-width:500px; background: var(--bg-sidebar); border-right:1px solid var(--border-color); display:flex; flex-direction:column; z-index:2; box-shadow:2px 0 10px rgba(0,0,0,0.05); transition: background 0.3s, border-color 0.3s; }
         .sb-scroll { flex:1; overflow-y:auto; padding:15px; }
-        .sb-footer { padding:10px; background:#f8f9fa; border-top:1px solid #eee; text-align:center; color:#888; font-size:11px; }
+        .sb-footer { padding:10px; background: var(--bg-main); border-top:1px solid var(--border-color); text-align:center; color: var(--text-muted); font-size:11px; transition: 0.3s; }
 
         /* Блоки в сайдбаре */
-        .block { background:#fff; border:1px solid #ddd; border-radius:6px; padding:15px; margin-bottom:15px; }
+        .block { background: var(--block-bg); border:1px solid var(--border-color); border-radius:6px; padding:15px; margin-bottom:15px; transition: 0.3s; }
         .block-head {
-            font-size:11px; font-weight:bold; color:#95a5a6; text-transform:uppercase;
-            border-bottom:1px solid #eee; padding-bottom:8px; margin-bottom:12px;
-            display: flex; justify-content: space-between; align-items: center;
+            font-size:11px; font-weight:bold; color: var(--text-muted); text-transform:uppercase;
+            border-bottom:1px solid var(--border-color); padding-bottom:8px; margin-bottom:12px;
+            display: flex; justify-content: space-between; align-items: center; transition: 0.3s;
         }
 
-        /* Контролы ввода */
-        label { display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px; }
-        input, select, textarea { width:100%; padding:8px; font-size:13px; border:1px solid #d1d5db; border-radius:4px; box-sizing:border-box; margin-bottom:8px; font-family:inherit; }
+        label { display:block; font-size:12px; font-weight:600; color: var(--text-main); margin-bottom:4px; transition: 0.3s; }
+        input, select, textarea { width:100%; padding:8px; font-size:13px; border:1px solid var(--border-color); border-radius:4px; box-sizing:border-box; margin-bottom:8px; font-family:inherit; background: var(--input-bg); color: var(--text-main); transition: 0.3s; }
         input:focus, textarea:focus, select:focus { border-color:#3b82f6; outline:none; }
 
-        textarea.code { font-family:'Consolas', monospace; background:#282c34; color:#abb2bf; font-size:12px; line-height:1.5; resize:vertical; }
+        textarea.code { font-family:'Consolas', monospace; background:#282c34; color:#abb2bf; font-size:12px; line-height:1.5; resize:vertical; border: none; }
 
         /* Аккордеон разделов */
-        .acc-item { border:1px solid #e5e7eb; background:#fff; border-radius:4px; margin-bottom:8px; overflow:hidden; transition: box-shadow 0.2s; }
+        .acc-item { border:1px solid var(--border-color); background: var(--block-bg); border-radius:4px; margin-bottom:8px; overflow:hidden; transition: box-shadow 0.2s, background 0.3s, border-color 0.3s; }
         .acc-head {
-            padding:10px; background:#f9fafb; cursor:pointer; font-weight:500; font-size:13px; display:flex; align-items:center; user-select:none;
+            padding:10px; background: var(--acc-head-bg); cursor:pointer; font-weight:500; font-size:13px; display:flex; align-items:center; user-select:none; color: var(--text-main); transition: 0.3s;
         }
-        .acc-head:hover { background:#f0f9ff; }
-        .acc-body { padding:10px; border-top:1px solid #e5e7eb; display:none; background:#fff; }
+        .acc-head:hover { background: var(--acc-head-hover); }
+        .acc-body { padding:10px; border-top:1px solid var(--border-color); display:none; background: var(--block-bg); transition: 0.3s; }
 
         .btn-icon { background:none; border:none; cursor:pointer; font-size:18px; color:#ef4444; margin-left:auto; padding:0 5px; line-height: 1; }
         .btn-icon:hover { color: #b91c1c; }
-        .drag-h { color:#ccc; margin-right:10px; cursor:grab; font-size:16px; }
+        .drag-h { color: var(--text-muted); margin-right:10px; cursor:grab; font-size:16px; }
 
-        /* Превью документа */
-        .preview-zone { flex:1; background:#525659; overflow-y:auto; display:flex; justify-content:center; padding:40px; }
+        /* Превью документа (ВНИМАНИЕ: Сам лист A4 всегда остается белым для экспорта) */
+        .preview-zone { flex:1; background: var(--preview-bg); overflow-y:auto; padding:40px 0; transition: background 0.3s; }
         .a4-page {
-            width:210mm; min-height:297mm; background:#fff; padding:20mm;
+            width:210mm; min-height:297mm; background:#fff !important; padding:20mm; margin: 0 auto;
             box-shadow:0 0 20px rgba(0,0,0,0.5); box-sizing:border-box;
-            font-family: 'Times New Roman', serif; color:#000; font-size:12pt; line-height:1.5;
+            font-family: 'Times New Roman', serif; color:#000 !important; font-size:12pt; line-height:1.5;
         }
 
         /* Стили контента внутри A4 */
-        h1 { font-family:Arial,sans-serif; font-size:24pt; color:#1e40af; border-bottom:2px solid #1e40af; margin:0 0 20px 0; padding-bottom: 10px; }
-        h2 { font-family:Arial,sans-serif; font-size:16pt; color:#111827; margin:25px 0 10px 0; font-weight:bold; border-left: 5px solid #1e40af; padding-left: 10px; background: #f3f4f6;}
-        h3 { font-family:Arial,sans-serif; font-size:14pt; color:#374151; margin:20px 0 10px 0; font-weight:bold; }
-        p, li { margin-bottom:8px; text-align:justify; }
-        table { width:100%; border-collapse:collapse; margin-bottom:20px; font-family:Arial,sans-serif; font-size:10pt; }
-        th, td { border:1px solid #333; padding:6px; vertical-align:top; text-align:left; }
-        th { background:#e5e7eb; font-weight:bold; text-align: center;}
-        .mermaid { text-align:center; margin:25px 0; }
-
-        /* Модальное окно версии */
-        .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:999; display:none; align-items:center; justify-content:center; }
-        .modal-win { width:450px; background:#fff; padding:25px; border-radius:8px; box-shadow:0 15px 30px rgba(0,0,0,0.3); }
+        .a4-page h1 { font-family:Arial,sans-serif; font-size:20pt; color:#1e40af; border-bottom:2px solid #1e40af; margin:0 0 20px 0; padding-bottom: 10px; text-transform: uppercase;}
+        .a4-page h2 { font-family:Arial,sans-serif; font-size:14pt; color:#111827; margin:25px 0 10px 0; font-weight:bold; border-left: 5px solid #1e40af; padding-left: 10px; background: #f3f4f6;}
+        .a4-page h3 { font-family:Arial,sans-serif; font-size:12pt; color:#374151; margin:20px 0 10px 0; font-weight:bold; }
+        .a4-page p, .a4-page li, .a4-page div {
+            margin-bottom:8px;
+            text-align:justify;
+            font-size: 11pt;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        .a4-page table { width:100%; border-collapse:collapse; margin-bottom:20px; font-family:Arial,sans-serif; font-size:10pt; table-layout: fixed; }
+        .a4-page th, .a4-page td { border:1px solid #94a3b8; padding:8px; vertical-align:top; text-align:left; word-break: break-word; overflow-wrap: break-word; }
+        .a4-page th { background:#f1f5f9; font-weight:bold; color: #334155; }
+        .a4-page .mermaid { text-align:center; margin:25px 0; }
 
         /* Облако тегов */
         .tags-cloud { display:flex; gap:8px; flex-wrap:wrap; margin:15px 0; }
@@ -98,260 +137,213 @@
             border-radius:15px; border:1px solid #bae6fd; cursor:pointer; transition: 0.2s;
         }
         .tag:hover { background:#0284c7; color:white; }
+
+        /* Модалки */
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-sidebar); padding:25px; border-radius:8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-main); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-close { background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; line-height: 1; }
+        .modal-close:hover { color: #ef4444; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div style="display:flex; align-items:center; gap:15px;">
-        <button class="btn-nav" onclick="window.location.href='task_tracker.html'">← К задаче</button>
-        <h3 style="margin:0;">Генератор ТЗ</h3>
+        <button class="btn-nav" onclick="window.location.href='task_tracker.html'" data-i18n="btn_back_task">← К задаче</button>
+        <h3 style="margin:0;" data-i18n="sg_header_title">Генератор ТЗ</h3>
         <span id="ver_label" style="background:rgba(255,255,255,0.2); padding:3px 8px; font-size:12px; border-radius:4px; font-weight:bold;">v0.0</span>
     </div>
     <div class="header-right">
-        <span class="save-status" id="save_indicator">Изменения сохранены</span>
-        <button class="btn-action btn-yellow" onclick="doAutoFill()">⚡ Авто-заполнение из БД</button>
-        <!-- ЯВНАЯ КНОПКА СОХРАНИТЬ -->
-        <button class="btn-action btn-green" onclick="saveToDB(true)">💾 Сохранить</button>
-        <!-- КНОПКА НОВОЙ ВЕРСИИ -->
-        <button class="btn-action btn-purple" onclick="showSave()">🔖 Новая версия</button>
+        <span class="save-status" id="save_indicator" data-i18n="sg_status_saved">Изменения сохранены</span>
+        <button class="btn-action btn-yellow" onclick="doAutoFill()" data-i18n="sg_btn_autofill">⚡ Сгенерировать ТЗ из БД</button>
+        <button class="btn-action btn-green" onclick="saveToDB(true)" data-i18n="sg_btn_save">💾 Сохранить</button>
+        <button class="btn-action btn-purple" onclick="showSave()" data-i18n="sg_btn_new_ver">🔖 Новая версия</button>
         <button class="btn-action btn-blue" onclick="dl()">📥 HTML</button>
+        <button class="btn-action btn-blue" style="background: #2563eb;" onclick="downloadWord()">📄 DOC (Word)</button>
     </div>
 </div>
 
 <div class="workspace">
-    <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sb-scroll">
 
-            <!-- 1. НАСТРОЙКИ -->
             <div class="block">
-                <div class="block-head">1. Контекст интеграции</div>
-                <label>Режим (справочный):</label>
+                <div class="block-head" data-i18n="sg_lbl_context">1. Контекст интеграции</div>
+                <label data-i18n="sg_lbl_mode">Режим (справочный):</label>
                 <select id="in_mode">
-                    <option value="sync">Синхронный (REST/SOAP)</option>
-                    <option value="async">Асинхронный (One-Way)</option>
-                    <option value="multi">Мульти-обмен (Complex)</option>
+                    <option value="sync" data-i18n="sg_opt_sync">Синхронный (REST/SOAP)</option>
+                    <option value="async" data-i18n="sg_opt_async">Асинхронный (One-Way)</option>
+                    <option value="multi" data-i18n="sg_opt_multi">Мульти-обмен (Complex)</option>
                 </select>
 
                 <div style="display:flex; gap:10px; margin-top:10px;">
                     <div style="flex:1">
-                        <label style="color:#166534;">Отправитель (Sender)</label>
+                        <label style="color:#166534;" data-i18n="sg_lbl_sender">Отправитель (Sender)</label>
                         <input type="text" id="in_s" value="SENDER" oninput="updGlobal();">
                     </div>
                     <div style="flex:1">
-                        <label style="color:#991b1b;">Получатель (Receiver)</label>
+                        <label style="color:#991b1b;" data-i18n="sg_lbl_receiver">Получатель (Receiver)</label>
                         <input type="text" id="in_r" value="RECEIVER" oninput="updGlobal();">
                     </div>
                 </div>
             </div>
 
-            <!-- 2. СТРУКТУРА -->
             <div class="block">
                 <div class="block-head">
-                    <span>2. Структура документа</span>
+                    <span data-i18n="sg_lbl_structure">2. Структура документа</span>
                     <div>
-                        <a href="#" onclick="addSec()" style="font-size:12px; color:#2563eb; margin-right:10px; font-weight: normal;">+ Добавить</a>
-                        <a href="#" onclick="hardReset()" style="font-size:12px; color:#dc2626; font-weight: normal;">Полный сброс</a>
+                        <a href="#" onclick="addSec()" style="font-size:12px; color:#2563eb; margin-right:10px; font-weight: normal;" data-i18n="sg_btn_add">+ Добавить</a>
+                        <a href="#" onclick="hardReset()" style="font-size:12px; color:#dc2626; font-weight: normal;" data-i18n="sg_btn_reset">Полный сброс</a>
                     </div>
                 </div>
                 <div id="list_area">
-                    <!-- Здесь рендерится аккордеон -->
                 </div>
 
-                <div style="margin-top:15px; font-size:11px; color:#888; line-height:1.4; background:#f9f9f9; padding:8px; border-radius:4px;">
-                    <i style="margin-right:5px">ℹ</i> Тяните за иконку <b>☰</b>, чтобы менять порядок разделов.
-                    При авто-заполнении новые данные обновляют только соответствующие разделы.
+                <div style="margin-top:15px; font-size:11px; color:var(--text-muted); line-height:1.4; background:var(--bg-main); padding:8px; border-radius:4px; border: 1px solid var(--border-color);">
+                    <i style="margin-right:5px">ℹ</i> <span data-i18n="sg_hint_drag">Тяните за иконку <b>☰</b>, чтобы менять порядок разделов. Нажмите <b>"Сгенерировать ТЗ из БД"</b>, чтобы загрузить архитектуру, маппинги и диаграммы из карточки задачи.</span>
                 </div>
             </div>
 
         </div>
-        <div class="sb-footer">Данные сохраняются автоматически в SQLite (Server.groovy)</div>
+        <div class="sb-footer" data-i18n="sg_footer_info">Данные сохраняются автоматически в SQLite (Server.groovy)</div>
     </div>
 
-    <!-- PREVIEW AREA -->
     <div class="preview-zone">
         <div class="a4-page" id="doc_output">
-            <!-- Здесь рендерится документ -->
         </div>
     </div>
 </div>
 
-<!-- MODAL: VERSION SAVE -->
-<div class="modal-overlay" id="modal_save">
-    <div class="modal-win">
-        <h2 style="margin-top:0; margin-bottom:15px; font-size:18px; border-bottom:1px solid #eee; padding-bottom:10px;">Фиксация новой версии</h2>
-
-        <label>Быстрые комментарии:</label>
-        <div class="tags-cloud">
-            <span class="tag" onclick="setComm('Создание черновика')">📝 Черновик</span>
-            <span class="tag" onclick="setComm('Добавлены диаграммы')">📊 Схемы</span>
-            <span class="tag" onclick="setComm('Заполнены методы')">🔌 API</span>
-            <span class="tag" onclick="setComm('Внесены правки по ревью')">🛠 Правки</span>
-            <span class="tag" onclick="setComm('Документ согласован')">✅ Согласовано</span>
+<div class="modal" id="modal_save">
+    <div class="modal-content" style="width: 450px;">
+        <div class="modal-header">
+            <h3 style="margin:0;" data-i18n="sg_modal_ver_title">Фиксация новой версии</h3>
+            <button class="modal-close" onclick="$('#modal_save').fadeOut()">×</button>
         </div>
 
-        <label style="margin-top:10px;">Комментарий к версии (отобразится в истории):</label>
-        <textarea id="ver_comment" style="height:80px;" placeholder="Опишите, что изменилось..."></textarea>
+        <div class="modal-body">
+            <label data-i18n="sg_modal_quick">Быстрые комментарии:</label>
+            <div class="tags-cloud">
+                <span class="tag" onclick="setComm(t('sg_tag_draft', 'Создание черновика'))" data-i18n="sg_tag_draft">📝 Черновик</span>
+                <span class="tag" onclick="setComm(t('sg_tag_diags', 'Добавлены диаграммы'))" data-i18n="sg_tag_diags">📊 Схемы</span>
+                <span class="tag" onclick="setComm(t('sg_tag_maps', 'Заполнены маппинги'))" data-i18n="sg_tag_maps">🔌 API & Маппинг</span>
+                <span class="tag" onclick="setComm(t('sg_tag_fixes', 'Внесены правки по ревью'))" data-i18n="sg_tag_fixes">🛠 Правки</span>
+                <span class="tag" onclick="setComm(t('sg_tag_done', 'Документ согласован'))" data-i18n="sg_tag_done">✅ Согласовано</span>
+            </div>
 
-        <div style="text-align:right; margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
-            <button onclick="$('#modal_save').fadeOut()" style="padding:8px 15px; border:1px solid #ccc; background:white; border-radius:4px; cursor:pointer;">Отмена</button>
-            <button onclick="commitVersion()" style="padding:8px 20px; background:#8b5cf6; border:none; color:white; border-radius:4px; font-weight:bold; cursor:pointer;">Зафиксировать версию</button>
+            <label style="margin-top:10px;" data-i18n="sg_modal_comm_lbl">Комментарий к версии (отобразится в истории):</label>
+            <textarea id="ver_comment" style="height:80px;" placeholder="Опишите, что изменилось..." data-i18n="sg_modal_comm_ph"></textarea>
+        </div>
+
+        <div class="modal-footer">
+            <button onclick="$('#modal_save').fadeOut()" class="secondary btn-nav" style="color: var(--text-main);" data-i18n="btn_cancel">Отмена</button>
+            <button onclick="commitVersion()" class="primary btn-action btn-green" data-i18n="sg_btn_commit">Зафиксировать версию</button>
         </div>
     </div>
 </div>
 
 <script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
     // ==========================================
     // 1. INIT & CONFIG
     // ==========================================
     const urlParams = new URLSearchParams(location.search);
     const TASK_ID = urlParams.get('task_id');
-    // Уникальное имя документа для БД
     const DOC_NAME = `SPEC_DOC_TASK_${TASK_ID}`;
 
-    // Запасной шаблон (если справочник пуст)
-    const FALLBACK_STRUCT = [
-        {title:'Паспорт документа', type:'passport', val:''},
-        {title:'Лист изменений', type:'history', val:''},
-        {title:'1. Введение', type:'text', val:'<p>Цель данного документа - описать интеграционное взаимодействие...</p>'},
-        {title:'2. Диаграмма последовательности', type:'mermaid', val:'sequenceDiagram\nSENDER->>RECEIVER: Request\nRECEIVER-->>SENDER: Response'}
-    ];
-
-    // Сюда подгружаем шаблоны из БД
     let LOADED_TEMPLATES = {};
-
-    // Состояние приложения
-    let state = {
-        ver: '0.0',
-        mode: 'sync',
-        sys: {s:'', r:''},
-        sections: [],
-        content: {},   // key: uid, value: html/text
-        history: []
-    };
+    let state = { ver: '0.0', mode: 'sync', sys: {s:'', r:''}, sections: [], content: {}, history: [] };
 
     $(function(){
-        if(!TASK_ID) {
-            alert("Ошибка: Нет ID задачи. Откройте страницу через список задач.");
-            return;
-        }
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        // Init MermaidJS
-        if(window.mermaid) mermaid.initialize({startOnLoad:false, theme:'default'});
+        if(!TASK_ID) return alert(t('sg_err_no_task', "Ошибка: Нет ID задачи. Откройте страницу через список задач."));
+        if(window.mermaid) mermaid.initialize({startOnLoad:false, theme:'default'}); // Mermaid в A4 всегда светлый для экспорта
 
-        // Step 1: Загрузить шаблоны из справочника (Settings)
         loadTemplatesDict(function(){
-            // Step 2: Загрузить сам документ из БД
             loadDocumentFromDB();
         });
     });
 
+    function getFallbackStruct() {
+        return [
+            {title: t('sg_sec_passport', 'Паспорт документа'), type:'passport', val:''},
+            {title: t('sg_sec_history', 'Лист изменений'), type:'history', val:''},
+            {title: t('sg_sec_desc', '1. Краткое Описание'), type:'text', val:''},
+            {title: t('sg_sec_sys', '2. Интегрируемые Системы'), type:'text', val:''},
+            {title: t('sg_sec_scenario', '3. Сценарий Интеграции'), type:'text', val:''},
+            {title: t('sg_sec_diag', '4. Диаграмма последовательности'), type:'mermaid', val:''},
+            {title: t('sg_sec_iface', '5. Интерфейсы и Правила преобразований'), type:'text', val:''},
+            {title: t('sg_sec_reg', '6. Регламент Обмена Данными'), type:'text', val:''},
+            {title: t('sg_sec_feat', '7. Особенности Реализации'), type:'text', val:''}
+        ];
+    }
+
     // ==========================================
     // 2. DATA LOADING LOGIC
     // ==========================================
-
     function loadTemplatesDict(cb) {
         $.ajax({
-            url: '/api/tasks/settings',
-            cache: false, // важно!
+            url: '/api/tasks/settings', cache: false,
             success: function(data) {
-                try {
-                    if(data && data.doc_structure_templates) {
-                        LOADED_TEMPLATES = JSON.parse(data.doc_structure_templates);
-                        console.log("Шаблоны загружены:", LOADED_TEMPLATES);
-                    }
-                } catch(e){ console.error("Bad templates JSON"); }
+                try { if(data && data.doc_structure_templates) LOADED_TEMPLATES = JSON.parse(data.doc_structure_templates); } catch(e){}
                 cb();
-            },
-            error: () => cb()
+            }, error: () => cb()
         });
     }
 
     function loadDocumentFromDB() {
         $.get('/api/documents', function(docs) {
-            // Ищем наш документ по имени
             const found = docs.find(d => d.name === DOC_NAME);
-
             if(found) {
-                // Документ есть, грузим контент
                 $.get('/api/documents/' + found.id, function(jsonStr) {
                     try {
-                        const loadedState = JSON.parse(jsonStr);
-                        state = loadedState;
+                        state = JSON.parse(jsonStr);
                         initUI();
-                        // === SMART MERGE: Проверка на новые разделы из шаблона ===
-                        checkForNewSections();
                     } catch(e) {
-                        console.error("JSON Error", e);
-                        // Если json битый, предлагаем сброс
-                        if(confirm("Ошибка чтения документа. Сбросить к шаблону?")) createFromTemplate();
+                        if(confirm(t('sg_conf_read_err', "Ошибка чтения документа. Сбросить к шаблону?"))) createFromTemplate(true);
                     }
                 });
             } else {
-                // Документа нет, создаем новый из шаблона
-                createFromTemplate(true); // true = сохранить сразу
+                createFromTemplate(true);
             }
         }).fail(() => createFromTemplate(true));
     }
 
-    // Создание с нуля
     function createFromTemplate(autoSave) {
         const mode = $('#in_mode').val() || 'sync';
         state.mode = mode;
         state.sys = {s:'SENDER', r:'RECEIVER'};
-        state.history = [{ver:'0.1', date:new Date().toLocaleDateString(), author:'System', comment:'Создание черновика'}];
+        state.history = [{ver:'0.1', date:new Date().toLocaleDateString(), author:'System', comment: t('sg_tag_draft', 'Создание черновика')}];
         state.content = {};
 
-        // Берем структуру из справочника или фоллбек
-        const struct = (LOADED_TEMPLATES[mode] && LOADED_TEMPLATES[mode].length > 0)
-            ? LOADED_TEMPLATES[mode]
-            : FALLBACK_STRUCT;
+        const struct = (LOADED_TEMPLATES[mode] && LOADED_TEMPLATES[mode].length > 0) ? LOADED_TEMPLATES[mode] : getFallbackStruct();
 
-        state.sections = struct.map(t => {
+        state.sections = struct.map(tmpl => {
             const uid = genUID();
-            if(t.val) state.content[uid] = t.val; // дефолтное значение
-            return {
-                uid: uid, // уникальный id для связки с контентом
-                title: t.title,
-                type: t.type || 'text'
-            };
+            if(tmpl.val) state.content[uid] = tmpl.val;
+            return { uid: uid, title: tmpl.title, type: tmpl.type || 'text' };
         });
         state.ver = '0.1';
 
         initUI();
         if(autoSave) saveToDB();
-    }
-
-    // Умное добавление новых разделов (без удаления старых!)
-    function checkForNewSections() {
-        const mode = state.mode;
-        const tpl = LOADED_TEMPLATES[mode] || [];
-        if(tpl.length === 0) return;
-
-        // Собираем текущие заголовки
-        const currentTitles = new Set(state.sections.map(s => s.title));
-        const newItems = [];
-
-        tpl.forEach(tItem => {
-            if(!currentTitles.has(tItem.title)) {
-                newItems.push(tItem);
-            }
-        });
-
-        if(newItems.length > 0) {
-            const names = newItems.map(x => "• " + x.title).join("\n");
-            if(confirm(`В шаблоне "${mode}" появились новые разделы:\n${names}\n\nДобавить их в конец документа?\n(Ваши существующие данные НЕ будут удалены)`)) {
-                newItems.forEach(ni => {
-                    const uid = genUID();
-                    state.sections.push({uid:uid, title:ni.title, type:ni.type});
-                    if(ni.val) state.content[uid] = ni.val;
-                });
-                renderList();
-                renderDoc();
-                saveToDB();
-            }
-        }
     }
 
     function initUI() {
@@ -363,76 +355,158 @@
         renderDoc();
     }
 
-    // Хард резет (удалит всё и применит шаблон)
     function hardReset() {
-        if(confirm("ВНИМАНИЕ! Это действие УДАЛИТ весь текущий текст и вернет структуру к исходному шаблону. Продолжить?")) {
-            createFromTemplate(true);
-        }
+        if(confirm(t('sg_conf_hard_reset', "ВНИМАНИЕ! Это действие УДАЛИТ весь текст и вернет пустой шаблон. Продолжить?"))) createFromTemplate(true);
     }
 
     // ==========================================
-    // 3. AUTO FILL (Smart Logic)
+    // 3. AUTO FILL (SMART LOGIC FOR PDF-LIKE DOC)
     // ==========================================
     async function doAutoFill() {
         const btn = $('button[onclick="doAutoFill()"]');
         const oldTxt = btn.text();
-        btn.prop('disabled',true).text('Загрузка...');
+        btn.prop('disabled',true).text(t('sg_msg_gathering', 'Сбор данных...'));
 
         try {
-            // 1. Получаем потоки из БД
-            const flows = await $.get(`/api/flows?task_id=${TASK_ID}`);
-            if(!flows || flows.length === 0) {
-                alert('Нет сохраненных потоков (Flows) для этой задачи.');
-                return;
-            }
+            const tasks = await $.get('/api/tasks');
+            const taskData = tasks.find(t => t.id == TASK_ID);
+            if(!taskData) return alert(t('sg_err_task_db', 'Задача не найдена в БД.'));
 
-            // 2. Обновляем шапку
-            state.sys.s = flows[0].sender;
-            state.sys.r = flows[flows.length-1].receiver;
+            state.sys.s = taskData.sender_sys || t('sg_def_sender', 'Система Отправитель');
+            state.sys.r = taskData.receiver_sys || t('sg_def_receiver', 'Система Получатель');
             $('#in_s').val(state.sys.s);
             $('#in_r').val(state.sys.r);
 
-            // 3. Генерируем контент списка
-            let html = `<p>В рамках интеграционного взаимодействия реализованы следующие потоки данных:</p><ul>`;
+            const flows = await $.get(`/api/flows?task_id=${TASK_ID}`);
 
-            for (const f of flows) {
-                // Грузим детали
-                const d = await $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${f.order_num}`);
-                html += `<li style="margin-bottom:8px;">
-                    <b>${f.sender} &rarr; ${f.receiver}</b>
-                    <br>Протокол: <span>${d.protocol || 'N/A'}</span> (${d.format || 'N/A'})
-                    <br>Тип: ${d.connection_type || 'N/A'}
-                `;
-                if(d.description) html += `<br><i>${d.description}</i>`;
-                html += `</li>`;
+            // --- Блок: Краткое Описание ---
+            const connTypeStr = taskData.connection_type === 'REST' || taskData.connection_type === 'SOAP' ? t('sg_lbl_sync', 'синхронного') : t('sg_lbl_async', 'асинхронного');
+            let descHtml = `<p>${t('sg_txt_desc1', 'В рамках задачи')} <b>${taskData.task_number || 'TBD'}</b> ${t('sg_txt_desc2', 'необходимо реализовать интеграционный сценарий для')} ${connTypeStr} ${t('sg_txt_desc3', 'обмена сообщениями. Протокол обмена:')} ${taskData.connection_type || 'REST/JDBC'}. ${t('sg_txt_desc4', 'Обмен данными инициируется системой Отправитель.')}</p>
+            <p>${t('sg_lbl_service', 'Сервис:')} <b>"${taskData.interface_name || t('sg_lbl_not_set', 'Не указано')}"</b>.</p>`;
+
+            // --- Блок: Интегрируемые Системы ---
+            let sysHtml = `<table>
+                <tr><th>${t('sg_th_name', 'Наименование')}</th><th>${t('sg_th_plat', 'Платформа')}</th><th>SID</th><th>${t('sg_th_desc', 'Описание')}</th><th>${t('sg_th_resp', 'Ответственный')}</th></tr>
+                <tr><td>${t('sg_lbl_sender', 'Отправитель')}</td><td>N/A</td><td><b>${taskData.sender_sys}</b></td><td>${t('sg_lbl_sys_init', 'Система инициатор')}</td><td>${escapeHtml(taskData.contact_person)}</td></tr>
+                <tr><td>${t('sg_lbl_receiver', 'Получатель')}</td><td>N/A</td><td><b>${taskData.receiver_sys}</b></td><td>${t('sg_lbl_sys_target', 'Целевая система')}</td><td>-</td></tr>
+            </table>`;
+
+            // --- Блок: Сценарий Интеграции (Текст) ---
+            let scenarioText = `<h3>${t('sg_h3_pre', 'Предусловия')}</h3>
+            <ol>
+                <li>${t('sg_li_pre1', 'Система Отправитель')} (${taskData.sender_sys}) ${t('sg_li_pre1_desc', 'подготовила данные для отправки.')}</li>
+                <li>${t('sg_li_pre2', 'Корпоративная Сервисная Шина (КСШ) доступна.')}</li>
+                <li>${t('sg_li_pre3', 'Система Получатель')} (${taskData.receiver_sys}) ${t('sg_li_pre3_desc', 'доступна и готова принимать данные.')}</li>
+            </ol>
+            <h3>${t('sg_h3_main', 'Основной поток событий')}</h3>
+            <ol>
+                <li>${taskData.sender_sys} ${t('sg_li_main1', 'отправляет запрос в КСШ.')}</li>
+                <li>${t('sg_li_main2', 'КСШ валидирует и преобразует данные.')}</li>
+                <li>${t('sg_li_main3', 'КСШ отправляет данные в')} ${taskData.receiver_sys}.</li>
+                <li>${taskData.receiver_sys} ${t('sg_li_main4', 'принимает и обрабатывает данные.')}</li>
+            </ol>
+            <h3>${t('sg_h3_alt', 'Альтернативный поток (Ошибки)')}</h3>
+            <ul>
+                <li><b>${t('sg_li_alt1', 'Отсутствие связи:')}</b> ${t('sg_li_alt1_desc', 'КСШ формирует сообщение об ошибке и отправляет в')} ${taskData.sender_sys}.</li>
+                <li><b>${t('sg_li_alt2', 'Некорректные данные:')}</b> ${t('sg_li_alt2_desc', 'КСШ прекращает выполнение сценария.')}</li>
+            </ul>`;
+
+            // --- Блок: Диаграмма (Mermaid) ---
+            let mermaidCode = "sequenceDiagram\n    autonumber\n";
+            mermaidCode += `    participant S as ${taskData.sender_sys}\n`;
+            mermaidCode += `    participant E as ESB (${t('sg_lbl_bus', 'Шина')})\n`;
+            mermaidCode += `    participant R as ${taskData.receiver_sys}\n\n`;
+            mermaidCode += `    activate S\n`;
+            mermaidCode += `    S->>E: ${taskData.connection_type || 'REST'}: ${taskData.interface_name}\n`;
+            mermaidCode += `    activate E\n    E->>E: ${t('sg_lbl_rule1', 'Правило 1 (Трансформация)')}\n`;
+            mermaidCode += `    E->>R: Request\n`;
+            mermaidCode += `    activate R\n    R->>R: ${t('sg_lbl_process', 'Обработка')}\n`;
+            if (taskData.output_format !== 'Void' && taskData.connection_type !== 'KAFKA') {
+                mermaidCode += `    R-->>E: Response\n    deactivate R\n`;
+                mermaidCode += `    E->>E: ${t('sg_lbl_rule2', 'Правило 2')}\n    E-->>S: Response\n    deactivate E\n`;
+            } else {
+                mermaidCode += `    deactivate R\n    deactivate E\n`;
             }
-            html += `</ul>`;
+            mermaidCode += `    deactivate S\n`;
 
-            // 4. Вставка в документ (Без дублей!)
-            // Ищем раздел с заголовком "Сценарии", "Потоки" или создаем "Авто-интеграции"
-            let targetSec = state.sections.find(s => s.title.toLowerCase().includes("сценарии") || s.title.toLowerCase().includes("потоки"));
+            // --- Блок: Интерфейсы и Маппинг ---
+            let interfacesHtml = ``;
+            if(flows && flows.length > 0) {
+                for (const f of flows) {
+                    const d = await $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${f.order_num}`);
+                    interfacesHtml += `<h3>${t('sg_h3_iface', 'Интерфейс:')} ${f.sender} ➔ ${f.receiver}</h3>`;
 
-            if(!targetSec) {
-                // Создаем новый
-                const uid = genUID();
-                targetSec = {uid:uid, title:'Интеграционные потоки (Авто)', type:'text'};
-                // Вставляем после "Введения" (обычно 2-й или 3-й)
-                if(state.sections.length > 2) state.sections.splice(2,0,targetSec);
-                else state.sections.push(targetSec);
+                    interfacesHtml += `<table>
+                        <tr><th>${t('sg_th_sys', 'Система')}</th><td>${f.sender}</td></tr>
+                        <tr><th>${t('sg_th_proto', 'Протокол')}</th><td>${d.protocol || 'REST'}</td></tr>
+                        <tr><th>${t('sg_th_format', 'Формат')}</th><td>${d.format || 'JSON'}</td></tr>
+                    </table>`;
+
+                    if (d.service_description) {
+                        interfacesHtml += `<h4>${t('sg_h4_struct', 'Структура данных')}</h4><pre style="background:#f1f5f9; padding:10px; font-size:11px; border-radius:4px; overflow-x:auto;">${escapeHtml(d.service_description)}</pre>`;
+                    }
+
+                    let mappings = [];
+                    try { mappings = JSON.parse(d.file_path); } catch(e){}
+                    if (mappings && mappings.length > 0) {
+                        interfacesHtml += `<h4>${t('sg_h4_rules', 'Правила преобразований')}</h4><table>
+                            <tr><th>${t('sg_th_src', 'Исходное поле (Source)')}</th><th>${t('sg_th_trg', 'Целевое поле (Target)')}</th><th>${t('sg_th_rule', 'Правило (Type)')}</th><th>${t('sg_th_comm', 'Комментарий')}</th></tr>`;
+                        mappings.forEach(m => {
+                            interfacesHtml += `<tr>
+                                <td style="font-family:monospace; color:#1e40af;">${escapeHtml(m.s)}</td>
+                                <td style="font-family:monospace; color:#166534;">${escapeHtml(m.t)}</td>
+                                <td><b>${escapeHtml(m.type)}</b></td>
+                                <td>${escapeHtml(m.comm || '-')}</td>
+                            </tr>`;
+                        });
+                        interfacesHtml += `</table>`;
+                    } else {
+                        interfacesHtml += `<p style="color:#64748b; font-style:italic;">${t('sg_msg_no_rules', 'Правила маппинга не настроены в Data Mapping Tool.')}</p>`;
+                    }
+                }
+            } else {
+                interfacesHtml += `<p>${t('sg_msg_no_flows', 'Интеграционные потоки не заданы.')}</p>`;
             }
 
-            // ПЕРЕЗАПИСЫВАЕМ контент целевого раздела
-            state.content[targetSec.uid] = html;
+            // --- Блок: Регламент Обмена Данными ---
+            let regHtml = `<table>
+                <tr><th>${t('sg_th_reg_mode', 'Режим Интерфейса')}</th><td>${taskData.connection_type === 'REST' || taskData.connection_type === 'SOAP' ? t('sg_lbl_sync_cap', 'Синхронный') : t('sg_lbl_async_cap', 'Асинхронный')}</td></tr>
+                <tr><th>${t('sg_th_reg_init', 'Инициатор Обмена')}</th><td>${taskData.sender_sys}</td></tr>
+                <tr><th>${t('sg_th_reg_freq', 'Периодичность')}</th><td>${t('sg_td_reg_freq', 'По событию / По требованию')}</td></tr>
+                <tr><th>${t('sg_th_reg_crit', 'Уровень Критичности')}</th><td>${t('sg_td_reg_crit', 'Средний')}</td></tr>
+            </table>`;
+
+            // --- Функция Обновления/Добавления Секций ---
+            const updateSection = (titleSearch, type, content, exactTitle) => {
+                let sec = state.sections.find(s => s.title.toLowerCase().includes(titleSearch.toLowerCase()));
+                if (!sec) {
+                    sec = { uid: genUID(), title: exactTitle || titleSearch, type: type };
+                    state.sections.push(sec);
+                } else {
+                    sec.type = type;
+                }
+                state.content[sec.uid] = content;
+            };
+
+            updateSection(t('sg_search_desc', 'Краткое Описание'), 'text', descHtml, t('sg_sec_desc', '1. Краткое Описание'));
+            updateSection(t('sg_search_sys', 'Интегрируемые Системы'), 'text', sysHtml, t('sg_sec_sys', '2. Интегрируемые Системы'));
+            updateSection(t('sg_search_scen', 'Сценарий'), 'text', scenarioText, t('sg_sec_scenario', '3. Сценарий Интеграции'));
+            updateSection(t('sg_search_diag', 'Диаграмма'), 'mermaid', mermaidCode, t('sg_sec_diag', '4. Диаграмма последовательности'));
+            updateSection(t('sg_search_iface', 'Интерфейсы'), 'text', interfacesHtml, t('sg_sec_iface', '5. Интерфейсы и Правила преобразований'));
+            updateSection(t('sg_search_reg', 'Регламент'), 'text', regHtml, t('sg_sec_reg', '6. Регламент Обмена Данными'));
+
+            if(taskData.additional_comment) {
+                updateSection(t('sg_search_feat', 'Особенности'), 'text', `<pre style="white-space:pre-wrap; font-family:inherit;">${escapeHtml(taskData.additional_comment)}</pre>`, t('sg_sec_feat', '7. Особенности Реализации'));
+            }
 
             renderList();
             renderDoc();
             saveToDB();
 
-            // Визуальное уведомление
-            $('#save_indicator').text('Авто-заполнение успешно!').css('color','green');
+            $('#save_indicator').text(t('sg_msg_success', 'ТЗ успешно сгенерировано!')).css('color','#10b981');
 
         } catch(e) {
-            alert('Ошибка автозаполнения: '+e);
+            alert(t('sg_err_autofill', 'Ошибка автозаполнения: ') + e);
         } finally {
             btn.prop('disabled',false).text(oldTxt);
         }
@@ -452,19 +526,18 @@
             if(sec.type === 'mermaid') {
                 inputArea = `<textarea class="code" style="height:100px" oninput="updData('${uid}',this.value)">${val}</textarea>`;
             } else if (['passport','history'].includes(sec.type)) {
-                inputArea = `<div style="padding:8px; background:#f0fdf4; color:#166534; font-size:11px; text-align:center; border:1px dashed #86efac;">Генерируется автоматически</div>`;
+                inputArea = `<div style="padding:8px; background: rgba(34, 197, 94, 0.1); color:#166534; font-size:11px; text-align:center; border:1px dashed #86efac;">${t('sg_lbl_auto_block', 'Блок генерируется автоматически')}</div>`;
             } else {
-                // text or table
-                inputArea = `<textarea style="height:80px; font-family:'Segoe UI',sans-serif;" oninput="updData('${uid}',this.value)">${val}</textarea>`;
+                inputArea = `<textarea style="height:120px; font-family:'Segoe UI',sans-serif;" oninput="updData('${uid}',this.value)">${val}</textarea>`;
             }
 
             const el = $(`
                 <div class="acc-item" draggable="true" data-index="${idx}">
                     <div class="acc-head" onclick="$(this).next().slideToggle(150)">
-                        <span class="drag-h">☰</span>
-                        <span style="font-weight:600; color:#333;">${sec.title}</span>
-                        <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#64748b; margin-left:10px;">${type}</span>
-                        <button class="btn-icon" onclick="event.stopPropagation(); removeSec(${idx});">×</button>
+                        <span class="drag-h" title="${t('sg_title_drag', 'Тяни для сортировки')}">☰</span>
+                        <input type="text" value="${sec.title}" oninput="updateTitle(${idx}, this.value)" onclick="event.stopPropagation()" style="width:auto; flex:1; margin:0; padding:4px; font-weight:bold; border:1px solid transparent; background:transparent;">
+                        <span style="font-size:10px; background: rgba(99, 102, 241, 0.1); padding:2px 6px; border-radius:4px; color:#3b82f6; margin-left:10px;">${type}</span>
+                        <button class="btn-icon" onclick="event.stopPropagation(); removeSec(${idx});" title="${t('sg_title_del', 'Удалить раздел')}">×</button>
                     </div>
                     <div class="acc-body">
                         ${inputArea}
@@ -472,9 +545,14 @@
                 </div>
             `);
 
-            bindDnD(el[0]); // DND events
+            bindDnD(el[0]);
             c.append(el);
         });
+    }
+
+    function updateTitle(idx, val) {
+        state.sections[idx].title = val;
+        renderDoc(); delayedSave();
     }
 
     function renderDoc() {
@@ -482,8 +560,7 @@
         const S = state.sys.s;
         const R = state.sys.r;
 
-        // Формируем заголовок
-        out.append(`<h1 style="text-align:center">Техническое Задание</h1>`);
+        out.append(`<h1 style="text-align:center; margin-bottom: 40px;">${t('sg_doc_title', 'Техническое Задание на Интеграцию')}</h1>`);
 
         state.sections.forEach(sec => {
             let contentHtml = '';
@@ -491,178 +568,197 @@
 
             if(sec.type === 'passport') {
                 contentHtml = `<table style="width:100%;">
-                    <tr><td width="30%" style="background:#f3f4f6"><b>ID Задачи</b></td><td>${TASK_ID}</td></tr>
-                    <tr><td style="background:#f3f4f6"><b>Система-источник</b></td><td>${S}</td></tr>
-                    <tr><td style="background:#f3f4f6"><b>Система-приемник</b></td><td>${R}</td></tr>
-                    <tr><td style="background:#f3f4f6"><b>Текущая версия</b></td><td>${state.ver}</td></tr>
-                    <tr><td style="background:#f3f4f6"><b>Дата формирования</b></td><td>${new Date().toLocaleDateString()}</td></tr>
+                    <tr><td width="30%" style="background:#f3f4f6"><b>${t('sg_td_task_id', 'ID Задачи / RFC')}</b></td><td>${TASK_ID}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>${t('sg_td_src_sys', 'Система-источник')}</b></td><td>${S}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>${t('sg_td_tgt_sys', 'Система-приемник')}</b></td><td>${R}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>${t('sg_td_ver', 'Текущая версия')}</b></td><td>${state.ver}</td></tr>
+                    <tr><td style="background:#f3f4f6"><b>${t('sg_td_date', 'Дата документа')}</b></td><td>${new Date().toLocaleDateString()}</td></tr>
                 </table>`;
             }
             else if (sec.type === 'history') {
-                let rows = state.history.map(h => `<tr><td>${h.ver}</td><td>${h.date}</td><td>${h.author}</td><td>${h.comment}</td></tr>`).join('');
-                contentHtml = `<table width="100%"><thead><tr><th>Версия</th><th>Дата</th><th>Автор</th><th>Комментарий</th></tr></thead><tbody>${rows}</tbody></table>`;
+                let rows = state.history.map(h => `<tr><td style="text-align:center;">${h.ver}</td><td>${h.date}</td><td>${h.author}</td><td>${h.comment}</td></tr>`).join('');
+                contentHtml = `<table width="100%"><thead><tr><th width="50">${t('sg_th_ver', 'Версия')}</th><th width="100">${t('sg_th_date', 'Дата')}</th><th>${t('sg_th_author', 'Автор')}</th><th>${t('sg_th_changes', 'Содержание изменений')}</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             else if (sec.type === 'mermaid') {
-                // Замена плейсхолдеров в диаграмме
                 let diag = raw.replace(/SENDER/g, S).replace(/RECEIVER/g, R);
                 contentHtml = `<div class="mermaid" style="display:flex; justify-content:center;">${diag}</div>`;
             }
             else {
-                // Text / HTML / Table generic
                 contentHtml = `<div style="line-height:1.5">${raw}</div>`;
             }
 
-            out.append(`<div class="doc-section">
-                <h2>${sec.title}</h2>
+            out.append(`<div class="doc-section" style="margin-bottom: 30px;">
+                <h2>${escapeHtml(sec.title)}</h2>
                 ${contentHtml}
             </div>`);
         });
 
-        // Рендер диаграмм
-        if(window.mermaid) {
-            try { mermaid.init(undefined, $('.mermaid')); } catch(e) {}
-        }
+        if(window.mermaid) { try { mermaid.init(undefined, $('.mermaid')); } catch(e) {} }
     }
 
     // ==========================================
-    // 5. USER ACTIONS
+    // 5. USER ACTIONS & PERSISTENCE
     // ==========================================
 
-    // Реалтайм обновление
     window.updData = (uid, val) => {
         state.content[uid] = val;
-        renderDoc(); // перерисовка превью
-        statusChanged(); // индикатор "не сохранено"
-        delayedSave();   // авто-сохранение через 1с
+        renderDoc(); statusChanged(); delayedSave();
     }
 
     window.updGlobal = () => {
         state.sys.s = $('#in_s').val();
         state.sys.r = $('#in_r').val();
-        renderDoc();
-        delayedSave();
+        renderDoc(); delayedSave();
     }
 
     window.addSec = () => {
-        state.sections.push({ uid:genUID(), title:'Новый раздел', type:'text' });
+        state.sections.push({ uid:genUID(), title: t('sg_lbl_new_sec', 'Новый раздел'), type:'text' });
         renderList(); renderDoc();
     }
 
     window.removeSec = (i) => {
-        if(confirm('Удалить этот раздел из документа?')) {
+        if(confirm(t('sg_conf_del_sec', 'Удалить этот раздел из документа?'))) {
             state.sections.splice(i, 1);
             renderList(); renderDoc(); saveToDB();
         }
     }
 
-    // === SAVE LOGIC ===
     let _timer;
     function delayedSave() {
         clearTimeout(_timer);
-        _timer = setTimeout(() => saveToDB(), 1500); // Автосейв через 1.5 сек бездействия
+        _timer = setTimeout(() => saveToDB(), 1500);
     }
 
     function statusChanged() {
-        $('#save_indicator').text('... Изменения не сохранены').css('color', '#f59e0b');
+        $('#save_indicator').text(t('sg_status_unsaved', '... Изменения не сохранены')).css('color', '#f59e0b');
     }
 
     window.saveToDB = function(manual) {
-        // POST /api/documents
-        const payload = {
-            name: DOC_NAME,
-            content: JSON.stringify(state)
-        };
-
+        const payload = { name: DOC_NAME, content: JSON.stringify(state) };
         $.ajax({
             url: '/api/documents', type: 'POST', contentType:'application/json',
             data: JSON.stringify(payload),
             success: function() {
-                $('#save_indicator').text('Все изменения сохранены').css('color', '#94a3b8');
-                if(manual) alert("Документ успешно сохранен в базе!");
+                $('#save_indicator').text(t('sg_status_saved_all', 'Все изменения сохранены')).css('color', 'var(--text-muted)');
+                if(manual) {
+                    if (typeof showNotification === 'function') showNotification(t('sg_msg_save_ok', 'Документ успешно сохранен!'));
+                    else alert(t('sg_msg_save_ok', 'Документ успешно сохранен!'));
+                }
             },
-            error: function(xhr) {
-                $('#save_indicator').text('Ошибка сохранения!').css('color', 'red');
-                console.error(xhr);
-            }
+            error: function() { $('#save_indicator').text(t('sg_status_err', 'Ошибка сохранения!')).css('color', 'red'); }
         });
     }
 
-    // === VERSIONING ===
+    // VERSIONING
     window.showSave = () => $('#modal_save').fadeIn();
     window.setComm = (txt) => $('#ver_comment').val(txt);
 
     window.commitVersion = function() {
         const c = $('#ver_comment').val() || 'Minor update';
-
-        // Bump version
-        let v = parseFloat(state.ver);
-        if(isNaN(v)) v = 0.0;
+        let v = parseFloat(state.ver); if(isNaN(v)) v = 0.0;
         state.ver = (v + 0.1).toFixed(1);
 
-        // Add to history
-        state.history.unshift({
-            ver: state.ver,
-            date: new Date().toLocaleDateString(),
-            author: 'User',
-            comment: c
-        });
-
-        // UI Update
+        state.history.unshift({ ver: state.ver, date: new Date().toLocaleDateString(), author: t('sg_lbl_analyst', 'Аналитик'), comment: c });
         $('#ver_label').text('v'+state.ver);
         $('#modal_save').fadeOut();
+        $('#ver_comment').val('');
 
-        renderDoc(); renderList();
-        saveToDB(true);
+        renderDoc(); renderList(); saveToDB(true);
     }
 
-    // === DOWNLOAD HTML ===
+    // DOWNLOAD HTML
     window.dl = () => {
         const css = `<style>
-            body { font-family: "Times New Roman", serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-            h1, h2 { color: #1e40af; }
-            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-            td, th { border: 1px solid black; padding: 8px; }
+            body { font-family: "Arial", sans-serif; padding: 40px; max-width: 900px; margin: 0 auto; color: #333; line-height: 1.6;}
+            h1 { color: #1e40af; text-align: center; text-transform: uppercase; border-bottom: 2px solid #1e40af; padding-bottom:10px; margin-bottom: 40px;}
+            h2 { color: #111827; border-left: 5px solid #1e40af; padding-left: 10px; background: #f3f4f6; padding-top:5px; padding-bottom:5px; margin-top: 30px;}
+            h3 { color: #374151; margin-top: 20px;}
+            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; font-size: 14px; table-layout: fixed;}
+            td, th { border: 1px solid #94a3b8; padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word;}
+            th { background: #f1f5f9; color: #334155; }
+            p, li, div { word-break: break-word; overflow-wrap: break-word; }
+            pre { background: #f1f5f9; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: "Consolas", monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word;}
+            .mermaid { text-align: center; margin: 30px 0; }
         </style>`;
-        const content = $('#doc_output').html();
-        const html = `<html><head><meta charset="UTF-8"><title>Spec ${TASK_ID}</title>${css}</head><body>${content}</body></html>`;
 
-        const blob = new Blob([html], {type:'text/html'});
+        // Клонируем документ, чтобы внедрить туда отрендеренные SVG из Mermaid
+        const docClone = $('#doc_output').clone();
+
+        // Превращаем живые графики Mermaid в статичный HTML/SVG для экспорта
+        docClone.find('.mermaid').each(function() {
+            const svg = $(this).find('svg').prop('outerHTML');
+            if(svg) $(this).html(svg);
+        });
+
+        const content = docClone.html();
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Спецификация ${TASK_ID}</title>${css}</head><body>${content}</body></html>`;
+
+        const blob = new Blob([html], {type:'text/html;charset=utf-8'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `Spec_${TASK_ID}_v${state.ver}.html`;
+        a.download = `ТЗ_${TASK_ID}_v${state.ver}.html`;
         a.click();
     }
 
-    // UTILS
     function genUID() { return 'sec_' + Math.random().toString(36).substr(2,9); }
 
     // DRAG AND DROP
     let dragEl = null;
     function bindDnD(el) {
         el.addEventListener('dragstart', function(e){
-            dragEl = this;
-            this.style.opacity = '0.4';
-            e.dataTransfer.effectAllowed = 'move';
+            dragEl = this; this.style.opacity = '0.4'; e.dataTransfer.effectAllowed = 'move';
         });
         el.addEventListener('dragover', function(e){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; });
-        el.addEventListener('dragenter', function(){ this.classList.add('acc-head'); }); // просто визуальный эффект можно через css класс
         el.addEventListener('drop', function(e){
             e.stopPropagation();
             if (dragEl !== this) {
                 const oldI = parseInt(dragEl.dataset.index);
                 const newI = parseInt(this.dataset.index);
-
-                // Move in array
                 const item = state.sections.splice(oldI, 1)[0];
                 state.sections.splice(newI, 0, item);
-
                 renderList(); renderDoc(); delayedSave();
             }
             return false;
         });
-        el.addEventListener('dragend', function(){
-            this.style.opacity = '1';
+        el.addEventListener('dragend', function(){ this.style.opacity = '1'; });
+    }
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+    // === ЭКСПОРТ В WORD (.DOC) ===
+    window.downloadWord = function() {
+        const docClone = $('#doc_output').clone();
+
+        // Превращаем SVG графики Mermaid в картинки (Base64) для Word
+        docClone.find('.mermaid').each(function() {
+            const svgElement = $(this).find('svg')[0];
+            if (svgElement) {
+                const serializer = new XMLSerializer();
+                let svgString = serializer.serializeToString(svgElement);
+                if (!svgString.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+                    svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+                }
+                const imgData = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgString)));
+                $(this).html(`<img src="${imgData}" style="max-width: 100%; height: auto;">`);
+            }
         });
+
+        const contentHtml = docClone.html();
+
+        const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>ТЗ</title><style>body { font-family: 'Times New Roman', serif; font-size: 12pt; } h1 { color: #1e40af; text-align: center; text-transform: uppercase; font-family: Arial, sans-serif; font-size: 18pt;} h2 { color: #111827; background-color: #f3f4f6; padding: 5px; font-family: Arial, sans-serif; font-size: 14pt;} h3 { color: #374151; font-family: Arial, sans-serif; font-size: 12pt; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } td, th { border: 1pt solid black; padding: 5pt; text-align: left; vertical-align: top;} th { background-color: #f1f5f9; font-weight: bold; }</style></head><body>`;
+        const footer = "</body></html>";
+
+        const blob = new Blob(['\ufeff', header + contentHtml + footer], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = `ТЗ_${TASK_ID}_v${state.ver}.doc`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 </script>
 

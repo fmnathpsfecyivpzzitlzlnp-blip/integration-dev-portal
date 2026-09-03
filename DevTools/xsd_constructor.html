@@ -2,118 +2,201 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>XSD Конструктор</title>
+    <title data-i18n="xsd_page_title">XSD Конструктор</title>
 
     <script src="libs/jquery-3.6.0.min.js"></script>
-    <!-- Стили JSTree (базовые) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
     <script src="libs/jstree.min.js"></script>
+
+    <!-- CodeMirror Core -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+
+    <!-- CodeMirror Addons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/xml-fold.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/search.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/jump-to-line.min.js"></script>
 
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* === Layout === */
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --tree-color: #333333;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0b1120;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --tree-color: #f8fafc;
+        }
+
         body {
-            background: #f4f7f9; margin: 0; padding: 20px; height: 100vh;
+            background: var(--bg-main); margin: 0; padding: 20px; height: 100vh;
             display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            color: var(--text-main);
+            transition: background 0.3s, color 0.3s;
         }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .workspace {
             flex: 1; display: flex; gap: 15px; overflow: hidden;
-            border: 1px solid #e2e8f0; background: white; border-radius: 6px; padding: 15px;
+            border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 6px; padding: 15px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: background 0.3s, border-color 0.3s;
         }
         .col { display: flex; flex-direction: column; overflow: hidden; }
-        .left-col { width: 50%; min-width: 450px; border-right: 1px solid #eee; padding-right: 15px; }
-        .right-col { flex: 1; padding-left: 15px; }
+        .left-col { width: 50%; min-width: 450px; border-right: 1px solid var(--border-color); padding-right: 15px; transition: border-color 0.3s; }
+        .right-col { flex: 1; padding-left: 15px; display: flex; flex-direction: column; }
 
         .toolbar {
-            background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1;
+            background: var(--bg-header); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);
             margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            transition: background 0.3s, border-color 0.3s;
         }
 
-        #tree { flex: 1; overflow-y: auto; margin-top: 10px; font-size: 14px; line-height: 24px; }
+        #tree { flex: 1; overflow-y: auto; margin-top: 10px; font-size: 14px; line-height: 24px; color: var(--tree-color); }
+        body.dark-theme .jstree-default .jstree-anchor { color: var(--tree-color) !important; }
+        body.dark-theme .jstree-default .jstree-hovered { background: #334155 !important; border-radius: 4px; }
+        body.dark-theme .jstree-default .jstree-clicked { background: #1d4ed8 !important; color: #fff !important; border-radius: 4px; }
 
-        #output {
-            flex: 1; background: #282a36; color: #f8f8f2; padding: 15px;
-            border-radius: 4px; font-family: 'Consolas', monospace;
-            font-size: 13px; overflow: auto; white-space: pre-wrap;
-            border: 1px solid #1e2029;
-        }
-        input[type="text"], select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;}
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; border-radius: 4px; border: 1px solid var(--border-color); height: 100% !important; background: var(--input-bg); color: var(--text-main); }
 
-        /* === ВИЗУАЛЬНОЕ ОФОРМЛЕНИЕ УЗЛОВ === */
+        .CodeMirror-dialog { background: var(--bg-header); color: var(--text-main); padding: 8px 12px; border-bottom: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-family: 'Segoe UI', sans-serif; }
+        .CodeMirror-dialog input { border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; outline: none; margin: 0 5px; background: var(--input-bg); color: var(--text-main); }
+        .CodeMirror-dialog input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+        .CodeMirror-dialog button { background: var(--border-color); border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; margin-left: 5px; color: var(--text-main); font-size: 12px;}
+        .CodeMirror-dialog button:hover { filter: brightness(0.9); }
+
+        input[type="text"], select { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s; }
+        input[type="text"]:focus, select:focus { border-color: #3b82f6; }
 
         .jstree-anchor { height: auto !important; padding-right: 5px; display: inline-flex !important; align-items: center; }
-
-        /* Контейнер для контента узла */
         .node-content { display: inline-flex; align-items: center; }
-
-        /* Имя поля */
-        .node-name { font-weight: 700; color: #333; }
-
-        /* Бейдж ТИПА (xsd:string) - Синий */
-        .node-type {
+        .node-name { font-weight: 700; }
+        .node-type-label {
             color: #2563eb; font-weight: bold; font-family: Consolas, monospace; font-size: 0.85em;
-            margin-left: 8px; background: #eff6ff; padding: 1px 6px; border-radius: 4px;
-            border: 1px solid #dbeafe;
+            margin-left: 8px; background: rgba(59, 130, 246, 0.1); padding: 1px 6px; border-radius: 4px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
         }
-
-        /* Бейдж КАРДИНАЛЬНОСТИ [0..n] - Серый */
-        .node-card {
+        body.dark-theme .node-type-label { color: #60a5fa; }
+        .node-cardinality {
             font-size: 10px; color: #fff; background: #9ca3af; border-radius: 10px;
             padding: 1px 6px; margin-left: 6px; font-weight: 600; font-family: monospace;
         }
 
-        /* Принудительные иконки (SVG Data URI) если нет картинки 32px.png */
         .icon-schema { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M12 2l6 4v6a8 8 0 0 1-4.73 7.3l-.34.13-.93.29V13h3V9h-3V6h-4v3H5v4h3v6.73L7 19.5A8 8 0 0 1 2 12V6l10-4z' fill='%23eab308'/%3E%3C/svg%3E") !important; background-size: cover !important; }
         .icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M12.414 5H21a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7.414l2 2z' fill='%23f59e0b'/%3E%3C/svg%3E") !important; background-size: cover !important; }
         .icon-file   { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M15 4H5v16h14V8h-4V4zM3 2.992C3 2.444 3.447 2 3.999 2H16l5 5v13.993A1 1 0 0 1 20.007 22H3.993A1 1 0 0 1 3 21.008V2.992z' fill='%233b82f6'/%3E%3C/svg%3E") !important; background-size: cover !important; }
         .icon-list   { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M8 4h13v2H8V4zm-5-.5h3v3H3v-3zm0 7h3v3H3v-3zm0 7h3v3H3v-3zM8 11h13v2H8v-2zm0 7h13v2H8v-2z' fill='%2310b981'/%3E%3C/svg%3E") !important; background-size: cover !important; }
 
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-card); color: var(--text-main); padding: 25px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h2 style="margin:0;color:#1e293b">XSD Конструктор</h2>
-    <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+    <h2 style="margin:0; color:var(--text-main);" data-i18n="xsd_page_title">XSD Конструктор</h2>
+    <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
 </div>
 
 <div class="toolbar">
-    <button id="gen-btn" class="primary">🔄 Обновить XSD</button>
-    <button id="copy-btn" class="secondary">📋 Копировать XML</button>
-    <div style="width:1px;height:20px;background:#ccc;margin:0 5px;"></div>
-    <label>БД (Server.groovy):</label>
+    <button id="gen-btn" class="primary" data-i18n="xsd_btn_refresh">🔄 Обновить XSD</button>
+    <button id="copy-btn" class="secondary" data-i18n="xsd_btn_copy_xml">📋 Копировать XML</button>
+    <div style="width:1px;height:20px;background:var(--border-color);margin:0 5px;"></div>
+
+    <button onclick="$('#modal-import-json').fadeIn(200)" class="primary" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="xsd_btn_import_json">📥 Импорт JSON</button>
+    <div style="width:1px;height:20px;background:var(--border-color);margin:0 5px;"></div>
+    <button class="secondary" onclick="$('#xsd-file-input').click()" style="background: #f59e0b; border-color: #f59e0b; color: white;" data-i18n="xsd_btn_import_xsd">📥 Импорт XSD</button>
+    <input type="file" id="xsd-file-input" accept=".xsd, .xml" style="display: none;" onchange="importXSD(event)">
+    <label data-i18n="xsd_lbl_db">БД (Server.groovy):</label>
     <input type="text" id="save-name" placeholder="Имя схемы..." style="width: 180px;">
-    <button id="save-btn" class="success">Сохранить</button>
+    <button id="save-btn" class="success" data-i18n="btn_save">Сохранить</button>
     <div style="flex:1"></div>
-    <select id="load-select" style="min-width:150px; padding:6px;"><option value="">-- Выбрать --</option></select>
-    <button id="load-btn" class="primary">Загрузить</button>
-    <button id="del-btn" class="danger">Удалить</button>
+    <select id="load-select" style="min-width:150px; padding:6px;"></select>
+    <button id="load-btn" class="primary" data-i18n="btn_load">Загрузить</button>
+    <button id="del-btn" class="danger" data-i18n="btn_delete">Удалить</button>
 </div>
 
 <div class="workspace">
     <div class="col left-col">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0;">СТРУКТУРА</h3>
-            <span style="font-size:11px; color:#666;">ПКМ — меню | F2 — переименовать ("имя : тип")</span>
+            <h3 style="margin:0;" data-i18n="xsd_lbl_structure">СТРУКТУРА</h3>
+            <span style="font-size:11px; color:var(--text-muted);" data-i18n="xsd_lbl_hint">ПКМ — меню | F2 — переименовать ("имя : тип")</span>
         </div>
-        <hr style="border:0; border-bottom:1px solid #eee; margin:10px 0;">
-        <!-- ДЕРЕВО -->
+        <hr style="border:0; border-bottom:1px solid var(--border-color); margin:10px 0;">
         <div id="tree"></div>
     </div>
 
     <div class="col right-col">
-        <h3 style="margin:0;">РЕЗУЛЬТАТ (XSD)</h3>
-        <pre id="output"></pre>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;" data-i18n="xsd_lbl_result">РЕЗУЛЬТАТ (XSD)</h3>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button class="secondary" onclick="editorOutput.execCommand('find')" style="padding: 4px 8px; font-size: 14px; border:none;" title="Поиск (Ctrl+F)" data-i18n="btn_search_title">🔍</button>
+                <button class="secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyEditorResult()" data-i18n="btn_copy">📋 Копировать</button>
+            </div>
+        </div>
+        <hr style="border:0; border-bottom:1px solid var(--border-color); margin:10px 0;">
+        <textarea id="output"></textarea>
     </div>
 </div>
 
-<div id="toast" style="position:fixed;bottom:20px;right:20px;padding:10px 20px;background:#333;color:#fff;border-radius:4px;display:none;z-index:9999;">OK</div>
+<div id="toast" style="position:fixed;bottom:20px;right:20px;padding:10px 20px;background:#10b981;color:#fff;border-radius:4px;display:none;z-index:9999;font-weight:bold;">OK</div>
+
+<!-- МОДАЛКА: ИМПОРТ JSON В XSD -->
+<div id="modal-import-json" class="modal">
+    <div class="modal-content" style="width:700px; max-width:90%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border-color); padding-bottom:10px; margin-bottom:15px;">
+            <h3 style="margin:0; color:var(--text-main);" data-i18n="xsd_modal_import_title">📥 Автогенерация XSD из JSON</h3>
+            <span onclick="$('#modal-import-json').fadeOut(150)" style="cursor:pointer; font-size:24px; color:var(--text-muted); line-height:1;">&times;</span>
+        </div>
+
+        <p style="font-size:13px; color:var(--text-muted);" data-i18n="xsd_modal_import_desc">Вставьте JSON-объект. Алгоритм автоматически создаст вложенные структуры (complexType), определит массивы (unbounded) и типы данных (integer, boolean, string).</p>
+
+        <textarea id="json-import-text" placeholder='{\n  "Client": {\n    "Id": 123,\n    "IsActive": true,\n    "Contacts": ["email@test.ru"]\n  }\n}' style="width:100%; height:250px; font-family:'Consolas', monospace; font-size:13px; border:1px solid var(--border-color); border-radius:4px; padding:10px; background:var(--input-bg); color:var(--text-main); resize:vertical; box-sizing: border-box;"></textarea>
+
+        <div style="text-align:right; margin-top:20px;">
+            <button class="secondary" onclick="$('#modal-import-json').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+            <button class="primary" onclick="applyJsonImport()" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="xsd_btn_generate_tree">Сгенерировать дерево</button>
+        </div>
+    </div>
+</div>
 
 <script>
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
     const TYPE_MAP = {
         'string':'xsd:string', 'str':'xsd:string',
         'int':'xsd:int', 'integer':'xsd:integer',
@@ -122,16 +205,38 @@
         'decimal':'xsd:decimal', 'long':'xsd:long', 'base64':'xsd:base64Binary'
     };
 
+    let editorOutput; // Глобальная переменная для редактора CodeMirror
+
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        $('#save-name').attr('placeholder', t('xsd_ph_schema_name', 'Имя схемы...'));
+
+        // Инициализация CodeMirror
+        editorOutput = CodeMirror.fromTextArea(document.getElementById('output'), {
+            mode: "application/xml",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: isDark ? "dracula" : "default",
+            readOnly: true, // Защита от случайного редактирования
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            extraKeys: {"Ctrl-F": "find", "Cmd-F": "find"} // Поддержка поиска
+        });
+
+        window.addEventListener('themeChanged', function(e) {
+            editorOutput.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+        });
+
         loadSavedList();
 
-        // ИНИЦИАЛИЗАЦИЯ JSTREE
         $('#tree').jstree({
             core: {
                 check_callback: true,
                 themes: { name: 'default', responsive: false, dots: true, icons: true },
                 data: [
-                    // Стартовая нода (корень)
                     { "id": "root", "parent": "#", "text": "xsd:schema", "type": "schema", "state": { "opened": true } }
                 ]
             },
@@ -147,25 +252,22 @@
                     const type = node.type;
                     const items = {};
 
-                    // КОРЕНЬ
                     if (type === 'schema') {
-                        items.addRoot = { label: "Добавить корневой элемент", action: () => createElement(node, 'string') };
-                        items.refresh = { label: "Обновить код", separator_before: true, action: generateXSD };
+                        items.addRoot = { label: t('xsd_ctx_add_root', "Добавить корневой элемент"), action: () => createElement(node, 'string') };
+                        items.refresh = { label: t('xsd_ctx_refresh', "Обновить код"), separator_before: true, action: generateXSD };
                     }
 
-                    // КОНТЕЙНЕР (Sequence/Schema)
                     if (type === 'sequence' || type === 'schema') {
-                        items.addString = { label: "Добавить: String", action: () => createElement(node, 'string') };
-                        items.addInt    = { label: "Добавить: Int",    action: () => createElement(node, 'int') };
-                        items.addBool   = { label: "Добавить: Boolean", action: () => createElement(node, 'bool') };
-                        items.addDate   = { label: "Добавить: Date",    action: () => createElement(node, 'date') };
-                        items.addCustom = { label: "Добавить: Другой...", separator_before: true, action: () => createElement(node, 'string') };
+                        items.addString = { label: t('xsd_ctx_add_str', "Добавить: String"), action: () => createElement(node, 'string') };
+                        items.addInt    = { label: t('xsd_ctx_add_int', "Добавить: Int"),    action: () => createElement(node, 'int') };
+                        items.addBool   = { label: t('xsd_ctx_add_bool', "Добавить: Boolean"), action: () => createElement(node, 'bool') };
+                        items.addDate   = { label: t('xsd_ctx_add_date', "Добавить: Date"),    action: () => createElement(node, 'date') };
+                        items.addCustom = { label: t('xsd_ctx_add_custom', "Добавить: Другой..."), separator_before: true, action: () => createElement(node, 'string') };
                     }
 
-                    // ПОЛЕ (Element) ИЛИ ПОСЛЕДОВАТЕЛЬНОСТЬ
                     if (type === 'element' || type === 'sequence') {
                         items.cardinality = {
-                            label: "Повторяемость (Card)",
+                            label: t('xsd_ctx_card', "Повторяемость (Card)"),
                             submenu: {
                                 c11: { label: "1..1 (Default)", action: () => setCardinality(node, 1, 1) },
                                 c01: { label: "0..1 (Optional)", action: () => setCardinality(node, 0, 1) },
@@ -175,14 +277,11 @@
                         };
                     }
 
-                    // ТОЛЬКО ДЛЯ ПОЛЯ
                     if (type === 'element') {
                         items.makeComplex = {
-                            label: "Сделать Структурой", separator_before: true,
+                            label: t('xsd_ctx_make_complex', "Сделать Структурой"), separator_before: true,
                             action: function() {
-                                // Удаляем тип у папки
                                 if(node.data) node.data.type = null;
-                                // Обновляем узел в дереве (убираем бейдж типа)
                                 let t = $('#tree').jstree(true);
                                 t.redraw_node(node, false, false, false);
 
@@ -192,13 +291,12 @@
                                 generateXSD();
                             }
                         };
-                        items.rename = { label: "Переименовать", separator_before: true, action: () => $("#tree").jstree().edit(node) };
-                        items.remove = { label: "Удалить", separator_before: true, action: () => $("#tree").jstree().delete_node(node) };
+                        items.rename = { label: t('btn_rename', "Переименовать"), separator_before: true, action: () => $("#tree").jstree(true).edit(node) };
+                        items.remove = { label: t('btn_delete', "Удалить"), separator_before: true, action: () => $("#tree").jstree(true).delete_node(node) };
                     }
 
-                    // БЛОКИ
                     if(type === 'complex' || type === 'sequence') {
-                        items.removeBlock = { label: "Удалить блок", action: () => $("#tree").jstree().delete_node(node) };
+                        items.removeBlock = { label: t('xsd_ctx_del_block', "Удалить блок"), action: () => $("#tree").jstree(true).delete_node(node) };
                     }
                     return items;
                 }
@@ -206,8 +304,6 @@
         })
             .on('ready.jstree', generateXSD)
             .on('move_node.jstree delete_node.jstree copy_node.jstree cut.jstree paste.jstree', generateXSD)
-
-            // --- ПЕРЕИМЕНОВАНИЕ (Обновляет данные) ---
             .on('rename_node.jstree', function(e, data) {
                 let name = data.text;
                 if(!data.node.data) data.node.data = {};
@@ -223,80 +319,73 @@
                 data.node.data.cleanName = name;
                 data.node.data.type = type;
 
-                // После переименования снова форсируем отрисовку, чтобы обновить бейджи
                 data.instance.redraw_node(data.node, false, false, false);
                 generateXSD();
             })
-
-            // --- ГЛАВНАЯ ОТРИСОВКА (КРАСОТА В ДЕРЕВЕ) ---
             .on('redraw_node.jstree', function(e, data) {
                 const node = data.node;
-                // Работаем только с element и sequence (у них могут быть бейджи)
                 if(node.type !== 'element' && node.type !== 'sequence') return;
 
                 const el = $(data.element);
                 const anchor = el.children('.jstree-anchor');
 
-                // Ищем данные. Если их нет (при первой вставке), берем дефолтные
                 let d = node.data || {};
-
                 let name = d.cleanName;
                 if(!name) {
-                    // Если cleanName нет, парсим текст узла (вдруг там trash : xsd)
                     name = node.text.includes(':') ? node.text.split(':')[0].trim() : node.text;
                     if(node.type === 'sequence' && name !== 'sequence') name = 'sequence';
                 }
 
-                let type = d.type; // мб undefined
+                let type = d.type;
                 let min = d.min !== undefined ? d.min : 1;
                 let max = d.max !== undefined ? d.max : 1;
 
-                // Проверяем, является ли элемент папкой
                 let isStructure = node.children.length > 0 && node.type === 'element';
-                if (isStructure) type = null; // У папок тип не пишем
+                if (isStructure) type = null;
 
-                // Если это element, и типа нет - ставим дефолт
                 if (node.type === 'element' && !isStructure && !type) type = 'xsd:string';
 
-                // Строим строку повторений
                 let cardStr = "";
                 if (min != 1 || max != 1) {
                     const maxStr = (max === 'unbounded') ? 'n' : max;
                     cardStr = `[${min}..${maxStr}]`;
                 }
 
-                // Собираем контент.
-                // Чтобы не ломать иконки (которые jstree рисует через <i>),
-                // находим их, сохраняем, и перезаписываем innerHTML ссылки.
-
                 let iconHtml = anchor.find('i.jstree-icon').prop('outerHTML');
-                if(!iconHtml) return; // Рано вызвали
+                if(!iconHtml) return;
 
-                // Обертка
                 let html = `${iconHtml} <span class="node-content"><span class="node-name">${name}</span>`;
 
-                // Добавляем тип
                 if (type && node.type === 'element') {
                     html += `<span class="node-type-label">: ${type}</span>`;
                 }
-                // Добавляем кардинальность
                 if (cardStr) {
                     html += `<span class="node-cardinality">${cardStr}</span>`;
                 }
-                html += `</span>`; // close wrapper
+                html += `</span>`;
 
                 anchor.html(html);
             });
 
-        // Handlers
         $('#gen-btn').click(generateXSD);
-        $('#copy-btn').click(()=>{ navigator.clipboard.writeText($('#output').text()); showToast('XML Скопирован'); });
+        $('#copy-btn').click(copyEditorResult);
         $('#save-btn').click(saveToDB);
         $('#load-btn').click(loadFromDB);
         $('#del-btn').click(deleteFromDB);
     });
 
-    // --- LOGIC FUNCTIONS ---
+    function showToast(msg) {
+        const toast = $('#toast');
+        toast.text(msg).fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 2000);
+    }
+
+    window.copyEditorResult = function() {
+        if (!editorOutput) return;
+        const text = editorOutput.getValue();
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => showToast(t('msg_xml_copied', 'XML Скопирован')));
+    };
 
     function createNode(parent, text, type, data={}) {
         let t = $("#tree").jstree(true);
@@ -308,7 +397,6 @@
         let type = TYPE_MAP[shortType] || 'xsd:string';
         let name = "field_" + Math.floor(Math.random()*10000);
 
-        // 1. Создаем ноду с полным набором данных
         let newNodeData = { cleanName: name, type: type, min: 1, max: 1 };
 
         let id = t.create_node(parentNode, {
@@ -319,8 +407,6 @@
 
         t.open_node(parentNode);
 
-        // 2. ФОРСИРУЕМ ПЕРЕРИСОВКУ ДЛЯ НОВОГО УЗЛА
-        // Таймаут нужен, чтобы jsTree успел добавить элемент в DOM
         setTimeout(function() {
             let node = t.get_node(id);
             if(node) {
@@ -333,12 +419,10 @@
         if(!node.data) node.data = {};
         node.data.min = min;
         node.data.max = max;
-        // Моментальный редроу узла
         $('#tree').jstree(true).redraw_node(node, false, false, false);
         generateXSD();
     }
 
-    // --- GENERATOR ---
     function generateXSD() {
         let t = $('#tree').jstree(true); if(!t) return;
         let json = t.get_json('#', {flat:false});
@@ -365,7 +449,6 @@
                     let xType = d.type || 'xsd:string';
                     if(xType.includes('[')) xType=xType.split('[')[0].trim();
 
-                    // Если есть дети -> это комплексная структура, игнорируем xType атрибут
                     if(n.children.length > 0) {
                         xml += `${indent}<xsd:element name="${name}"${attrs}>\n`;
                         walk(n.children, indent+"  ");
@@ -380,7 +463,6 @@
                     xml += `${indent}</xsd:complexType>\n`;
                 }
                 else if(type === 'sequence') {
-                    // Sequence тоже может иметь атрибуты min/maxOccurs
                     xml += `${indent}<xsd:sequence${attrs}>\n`;
                     walk(n.children, indent+"  ");
                     xml += `${indent}</xsd:sequence>\n`;
@@ -392,43 +474,266 @@
         else walk(json, "  ");
 
         xml += '</xsd:schema>';
-        $('#output').text(xml);
+
+        if (editorOutput) {
+            editorOutput.setValue(xml);
+        }
     }
 
-    // --- DATABASE ---
     function saveToDB(){
-        let n = $('#save-name').val(); if(!n) return alert("Введите имя");
+        let n = $('#save-name').val();
+        if(!n) return alert(t('xsd_err_no_name', "Введите имя"));
         let js = $('#tree').jstree(true).get_json('#', {no_state:false, flat:false});
         $.ajax({
             url:'/api/xsd', type:'POST', contentType:'application/json',
             data: JSON.stringify({name:n, content:JSON.stringify(js)}),
-            success:()=>{showToast('Сохранено'); loadSavedList()}
+            success:()=>{showToast(t('msg_saved', 'Сохранено')); loadSavedList()}
         });
     }
-    function loadSavedList(){
-        $.get('/api/xsd', (l)=>{
-            let s=$('#load-select').empty().append('<option>-- Выбрать --</option>');
-            if(l) l.forEach(x=>s.append(`<option value="${x.id}">${x.name}</option>`));
-        });
-    }
-    function loadFromDB(){
-        let id=$('#load-select').val(); if(!id)return;
-        $.get('/api/xsd/'+id, (res)=>{
-            try{
-                let d = (typeof res==='string')?JSON.parse(res):res;
-                $('#tree').jstree(true).settings.core.data = d;
-                $('#tree').jstree(true).refresh();
-                $('#save-name').val($('#load-select option:selected').text());
-                setTimeout(generateXSD, 500);
-                showToast('Загружено');
-            }catch(e){alert('Data Error')}
-        });
-    }
-    function deleteFromDB(){
-        let id=$('#load-select').val(); if(id&&confirm('Del?')) $.ajax({url:'/api/xsd/'+id, type:'DELETE', success:()=>{loadSavedList();$('#save-name').val('')}});
-    }
-    function showToast(m){$('#toast').text(m).fadeIn().delay(1500).fadeOut();}
 
+    function loadSavedList() {
+        $.ajax({
+            url: '/api/xsd',
+            type: 'GET',
+            cache: false,
+            success: (l) => {
+                let s = $('#load-select').empty().append('<option value="">' + t('opt_select', '-- Выбрать --') + '</option>');
+                if(l) l.forEach(x => s.append(`<option value="${x.id}">${escapeHtml(x.name)}</option>`));
+            }
+        });
+    }
+
+    function loadFromDB() {
+        let id = $('#load-select').val();
+        if(!id) return;
+
+        $.ajax({
+            url: '/api/xsd?id=' + id,
+            type: 'GET',
+            cache: false,
+            success: (res) => {
+                try {
+                    let d = (typeof res === 'string') ? JSON.parse(res) : res;
+                    $('#tree').jstree(true).settings.core.data = d;
+                    $('#tree').jstree(true).refresh();
+                    $('#save-name').val($('#load-select option:selected').text());
+                    setTimeout(generateXSD, 500);
+                    showToast(t('msg_loaded', 'Загружено'));
+                } catch(e) {
+                    alert(t('err_load_corrupt', 'Ошибка загрузки. Возможно данные повреждены.'));
+                }
+            }
+        });
+    }
+
+    function deleteFromDB() {
+        let id = $('#load-select').val();
+        if (!id) return alert(t('xsd_err_select_del', 'Сначала выберите схему из списка для удаления!'));
+
+        if (confirm(t('xsd_conf_del', 'Точно удалить эту схему из базы данных?'))) {
+            $.ajax({
+                url: '/api/xsd',
+                type: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({ id: parseInt(id) }),
+                success: () => {
+                    showToast(t('msg_deleted', 'Схема удалена!'));
+                    loadSavedList();
+                    $('#save-name').val('');
+                }
+            });
+        }
+    }
+
+    window.applyJsonImport = function() {
+        const text = $('#json-import-text').val().trim();
+        if (!text) return alert(t('xsd_err_empty_json', "Вставьте JSON код!"));
+
+        try {
+            const obj = JSON.parse(text);
+            const tree = $('#tree').jstree(true);
+
+            const schemaNode = tree.get_node("root") || tree.get_node(tree.get_node("#").children[0]);
+
+            const rootName = "RootElement";
+            let rootId = tree.create_node(schemaNode, {
+                text: rootName, type: 'element',
+                data: { cleanName: rootName, type: null, min: 1, max: 1 }
+            }, "last");
+
+            let complexId = tree.create_node(rootId, { text: 'complexType', type: 'complex' }, "last");
+            let seqId = tree.create_node(complexId, { text: 'sequence', type: 'sequence' }, "last");
+
+            buildTreeFromJson(obj, seqId, tree);
+
+            $('#modal-import-json').fadeOut(150);
+            $('#json-import-text').val('');
+
+            tree.open_all();
+            generateXSD();
+
+            showToast(t('xsd_msg_tree_gen', 'Дерево успешно сгенерировано!'));
+
+        } catch(e) {
+            alert(t('xsd_err_json_parse', "Ошибка парсинга JSON: Проверьте синтаксис. (") + e.message + ")");
+        }
+    };
+
+    function buildTreeFromJson(obj, parentId, tree) {
+        for (let key in obj) {
+            let val = obj[key];
+            let typeStr = 'xsd:string';
+
+            if (val === null) {
+                tree.create_node(parentId, {
+                    text: key, type: 'element',
+                    data: { cleanName: key, type: 'xsd:string', min: 0, max: 1 }
+                }, "last");
+            }
+            else if (Array.isArray(val)) {
+                let firstItem = val.length > 0 ? val[0] : "";
+                let isObj = (typeof firstItem === 'object' && firstItem !== null);
+
+                let elId = tree.create_node(parentId, {
+                    text: key, type: 'element',
+                    data: { cleanName: key, type: isObj ? null : getXsdType(firstItem), min: 0, max: 'unbounded' }
+                }, "last");
+
+                if (isObj) {
+                    let cId = tree.create_node(elId, { text: 'complexType', type: 'complex' }, "last");
+                    let sId = tree.create_node(cId, { text: 'sequence', type: 'sequence' }, "last");
+                    buildTreeFromJson(firstItem, sId, tree);
+                }
+            }
+            else if (typeof val === 'object') {
+                let elId = tree.create_node(parentId, {
+                    text: key, type: 'element',
+                    data: { cleanName: key, type: null, min: 0, max: 1 }
+                }, "last");
+                let cId = tree.create_node(elId, { text: 'complexType', type: 'complex' }, "last");
+                let sId = tree.create_node(cId, { text: 'sequence', type: 'sequence' }, "last");
+                buildTreeFromJson(val, sId, tree);
+            }
+            else {
+                typeStr = getXsdType(val);
+                tree.create_node(parentId, {
+                    text: key, type: 'element',
+                    data: { cleanName: key, type: typeStr, min: 0, max: 1 }
+                }, "last");
+            }
+        }
+    }
+
+    function getXsdType(val) {
+        if (typeof val === 'number') {
+            return Number.isInteger(val) ? 'xsd:integer' : 'xsd:decimal';
+        }
+        if (typeof val === 'boolean') {
+            return 'xsd:boolean';
+        }
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            return 'xsd:date';
+        }
+        return 'xsd:string';
+    }
+
+    function importXSD(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const xmlString = e.target.result;
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+            if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                alert(t('xsd_err_invalid_xml', "❌ Ошибка: Невалидный XML/XSD файл"));
+                return;
+            }
+
+            try {
+                const parsedElements = parseXsdNode(xmlDoc.documentElement);
+                const tree = $('#tree').jstree(true);
+                const schemaNode = tree.get_node("root") || tree.get_node(tree.get_node("#").children[0]);
+
+                buildTreeFromXsd(parsedElements, schemaNode, tree);
+                tree.open_all();
+                generateXSD();
+
+                showToast(t('xsd_msg_xsd_loaded', 'XSD успешно загружен!'));
+            } catch (err) {
+                console.error(err);
+                alert(t('xsd_err_xsd_parse', "❌ Ошибка при чтении структуры XSD: ") + err.message);
+            } finally {
+                event.target.value = '';
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function buildTreeFromXsd(elements, parentId, tree) {
+        elements.forEach(el => {
+            let isComplex = el.children && el.children.length > 0;
+            let typeStr = el.type;
+            if (typeStr !== 'complex' && !typeStr.includes(':')) typeStr = 'xsd:' + typeStr;
+
+            let elId = tree.create_node(parentId, {
+                text: el.name,
+                type: 'element',
+                data: {
+                    cleanName: el.name,
+                    type: isComplex ? null : typeStr,
+                    min: el.minOccurs,
+                    max: el.maxOccurs
+                }
+            }, "last");
+
+            if (isComplex) {
+                let cId = tree.create_node(elId, { text: 'complexType', type: 'complex' }, "last");
+                let sId = tree.create_node(cId, { text: 'sequence', type: 'sequence' }, "last");
+                buildTreeFromXsd(el.children, sId, tree);
+            }
+        });
+    }
+
+    function parseXsdNode(node) {
+        let result = [];
+        const children = node.children;
+
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            const tagName = child.tagName.replace(/.*:/, '');
+
+            if (tagName === 'element') {
+                let el = {
+                    name: child.getAttribute('name'),
+                    type: child.getAttribute('type') || 'complex',
+                    minOccurs: child.getAttribute('minOccurs') || '1',
+                    maxOccurs: child.getAttribute('maxOccurs') || '1',
+                    children: []
+                };
+
+                const complexType = Array.from(child.children).find(c => c.tagName.replace(/.*:/, '') === 'complexType');
+                if (complexType) {
+                    const sequence = Array.from(complexType.children).find(c => c.tagName.replace(/.*:/, '') === 'sequence' || c.tagName.replace(/.*:/, '') === 'choice');
+                    if (sequence) {
+                        el.children = parseXsdNode(sequence);
+                    }
+                }
+                result.push(el);
+
+            } else if (tagName === 'sequence' || tagName === 'choice' || tagName === 'schema') {
+                result = result.concat(parseXsdNode(child));
+            }
+        }
+        return result;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

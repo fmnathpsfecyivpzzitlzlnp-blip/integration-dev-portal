@@ -1,126 +1,288 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>JSON Example Generator from Schema</title>
     <meta charset="UTF-8">
+    <title data-i18n="eg_page_title">Генератор примера JSON из схемы</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <script src="utils.js"></script>
+
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: calc(100vh - 40px); }
-        h2 { margin-top: 0; }
-        .container { display: flex; flex: 1; overflow: hidden; gap: 10px; }
-        .panel { display: flex; flex-direction: column; width: 50%; }
-        textarea { width: 100%; flex: 1; font-family: monospace; font-size: 14px; box-sizing: border-box; margin-top: 10px; }
-        button { padding: 10px 15px; cursor: pointer; margin-bottom: 10px; }
-        #error-panel { display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; margin-bottom: 10px; white-space: pre-wrap; }
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --chk-bg: #f1f5f9;
+            --chk-hover: #e2e8f0;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --chk-bg: #1e293b;
+            --chk-hover: #334155;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background-color: var(--bg-main) !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .generator-page-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .editor-wrapper {
+            flex: 1; display: flex; flex-direction: column;
+            border: 1px solid var(--border-color); border-radius: 6px;
+            overflow: hidden; background: var(--bg-card);
+            transition: border-color 0.3s, background 0.3s;
+        }
+
+        .CodeMirror { height: 100% !important; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; }
+        .error-line-bg { background-color: rgba(239, 68, 68, 0.2) !important; }
+
+        .generator-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .generator-panel label { font-weight: 600; margin-bottom: 8px; display: inline-block; color: var(--text-main); transition: 0.3s; }
+
+        /* Стили для бейджа и чекбокса */
+        #status-badge {
+            display: none; padding: 6px 12px; border-radius: 6px;
+            font-size: 13px; font-weight: bold; margin-left: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .checkbox-wrapper {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--chk-bg); padding: 6px 12px; border-radius: 6px;
+            border: 1px solid var(--border-color); cursor: pointer; user-select: none;
+            transition: 0.3s; font-size: 14px; font-weight: 600; color: var(--text-main);
+        }
+        .checkbox-wrapper:hover { background: var(--chk-hover); }
+        .checkbox-wrapper input { cursor: pointer; width: 16px; height: 16px; }
+
+        .header-top {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;
+        }
+        .generator-columns-container {
+            display: flex; gap: 20px; flex: 1; min-height: 0;
+        }
+
+        .btn { padding: 8px 15px; border-radius: 4px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; }
+        .btn.secondary { background: var(--chk-bg); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { background: var(--chk-hover); }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+
+        #error-panel {
+            display:none; padding:15px; background:rgba(220, 38, 38, 0.1); color:#ef4444;
+            border:1px solid rgba(220, 38, 38, 0.3); border-radius: 6px; margin-bottom:15px;
+            font-family: monospace; white-space: pre-wrap; font-size: 13px; flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
 
-<h2>Генератор примера JSON из JSON Schema</h2>
-<p>Вставьте вашу JSON Schema в левое поле и нажмите кнопку для генерации примера JSON.</p>
+<div class="generator-page-container">
+    <div class="header-top">
+        <div style="display: flex; align-items: center;">
+            <h2 style="margin: 0; border: none; color: var(--text-main);" data-i18n="eg_title">Генератор примера JSON</h2>
+            <span id="status-badge"></span>
+        </div>
 
-<button id="generateBtn">Сгенерировать пример</button>
-<div id="error-panel"></div>
+        <div class="generator-controls" style="display: flex; gap: 15px; align-items: center;">
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="force-full-checkbox">
+                <span data-i18n="eg_chk_full">Сгенерировать ВСЕ поля</span>
+            </label>
 
-<div class="container">
-    <div class="panel">
-        <label for="schema-input">Входная JSON Schema:</label>
-        <textarea id="schema-input" placeholder="Вставьте сюда JSON Schema..."></textarea>
+            <button id="clearBtn" class="btn secondary" data-i18n="eg_btn_clear">🧹 Очистить</button>
+            <button id="btn-generate" class="btn primary" data-i18n="eg_btn_gen">🚀 Сгенерировать пример</button>
+        </div>
     </div>
-    <div class="panel">
-        <label for="json-output">Сгенерированный JSON:</label>
-        <textarea id="json-output" readonly></textarea>
+
+    <div id="error-panel"></div>
+
+    <div class="generator-columns-container">
+        <div class="generator-panel">
+            <label for="input-area" data-i18n="eg_lbl_in">Входная JSON Schema:</label>
+            <div class="editor-wrapper">
+                <textarea id="input-area"></textarea>
+            </div>
+        </div>
+        <div class="generator-panel">
+            <label for="output-area" data-i18n="eg_lbl_out">Сгенерированный пример JSON:</label>
+            <div class="editor-wrapper">
+                <textarea id="output-area"></textarea>
+            </div>
+        </div>
     </div>
 </div>
 
-<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
-    $(function () {
-        const errorPanel = $('#error-panel');
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
 
-        $('#generateBtn').on('click', function() {
+    $(function () {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
+        const errorPanel = $('#error-panel');
+        const statusBadge = $('#status-badge');
+        let errorLineHandle = null;
+
+        const editorIn = CodeMirror.fromTextArea(document.getElementById('input-area'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme, lineWrapping: true
+        });
+
+        const editorOut = CodeMirror.fromTextArea(document.getElementById('output-area'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme, lineWrapping: true, readOnly: true
+        });
+
+        window.addEventListener('themeChanged', function(e) {
+            const newCmTheme = e.detail.isDark ? 'dracula' : 'default';
+            editorIn.setOption('theme', newCmTheme);
+            editorOut.setOption('theme', newCmTheme);
+        });
+
+        const savedSchema = localStorage.getItem('example_generator_input');
+        if (savedSchema) {
+            editorIn.setValue(savedSchema);
+        } else {
+            editorIn.setValue(`{\n  "$schema": "http://json-schema.org/draft-06/schema#",\n  "type": "object",\n  "properties": {\n    "clientId": {\n      "type": "string",\n      "description": "Идентификатор Клиента"\n    },\n    "account": {\n      "type": "string"\n    }\n  },\n  "required": [\n    "clientId"\n  ]\n}`);
+        }
+
+        editorIn.on('change', function() {
+            localStorage.setItem('example_generator_input', editorIn.getValue());
+            if (errorLineHandle) {
+                editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
             errorPanel.hide();
-            const schemaText = $('#schema-input').val();
-            if (!schemaText.trim()) {
-                alert("Пожалуйста, вставьте JSON Schema.");
+            statusBadge.hide();
+        });
+
+        $('#clearBtn').on('click', function() {
+            if (confirm(t('eg_conf_clear', 'Очистить поле ввода?'))) {
+                editorIn.setValue(''); editorOut.setValue(''); statusBadge.hide();
+                localStorage.removeItem('example_generator_input');
+            }
+        });
+
+        $('#btn-generate').on('click', function() {
+            errorPanel.hide();
+            statusBadge.hide();
+            if (errorLineHandle) {
+                editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+
+            const schemaText = editorIn.getValue();
+            if (!schemaText.trim()) { alert(t('eg_err_empty', "Пожалуйста, вставьте JSON Schema.")); return; }
+
+            try {
+                JSON.parse(schemaText);
+            } catch (e) {
+                const match = e.message.match(/line\s+(\d+)/i) || e.message.match(/position\s+(\d+)/i);
+                if (match && e.message.includes('line')) {
+                    const lineNum = parseInt(match[1], 10);
+                    errorLineHandle = editorIn.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                    editorIn.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+                }
+                errorPanel.text(t('eg_err_syntax', "❌ Ошибка синтаксиса в JSON Schema:\n") + e.message).show();
                 return;
             }
 
+            const btn = $(this);
+            const originalText = btn.text();
+            btn.text(t('eg_msg_loading', '⏳ Генерация...')).prop('disabled', true);
+            editorOut.setValue(t('eg_msg_processing', 'Обработка...'));
+
+            const isFullMode = $('#force-full-checkbox').is(':checked');
+
             $.ajax({
-                url: '/api/generate-example',
+                url: '/api/generate-example' + (isFullMode ? '?full=true' : ''),
                 type: 'POST',
                 contentType: 'application/json',
-                data: schemaText,                 // <-- Первое исправление
-                dataType: 'text',                 // <-- Добавленное улучшение
-                success: function(responseText) { // Теперь мы знаем, что это точно текст
-                    // Так как dataType: 'text', responseText - это просто строка с сервера.
-                    // Ничего не нужно преобразовывать, просто вставляем ее.
-                    $('#json-output').val(responseText);
+                data: schemaText,
+                success: function(response) {
+                    const res = typeof response === 'string' ? JSON.parse(response) : response;
+
+                    editorOut.setValue(res.mock);
+
+                    if (res.mode === 'FULL') {
+                        statusBadge.text(`🟢 ${t('eg_stat_full', 'ПОЛНЫЙ НАБОР')} (${res.totOpt}/${res.totOpt} ${t('eg_stat_opt', 'доп. полей')})`)
+                            .css({background: 'rgba(22, 163, 74, 0.1)', color: '#16a34a', border: '1px solid rgba(22, 163, 74, 0.3)'}).fadeIn();
+                    } else if (res.mode === 'MINIMAL') {
+                        statusBadge.text(`🔴 ${t('eg_stat_min', 'МИНИМУМ (Только обязательные)')}`)
+                            .css({background: 'rgba(220, 38, 38, 0.1)', color: '#dc2626', border: '1px solid rgba(220, 38, 38, 0.3)'}).fadeIn();
+                    } else {
+                        statusBadge.text(`🟡 ${t('eg_stat_part', 'ЧАСТИЧНЫЙ')} (${res.genOpt} ${t('eg_stat_from', 'из')} ${res.totOpt} ${t('eg_stat_opt', 'доп. полей')})`)
+                            .css({background: 'rgba(202, 138, 4, 0.1)', color: '#ca8a04', border: '1px solid rgba(202, 138, 4, 0.3)'}).fadeIn();
+                    }
                 },
                 error: function(xhr) {
-                    // Ошибка может быть в JSON или в тексте, пробуем оба варианта
                     let errorMessage = xhr.responseText;
                     try {
                         const errorObj = JSON.parse(xhr.responseText);
-                        if (errorObj && errorObj.message) {
-                            errorMessage = errorObj.message;
-                        }
-                    } catch (e) {
-                        // Оставляем как есть, это был не JSON
-                    }
-                    errorPanel.text('Ошибка генерации примера: ' + errorMessage).show();
+                        if (errorObj && errorObj.message) errorMessage = errorObj.message;
+                    } catch (e) {}
+                    errorPanel.text(t('eg_err_gen', '⚠️ Ошибка генерации примера:\n') + errorMessage).show();
+                    editorOut.setValue('');
+                },
+                complete: function() {
+                    btn.text(originalText).prop('disabled', false);
                 }
             });
         });
-
-        const exampleSchema = `{
-    "$schema": "http://json-schema.org/draft-06/schema#",
-    "$ref": "#/definitions/SmartDiscountDeactivationRQ",
-    "definitions": {
-        "SmartDiscountDeactivationRQ": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "clientId": {
-                    "type": "string",
-                    "description": "Идентификатор Клиента. Берётся из сессии",
-                    "pattern": "^[0-9]+$"
-                },
-                "authId": {
-                    "type": "string",
-                    "description": "Идентификатор пользователя. Берётся из сессии",
-                    "pattern": "^[0-9]+$"
-                },
-                "account": {
-                    "type": "string",
-                    "description": "Номер расчетного счета, от которого необходимо отключить опцию \\"Умная скидка\\"",
-                    "maxLength": 20,
-                    "pattern": "^[0-9]+$"
-                },
-                "clientTransactionId": {
-                    "type": "string",
-                    "description": "Идентификатор документа в ДБО СМБ",
-                    "pattern": "^[0-9]+$"
-                },
-                "inn": {
-                    "type": "string",
-                    "description": "ИНН клиента",
-                    "pattern": "^([0-9]{10}|[0-9]{12})$"
-                }
-            },
-            "required": [
-                "clientId",
-                "authId",
-                "account",
-                "clientTransactionId",
-                "inn"
-            ],
-            "title": "SmartDiscountDeactivationRQ"
-        }
-    }
-}`;
-        $('#schema-input').val(exampleSchema);
     });
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 </script>
-
 </body>
 </html>

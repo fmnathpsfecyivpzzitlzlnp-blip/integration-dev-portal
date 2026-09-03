@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Тестер XPath / JSONPath</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <!-- CodeMirror для подсветки синтаксиса -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        body { background: #f4f7f9; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+
+        .search-bar {
+            background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; gap: 15px; margin-bottom: 20px;
+            align-items: center; flex-shrink: 0;
+        }
+
+        .search-bar select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; background: #f8fafc; cursor: pointer; }
+        .search-bar input { flex: 1; padding: 10px 15px; font-size: 16px; border: 2px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Consolas', monospace; transition: border 0.2s; background: #fdfdfd;}
+        .search-bar input:focus { border-color: #3b82f6; background: #fff;}
+        .search-bar button { padding: 10px 25px; font-size: 14px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .search-bar button:hover { background: #2563eb; }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+
+        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; }
+        .panel-head { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Вкладки (Tabs) */
+        .tabs { display: flex; gap: 5px; }
+        .tab-btn { background: transparent; border: 1px solid transparent; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; color: #64748b; cursor: pointer; transition: 0.2s; }
+        .tab-btn:hover { background: #e2e8f0; }
+        .tab-btn.active { background: #fff; border-color: #cbd5e1; color: #2563eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; }
+
+        .result-zone { flex: 1; background: #1e293b; color: #a5b4fc; padding: 15px; font-family: 'Consolas', monospace; font-size: 13px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;}
+
+        .error-msg { color: #fca5a5; font-weight: bold; }
+        .success-msg { color: #86efac; font-weight: bold; margin-bottom: 10px; display: block; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .result-item { background: #334155; padding: 10px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #818cf8; color: #f8fafc; }
+
+        /* Интерактивное дерево (Click-to-Path) */
+        #tree-view { flex: 1; display: none; overflow-y: auto; padding: 15px; font-family: 'Consolas', monospace; font-size: 14px; background: #fff; color: #334155; }
+        ul.path-tree { list-style-type: none; padding-left: 20px; margin: 0; }
+        ul.path-tree li { position: relative; margin: 4px 0; }
+        ul.path-tree li::before { content: ''; position: absolute; top: 12px; left: -12px; border-top: 1px dashed #cbd5e1; width: 10px; }
+        ul.path-tree li::after { content: ''; position: absolute; top: 0; left: -12px; border-left: 1px dashed #cbd5e1; height: 100%; }
+        ul.path-tree li:last-child::after { height: 12px; }
+
+        .tree-node { cursor: pointer; color: #1d4ed8; font-weight: bold; padding: 2px 6px; border-radius: 4px; transition: 0.1s; display: inline-block;}
+        .tree-node:hover { background: #dbeafe; color: #1e40af; transform: translateX(2px); }
+        .tree-val { color: #059669; font-weight: normal; margin-left: 5px; }
+        .empty-state { padding: 40px; text-align: center; color: #94a3b8; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px; color: #1e293b;">Тестер XPath / JSONPath</h2>
+            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Мгновенная выборка данных из XML/XSD/WSDL и JSON.</p>
+        </div>
+    </div>
+    <button class="secondary" onclick="loadExamples()">📄 Загрузить примеры</button>
+</div>
+
+<div class="search-bar">
+    <select id="doc-type" onchange="changeMode()">
+        <option value="xml">XML / XSD / WSDL (XPath)</option>
+        <option value="json">JSON (JS Path)</option>
+    </select>
+    <input type="text" id="query-input" placeholder="//ClientInfo/Phone | Для JSON: root.Client.Phone" onkeypress="if(event.key === 'Enter') evaluateQuery()">
+    <button onclick="evaluateQuery()">⚡ Выполнить выборку</button>
+</div>
+
+<div class="workspace">
+    <!-- ЛЕВАЯ КОЛОНКА: ИСХОДНЫЙ КОД ИЛИ ДЕРЕВО -->
+    <div class="col">
+        <div class="panel-head" style="padding: 8px 15px;">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('code')" id="tab-code">📝 Исходный код</button>
+                <button class="tab-btn" onclick="switchTab('tree')" id="tab-tree" style="color:#059669;">🌳 Интерактивное дерево (Click-to-Path)</button>
+            </div>
+            <button class="btn-icon" onclick="editorIn.setValue(''); switchTab('code');" title="Очистить">🗑</button>
+        </div>
+
+        <div id="code-view" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+            <textarea id="editor-in"></textarea>
+        </div>
+
+        <div id="tree-view">
+            <!-- Сюда сгенерируется интерактивное дерево -->
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ -->
+    <div class="col">
+        <div class="panel-head">
+            <span>📤 Результат выборки</span>
+            <span id="result-count" style="font-size: 12px; color: #64748b; font-weight: bold;"></span>
+        </div>
+        <div class="result-zone" id="result-out">
+            <span style="color: #64748b;">Введите запрос в верхнюю строку или выберите тег в «Интерактивном дереве»...</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    let editorIn;
+
+    $(function() {
+        editorIn = CodeMirror.fromTextArea(document.getElementById('editor-in'), {
+            mode: "xml", lineNumbers: true, matchBrackets: true, theme: "default"
+        });
+
+        // Восстанавливаем данные из кэша
+        const savedText = localStorage.getItem('xpath_tester_payload');
+        const savedType = localStorage.getItem('xpath_tester_type');
+        const savedQuery = localStorage.getItem('xpath_tester_query');
+
+        if (savedType) $('#doc-type').val(savedType);
+        if (savedQuery) $('#query-input').val(savedQuery);
+        if (savedText) {
+            editorIn.setValue(savedText);
+            changeMode(false);
+            if (savedQuery) evaluateQuery();
+        } else {
+            loadExamples();
+        }
+
+        editorIn.on('change', () => {
+            localStorage.setItem('xpath_tester_payload', editorIn.getValue());
+            // Если мы находимся во вкладке дерева, перестраиваем его при изменении кода
+            if($('#tree-view').is(':visible')) buildInteractiveTree();
+        });
+    });
+
+    // === ЛОГИКА ВКЛАДОК (КОД / ДЕРЕВО) ===
+    function switchTab(tab) {
+        $('.tab-btn').removeClass('active');
+        if (tab === 'code') {
+            $('#tab-code').addClass('active');
+            $('#code-view').show();
+            $('#tree-view').hide();
+        } else {
+            $('#tab-tree').addClass('active');
+            $('#code-view').hide();
+            $('#tree-view').show();
+            buildInteractiveTree();
+        }
+    }
+
+    // === ГЕНЕРАТОР ИНТЕРАКТИВНОГО ДЕРЕВА ===
+    function buildInteractiveTree() {
+        const type = $('#doc-type').val();
+        const payload = editorIn.getValue().trim();
+        const treeContainer = $('#tree-view').empty();
+
+        if (!payload) {
+            treeContainer.html('<div class="empty-state">Вставьте данные в редактор кода слева</div>');
+            return;
+        }
+
+        try {
+            if (type === 'xml') {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(payload, "text/xml");
+                if (doc.getElementsByTagName("parsererror").length > 0) throw new Error("Синтаксическая ошибка в XML/XSD");
+
+                let html = '<ul class="path-tree">' + buildXmlNode(doc.documentElement, '/' + doc.documentElement.nodeName) + '</ul>';
+                treeContainer.html(html);
+            } else {
+                const obj = JSON.parse(payload);
+                let html = '<ul class="path-tree">' + buildJsonNode(obj, 'root', true) + '</ul>';
+                treeContainer.html(html);
+            }
+
+            // Навешиваем клик: Подставить путь в поле и выполнить!
+            $('.tree-node').on('click', function(e) {
+                e.stopPropagation();
+                const path = $(this).data('path');
+
+                // Подсвечиваем выбранный узел
+                $('.tree-node').css('background', 'transparent');
+                $(this).css('background', '#dbeafe');
+
+                // Вставляем и запускаем
+                $('#query-input').val(path);
+                evaluateQuery();
+            });
+
+        } catch(e) {
+            treeContainer.html(`<div style="color: #dc2626; font-weight: bold; padding: 20px;">❌ Ошибка построения дерева: ${e.message}</div>`);
+        }
+    }
+
+    // Рекурсивный сборщик XML (учитывает индексы элементов [1], [2])
+    function buildXmlNode(node, currentPath) {
+        let html = `<li><span class="tree-node" data-path="${currentPath}" title="Кликните, чтобы получить XPath">&lt;${node.nodeName}&gt;</span>`;
+
+        let childrenHtml = '';
+        let childCounts = {};
+        let tagIndexes = {};
+
+        // Первый проход: считаем количество тегов с одинаковым именем
+        for (let i = 0; i < node.childNodes.length; i++) {
+            const child = node.childNodes[i];
+            if (child.nodeType === Node.ELEMENT_NODE) {
+                if (!childCounts[child.nodeName]) childCounts[child.nodeName] = 0;
+                childCounts[child.nodeName]++;
+            }
+        }
+
+        // Второй проход: строим HTML
+        for (let i = 0; i < node.childNodes.length; i++) {
+            const child = node.childNodes[i];
+            if (child.nodeType === Node.ELEMENT_NODE) {
+                if (!tagIndexes[child.nodeName]) tagIndexes[child.nodeName] = 1;
+                else tagIndexes[child.nodeName]++;
+
+                let childPath = currentPath + '/' + child.nodeName;
+
+                // Если таких тегов больше одного, добавляем индекс XPath (он начинается с 1)
+                if (childCounts[child.nodeName] > 1) {
+                    childPath += '[' + tagIndexes[child.nodeName] + ']';
+                }
+
+                childrenHtml += buildXmlNode(child, childPath);
+            } else if (child.nodeType === Node.TEXT_NODE && child.nodeValue.trim() !== '') {
+                // Если это текстовое значение внутри тега
+                let text = child.nodeValue.trim();
+                if(text.length > 50) text = text.substring(0, 50) + '...';
+                html += ` <span class="tree-val">${escapeHtml(text)}</span>`;
+            }
+        }
+
+        if (childrenHtml) {
+            html += `<ul class="path-tree">${childrenHtml}</ul>`;
+        }
+
+        html += `</li>`;
+        return html;
+    }
+
+    // Рекурсивный сборщик JSON
+    function buildJsonNode(obj, currentPath, isRoot = false) {
+        let html = '';
+        for (let key in obj) {
+            let val = obj[key];
+
+            // Формируем JS Path
+            let newPath = isRoot ? (Array.isArray(obj) ? `root[${key}]` : `root.${key}`) :
+                (Array.isArray(obj) ? `${currentPath}[${key}]` : `${currentPath}.${key}`);
+
+            let displayKey = Array.isArray(obj) ? `[${key}]` : key;
+
+            html += `<li><span class="tree-node" data-path="${newPath}" title="Кликните, чтобы получить JSONPath">${displayKey}</span>`;
+
+            if (typeof val === 'object' && val !== null) {
+                html += `<ul class="path-tree">${buildJsonNode(val, newPath)}</ul>`;
+            } else {
+                let displayVal = typeof val === 'string' ? `"${val}"` : val;
+                html += ` <span class="tree-val">: ${escapeHtml(String(displayVal))}</span>`;
+            }
+            html += `</li>`;
+        }
+        return html;
+    }
+
+
+    // === ЛОГИКА ВЫПОЛНЕНИЯ (СУЩЕСТВУЮЩАЯ) ===
+    function changeMode(clearPayload = true) {
+        const type = $('#doc-type').val();
+        localStorage.setItem('xpath_tester_type', type);
+
+        if (type === 'xml') {
+            editorIn.setOption('mode', 'xml');
+            $('#query-input').attr('placeholder', 'Например: //ClientInfo/Address[1]/City');
+        } else {
+            editorIn.setOption('mode', 'application/json');
+            $('#query-input').attr('placeholder', 'Например: root.client.address[0].city');
+        }
+
+        if (clearPayload && editorIn.getValue().trim() === '') {
+            loadExamples();
+        }
+
+        if($('#tree-view').is(':visible')) buildInteractiveTree();
+    }
+
+    function evaluateQuery() {
+        const type = $('#doc-type').val();
+        const query = $('#query-input').val().trim();
+        const payload = editorIn.getValue().trim();
+        const out = $('#result-out');
+        const countBox = $('#result-count');
+
+        if (!query || !payload) return;
+        localStorage.setItem('xpath_tester_query', query);
+
+        out.empty(); countBox.text('');
+
+        try {
+            if (type === 'xml') {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(payload, "text/xml");
+
+                if (doc.getElementsByTagName("parsererror").length > 0) {
+                    throw new Error("Невалидный XML");
+                }
+
+                const nsResolver = doc.createNSResolver(doc.documentElement);
+                const xpathResult = doc.evaluate(query, doc, nsResolver, XPathResult.ANY_TYPE, null);
+
+                let results = [];
+                let paths = []; // <-- Массив для сохранения путей
+                let node = xpathResult.iterateNext();
+
+                if (!node && xpathResult.resultType !== XPathResult.UNORDERED_NODE_ITERATOR_TYPE) {
+                    if (xpathResult.resultType === XPathResult.STRING_TYPE) { results.push(xpathResult.stringValue); paths.push(query); }
+                    else if (xpathResult.resultType === XPathResult.NUMBER_TYPE) { results.push(xpathResult.numberValue); paths.push(query); }
+                    else if (xpathResult.resultType === XPathResult.BOOLEAN_TYPE) { results.push(xpathResult.booleanValue); paths.push(query); }
+                } else {
+                    while (node) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            results.push(node.outerHTML);
+                        } else {
+                            results.push(node.textContent || node.nodeValue);
+                        }
+                        paths.push(query); // <-- Запоминаем путь для каждого результата
+                        node = xpathResult.iterateNext();
+                    }
+                }
+                // Передаем 4-й аргумент (paths)
+                renderResults(results, out, countBox, paths);
+
+            } else {
+                let root;
+                try { root = JSON.parse(payload); } catch(e) { throw new Error("Невалидный JSON"); }
+
+                let jsQuery = query.startsWith('$') ? query.replace('$', 'root') : query;
+                if (!jsQuery.startsWith('root') && !jsQuery.startsWith('[')) {
+                    jsQuery = 'root.' + jsQuery;
+                }
+
+                const execFunc = new Function('root', `
+                    try { return ${jsQuery}; } catch(e) { return undefined; }
+                `);
+
+                const result = execFunc(root);
+
+                let results = [];
+                let paths = []; // <-- Массив для сохранения путей
+                if (result !== undefined) {
+                    if (Array.isArray(result)) {
+                        results = result;
+                        paths = result.map(() => query); // <-- Клонируем путь для каждого элемента массива
+                    }
+                    else {
+                        results.push(result);
+                        paths.push(query); // <-- Запоминаем путь
+                    }
+                }
+                // Передаем 4-й аргумент (paths)
+                renderResults(results, out, countBox, paths);
+            }
+        } catch (e) {
+            out.html(`<span class="error-msg">❌ Ошибка выполнения:<br><br>${escapeHtml(e.message)}</span>`);
+            countBox.text('Ошибка');
+        }
+    }
+
+    function renderResults(results, outContainer, countBox, paths = []) {
+        if (!results || results.length === 0) {
+            outContainer.html('<span style="color: #94a3b8;">По вашему запросу ничего не найдено.</span>');
+            countBox.text('0 совпадений');
+            return;
+        }
+
+        countBox.text(`Найдено: ${results.length}`);
+        outContainer.append(`<span class="success-msg">✅ Успешно извлечено:</span>`);
+
+        results.forEach((res, i) => {
+            let displayStr = '';
+            if (typeof res === 'object') {
+                displayStr = JSON.stringify(res, null, 4);
+            } else {
+                displayStr = String(res);
+            }
+
+            // Добавляем путь, если он есть в массиве paths
+            const pathInfo = (paths && paths[i]) ?
+                `<div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px; font-family: monospace;">Path: ${escapeHtml(paths[i])}</div>` : '';
+
+            outContainer.append(`
+                <div class="result-item">
+                    ${pathInfo}
+                    <div style="white-space: pre-wrap; word-break: break-all;">${escapeHtml(displayStr)}</div>
+                </div>
+            `);
+        });
+    }
+
+    function loadExamples() {
+        const type = $('#doc-type').val();
+        if (type === 'xml') {
+            editorIn.setValue(`<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" name="TestService">
+    <wsdl:types>
+        <Client id="1">
+            <Name>Иван</Name>
+            <Accounts>
+                <Account type="debit">408178100000001</Account>
+                <Account type="credit">408178100000002</Account>
+            </Accounts>
+        </Client>
+        <Client id="2">
+            <Name>Олег</Name>
+            <Accounts>
+                <Account type="debit">408178100000003</Account>
+            </Accounts>
+        </Client>
+    </wsdl:types>
+</wsdl:definitions>`);
+            $('#query-input').val('//Client[Name="Иван"]/Accounts/Account[2]');
+        } else {
+            editorIn.setValue(`{
+  "status": "success",
+  "data": {
+    "users": [
+      { "id": 101, "name": "Иван", "roles": ["admin", "user"] },
+      { "id": 102, "name": "Олег", "roles": ["user"] }
+    ]
+  }
+}`);
+            $('#query-input').val('root.data.users[0].roles[1]');
+        }
+        if($('#tree-view').is(':visible')) buildInteractiveTree();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+    // Автоматическая смена темы CodeMirror
+    window.addEventListener('themeChanged', function(e) {
+        const isDark = e.detail.isDark;
+        const cmTheme = isDark ? 'dracula' : 'default';
+
+        // Перечисляем все переменные редакторов на странице (если они есть)
+        if (typeof editorOld !== 'undefined') editorOld.setOption('theme', cmTheme);
+        if (typeof editorNew !== 'undefined') editorNew.setOption('theme', cmTheme);
+        if (typeof cmEditor !== 'undefined') cmEditor.setOption('theme', cmTheme);
+        if (typeof editorJson !== 'undefined') editorJson.setOption('theme', cmTheme);
+    });
+</script>
+</body>
+</html>

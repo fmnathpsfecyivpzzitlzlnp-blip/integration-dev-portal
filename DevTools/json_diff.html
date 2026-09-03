@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="jd_page_title">Семантическое сравнение JSON (API Diff)</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <!-- CodeMirror Core -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <!-- CodeMirror Addons (Сворачивание и Поиск) -->
+    <link rel="stylesheet" href="./libs/foldgutter.min.css">
+    <script src="./libs/foldcode.min.js"></script>
+    <script src="./libs/foldgutter.min.js"></script>
+    <script src="./libs/brace-fold.min.js"></script>
+    <link rel="stylesheet" href="./libs/dialog.min.css">
+    <script src="./libs/dialog.min.js"></script>
+    <script src="./libs/searchcursor.min.js"></script>
+    <script src="./libs/search.min.js"></script>
+    <script src="./libs/jump-to-line.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === БАЗА ДЛЯ ТЕМ ИЗМЕНЕНИЙ (DARK/LIGHT MODE) === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-panel: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --border-color: #e2e8f0;
+            --resizer-bg: #cbd5e1;
+            --resizer-hover: #94a3b8;
+            --diff-added: #dcfce7;
+            --diff-added-text: #166534;
+            --diff-removed: #fee2e2;
+            --diff-removed-text: #991b1b;
+            --diff-changed: #fef9c3;
+            --diff-changed-text: #854d0e;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --border-color: #334155;
+            --resizer-bg: #475569;
+            --resizer-hover: #64748b;
+            --diff-added: rgba(22, 163, 74, 0.2);
+            --diff-added-text: #4ade80;
+            --diff-removed: rgba(220, 38, 38, 0.2);
+            --diff-removed-text: #f87171;
+            --diff-changed: rgba(202, 138, 4, 0.2);
+            --diff-changed-text: #facc15;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            box-sizing: border-box !important;
+            transition: background 0.3s, color 0.3s;
+            color: var(--text-main) !important;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2, .header p { color: var(--text-main); }
+
+        /* Рабочая область под управлением JS */
+        .workspace {
+            display: flex;
+            gap: 20px;
+            height: 30vh;
+            min-height: 80px;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        /* ПОЛОСА РАЗДЕЛИТЕЛЯ (DRAG BAR) */
+        .resizer {
+            height: 12px;
+            background: var(--resizer-bg);
+            cursor: row-resize;
+            border-radius: 4px;
+            margin: 15px 0;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .resizer:hover, .resizer.dragging { background: var(--resizer-hover); }
+        .resizer::after { content: '•••'; color: #fff; font-size: 14px; line-height: 1; letter-spacing: 3px; }
+
+        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: background 0.3s, border-color 0.3s; }
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s, color 0.3s; }
+
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; border-top: none; }
+
+        .CodeMirror-dialog { background: var(--bg-header); color: var(--text-main); padding: 8px 12px; border-bottom: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-family: 'Segoe UI', sans-serif; }
+        .CodeMirror-dialog input { border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; outline: none; margin: 0 5px; background: var(--bg-panel); color: var(--text-main); }
+        .CodeMirror-dialog input:focus { border-color: #3b82f6; }
+        .CodeMirror-dialog button { background: var(--border-color); border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; margin-left: 5px; color: var(--text-main); font-size: 12px;}
+
+        .report-zone { flex: 1; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; flex-direction: column; overflow: hidden; transition: background 0.3s, border-color 0.3s; }
+        .report-head { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--bg-header); border-bottom: 1px solid var(--border-color); color: var(--text-main); transition: 0.3s; }
+
+        .diff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .diff-table th { position: sticky; top: 0; background: var(--bg-header); padding: 10px 15px; text-align: left; color: var(--text-main); font-weight: bold; border-bottom: 2px solid var(--border-color); z-index: 10; transition: 0.3s; }
+        .diff-table td { padding: 10px 15px; border-bottom: 1px solid var(--border-color); vertical-align: top; font-family: 'Consolas', monospace; color: var(--text-main); transition: 0.3s; }
+
+        .status-added { background: var(--diff-added); color: var(--diff-added-text); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-family: 'Segoe UI', sans-serif;}
+        .status-removed { background: var(--diff-removed); color: var(--diff-removed-text); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-family: 'Segoe UI', sans-serif;}
+        .status-changed { background: var(--diff-changed); color: var(--diff-changed-text); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-family: 'Segoe UI', sans-serif;}
+
+        .val-box { background: var(--bg-header); padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); max-height: 100px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; position: relative; transition: 0.3s; }
+
+        .empty-state { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+        .error-line-bg { background-color: rgba(220, 38, 38, 0.2) !important; }
+        .error-panel-diff { display: none; padding: 15px; background: rgba(220, 38, 38, 0.1); color: #ef4444; border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 8px; margin-bottom: 20px; font-family: 'Consolas', monospace; white-space: pre-wrap; font-size: 13px; }
+
+        .jump-highlight { background-color: rgba(234, 179, 8, 0.3) !important; transition: background-color 0.5s; }
+        .clickable-val { cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .clickable-val:hover { border-color: #3b82f6; box-shadow: 0 0 8px rgba(59,130,246,0.3); }
+        .val-box-hint { font-size: 10px; color: var(--text-muted); font-family: 'Inter', sans-serif; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px; pointer-events: none; }
+
+        .btn-icon { background:none; border:none; cursor:pointer; font-size:16px; color:var(--text-muted); transition: 0.2s; }
+        .btn-icon:hover { color:var(--text-main); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px;" data-i18n="jd_title">Семантическое сравнение JSON (API Diff)</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="jd_subtitle">Умный поиск со 100% точностью пути. Потяните за серый разделитель ниже, чтобы изменить высоту.</p>
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button class="secondary" onclick="loadSample()" data-i18n="jd_btn_sample">📄 Загрузить пример</button>
+        <button class="primary" onclick="compareAPIs()" style="background: #8b5cf6; border-color: #8b5cf6;" data-i18n="jd_btn_compare">⚡ Сравнить структуры</button>
+    </div>
+</div>
+
+<div id="error-panel" class="error-panel-diff"></div>
+
+<div class="workspace" id="workspace-area">
+    <div class="col">
+        <div class="panel-head">
+            <span data-i18n="jd_lbl_old">🔴 Было (Оригинал)</span>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn-icon" onclick="editorOld.execCommand('find')" title="Поиск (Ctrl+F)" data-i18n="jd_btn_search">🔍</button>
+                <button class="btn-icon" onclick="editorOld.setValue('')" title="Очистить" data-i18n="jd_btn_clear">🗑</button>
+            </div>
+        </div>
+        <textarea id="json-old"></textarea>
+    </div>
+
+    <div class="col">
+        <div class="panel-head">
+            <span data-i18n="jd_lbl_new">🟢 Стало (Новая версия)</span>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn-icon" onclick="editorNew.execCommand('find')" title="Поиск (Ctrl+F)" data-i18n="jd_btn_search">🔍</button>
+                <button class="btn-icon" onclick="editorNew.setValue('')" title="Очистить" data-i18n="jd_btn_clear">🗑</button>
+            </div>
+        </div>
+        <textarea id="json-new"></textarea>
+    </div>
+</div>
+
+<!-- ПОЛОСА РАЗДЕЛИТЕЛЯ -->
+<div class="resizer" id="dragMe" title="Потяните вверх/вниз для изменения размера"></div>
+
+<div class="report-zone">
+    <div class="report-head">
+        <h3 style="margin: 0; font-size: 16px;" data-i18n="jd_report_title">Отчет об изменениях (Changelog)</h3>
+        <span id="diff-stats" style="font-size: 13px; font-weight: bold; color: var(--text-muted);"></span>
+    </div>
+    <div style="flex: 1; overflow-y: auto;">
+        <table class="diff-table" id="diff-table" style="display: none;">
+            <thead>
+            <tr>
+                <th width="100" data-i18n="jd_th_status">Статус</th>
+                <th width="35%" data-i18n="jd_th_path">Путь к полю (JSON Path)</th>
+                <th width="25%" data-i18n="jd_th_old_val">Старое значение (Клик = Точный Переход)</th>
+                <th width="25%" data-i18n="jd_th_new_val">Новое значение (Клик = Точный Переход)</th>
+            </tr>
+            </thead>
+            <tbody id="diff-body"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state">
+            <span style="font-size: 40px; display: block; margin-bottom: 10px;">⚖️</span>
+            <span data-i18n="jd_empty_state">Вставьте два JSON объекта и нажмите <b>«Сравнить структуры»</b>.</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let editorOld, editorNew;
+    let oldErrorLine = null;
+    let newErrorLine = null;
+
+    // Карты путей
+    window.oldPathMap = {};
+    window.newPathMap = {};
+
+    // === СУПЕР КЛАСС ДЛЯ ГЕНЕРАЦИИ JSON С ТОЧНЫМ МАППИНГОМ СТРОК ===
+    class JsonStringifierMap {
+        constructor() {
+            this.lines = [];
+            this.pathMap = {};
+        }
+
+        build(obj) {
+            this.lines = [""];
+            this.pathMap = { 'root': 0 };
+            this.traverse(obj, 'root', 0);
+            return { text: this.lines.join('\n'), map: this.pathMap };
+        }
+
+        traverse(obj, path, indent) {
+            const ind = " ".repeat(indent * 4);
+
+            if (obj === null) {
+                this.lines[this.lines.length - 1] += "null";
+                return;
+            }
+            if (typeof obj === "string") {
+                this.lines[this.lines.length - 1] += JSON.stringify(obj);
+                return;
+            }
+            if (typeof obj !== "object") {
+                this.lines[this.lines.length - 1] += String(obj);
+                return;
+            }
+
+            if (Array.isArray(obj)) {
+                if (obj.length === 0) {
+                    this.lines[this.lines.length - 1] += "[]";
+                    return;
+                }
+                this.lines[this.lines.length - 1] += "[";
+                for (let i = 0; i < obj.length; i++) {
+                    const itemPath = `${path}[${i}]`;
+                    this.lines.push(ind + "    ");
+                    this.pathMap[itemPath] = this.lines.length - 1;
+
+                    this.traverse(obj[i], itemPath, indent + 1);
+                    if (i < obj.length - 1) this.lines[this.lines.length - 1] += ",";
+                }
+                this.lines.push(ind + "]");
+                return;
+            }
+
+            // Object
+            const keys = Object.keys(obj);
+            if (keys.length === 0) {
+                this.lines[this.lines.length - 1] += "{}";
+                return;
+            }
+
+            this.lines[this.lines.length - 1] += "{";
+            for (let i = 0; i < keys.length; i++) {
+                const k = keys[i];
+                const childPath = path === 'root' ? `root.${k}` : `${path}.${k}`;
+
+                this.lines.push(ind + "    " + JSON.stringify(k) + ": ");
+                this.pathMap[childPath] = this.lines.length - 1;
+
+                this.traverse(obj[k], childPath, indent + 1);
+                if (i < keys.length - 1) this.lines[this.lines.length - 1] += ",";
+            }
+            this.lines.push(ind + "}");
+        }
+    }
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
+        const cmOptions = {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: cmTheme,
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            extraKeys: {"Ctrl-F": "find", "Cmd-F": "find"}
+        };
+
+        editorOld = CodeMirror.fromTextArea(document.getElementById('json-old'), cmOptions);
+        editorNew = CodeMirror.fromTextArea(document.getElementById('json-new'), cmOptions);
+
+        editorOld.on('change', () => clearError(editorOld, 'old'));
+        editorNew.on('change', () => clearError(editorNew, 'new'));
+
+        window.addEventListener('themeChanged', function(e) {
+            const isDarkNow = e.detail.isDark;
+            const newCmTheme = isDarkNow ? 'dracula' : 'default';
+            editorOld.setOption('theme', newCmTheme);
+            editorNew.setOption('theme', newCmTheme);
+        });
+
+        // --- ЛОГИКА ИЗМЕНЕНИЯ РАЗМЕРА (DRAG RESIZER) ---
+        const resizer = document.getElementById('dragMe');
+        const workspace = document.getElementById('workspace-area');
+        let y = 0;
+        let h = 0;
+
+        const mouseDownHandler = function(e) {
+            y = e.clientY;
+            const styles = window.getComputedStyle(workspace);
+            h = parseInt(styles.height, 10);
+
+            resizer.classList.add('dragging');
+            document.body.style.userSelect = 'none';
+            workspace.style.pointerEvents = 'none';
+
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        };
+
+        const mouseMoveHandler = function(e) {
+            const dy = e.clientY - y;
+            let newHeight = h + dy;
+
+            if (newHeight < 80) newHeight = 80;
+            if (newHeight > window.innerHeight * 0.8) newHeight = window.innerHeight * 0.8;
+
+            workspace.style.height = `${newHeight}px`;
+        };
+
+        const mouseUpHandler = function() {
+            resizer.classList.remove('dragging');
+            document.body.style.userSelect = '';
+            workspace.style.pointerEvents = '';
+
+            document.removeEventListener('mousemove', mouseMoveHandler);
+            document.removeEventListener('mouseup', mouseUpHandler);
+
+            if (editorOld) editorOld.refresh();
+            if (editorNew) editorNew.refresh();
+        };
+
+        resizer.addEventListener('mousedown', mouseDownHandler);
+    });
+
+    function clearError(editorInstance, side) {
+        $('#error-panel').fadeOut(150);
+        if (side === 'old' && oldErrorLine !== null) {
+            editorInstance.removeLineClass(oldErrorLine, 'background', 'error-line-bg');
+            oldErrorLine = null;
+        }
+        if (side === 'new' && newErrorLine !== null) {
+            editorInstance.removeLineClass(newErrorLine, 'background', 'error-line-bg');
+            newErrorLine = null;
+        }
+    }
+
+    // === ТОЧНЫЙ ПЕРЕХОД К СТРОКЕ ===
+    window.jumpToEditorPath = function(side, el) {
+        const path = $(el).attr('data-path');
+        const editor = side === 'old' ? editorOld : editorNew;
+        const targetMap = side === 'old' ? window.oldPathMap : window.newPathMap;
+
+        if (!editor || !path || targetMap[path] === undefined) {
+            if(typeof showNotification === 'function') showNotification(t('jd_err_jump', 'Поле не найдено в редакторе (возможно, оно было изменено на верхнем уровне)'));
+            return;
+        }
+
+        const targetLine = targetMap[path];
+
+        if (typeof editor.foldCode === 'function') {
+            editor.foldCode(CodeMirror.Pos(targetLine, 0), null, "unfold");
+        }
+
+        editor.setCursor({line: targetLine, ch: 0});
+
+        const yTop = editor.charCoords({line: targetLine, ch: 0}, "local").top;
+        const middleHeight = editor.getScrollerElement().offsetHeight / 2;
+        editor.scrollTo(null, yTop - middleHeight - 5);
+
+        const handle = editor.addLineClass(targetLine, 'background', 'jump-highlight');
+        setTimeout(() => editor.removeLineClass(handle, 'background', 'jump-highlight'), 1500);
+    }
+
+    window.compareAPIs = function() {
+        clearError(editorOld, 'old');
+        clearError(editorNew, 'new');
+
+        const oldTxt = editorOld.getValue().trim();
+        const newTxt = editorNew.getValue().trim();
+
+        if (!oldTxt || !newTxt) return alert(t('jd_err_empty', "Пожалуйста, заполните оба поля!"));
+
+        const objOld = parseAndHighlight(editorOld, oldTxt, t('jd_lbl_old', "Было (Оригинал)"), 'old');
+        if (!objOld) return;
+
+        const objNew = parseAndHighlight(editorNew, newTxt, t('jd_lbl_new', "Стало (Новая версия)"), 'new');
+        if (!objNew) return;
+
+        const stringifierOld = new JsonStringifierMap();
+        const oldResult = stringifierOld.build(objOld);
+        editorOld.setValue(oldResult.text);
+        window.oldPathMap = oldResult.map;
+
+        const stringifierNew = new JsonStringifierMap();
+        const newResult = stringifierNew.build(objNew);
+        editorNew.setValue(newResult.text);
+        window.newPathMap = newResult.map;
+
+        const diffs = getJsonDifferences(objOld, objNew, 'root');
+        renderReport(diffs);
+    }
+
+    function parseAndHighlight(editorInstance, text, title, side) {
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            let msg = e.message;
+            let lineNum = null;
+            let suggestion = t('jd_err_syntax_desc', "Проверьте синтаксис.");
+
+            const lineMatch = msg.match(/line\s+(\d+)/i) || msg.match(/position\s+(\d+)/i);
+            if (lineMatch && msg.includes("line")) {
+                lineNum = parseInt(lineMatch[1], 10) - 1;
+            }
+
+            if (msg.includes("Unexpected token }") || msg.includes("Unexpected token ]")) suggestion = t('jd_err_sugg1', "Лишняя запятая перед '}' или ']'.");
+            else if (msg.includes("Unexpected string") || msg.includes("Unexpected token '\"'")) suggestion = t('jd_err_sugg2', "Забыли запятую после предыдущего поля.");
+            else if (msg.includes("Expected double-quoted property name") || msg.includes("Unexpected token '")) suggestion = t('jd_err_sugg3', "Ключи и значения должны быть строго в двойных кавычках (\").");
+            else if (msg.includes("Unexpected end of JSON input")) suggestion = t('jd_err_sugg4', "JSON внезапно оборвался. Забыли закрыть скобку '}' или ']'.");
+
+            let fullError = `❌ ${t('jd_err_title', 'Синтаксическая ошибка в панели')} "${title}":\n${t('jd_err_reason', 'Причина:')} ${msg}\n💡 ${t('jd_err_tip', 'Совет:')} ${suggestion}`;
+
+            if (lineNum !== null) {
+                fullError += `\n📍 ${t('jd_err_loc', 'Место ошибки: Строка')} ${lineNum + 1}`;
+                const handle = editorInstance.addLineClass(lineNum, 'background', 'error-line-bg');
+                if (side === 'old') oldErrorLine = handle; else newErrorLine = handle;
+                editorInstance.scrollIntoView({line: lineNum, ch: 0}, 60);
+            }
+
+            $('#error-panel').text(fullError).fadeIn(200);
+            $('#diff-table').hide();
+            $('#empty-state').hide();
+            $('#diff-stats').text('');
+
+            return null;
+        }
+    }
+
+    function reportDeep(val, path, type, diffs, isOld) {
+        if (typeof val === 'object' && val !== null) {
+            diffs.push({
+                path: path,
+                type: type,
+                oldVal: isOld ? (Array.isArray(val) ? '[Array]' : '{Object}') : undefined,
+                newVal: !isOld ? (Array.isArray(val) ? '[Array]' : '{Object}') : undefined
+            });
+
+            Object.keys(val).forEach(k => {
+                const newPath = Array.isArray(val) ? `${path}[${k}]` : `${path}.${k}`;
+                reportDeep(val[k], newPath, type, diffs, isOld);
+            });
+        } else {
+            diffs.push({
+                path: path,
+                type: type,
+                oldVal: isOld ? val : undefined,
+                newVal: !isOld ? val : undefined
+            });
+        }
+    }
+
+    function getJsonDifferences(obj1, obj2, path, diffs = []) {
+        if (obj1 === obj2) return diffs;
+
+        if (typeof obj1 !== typeof obj2 || obj1 === null || obj2 === null || Array.isArray(obj1) !== Array.isArray(obj2)) {
+            diffs.push({ path, type: 'changed', oldVal: obj1, newVal: obj2 });
+            return diffs;
+        }
+
+        if (typeof obj1 !== 'object') {
+            if (obj1 !== obj2) diffs.push({ path, type: 'changed', oldVal: obj1, newVal: obj2 });
+            return diffs;
+        }
+
+        const keys1 = Object.keys(obj1);
+        const keys2 = Object.keys(obj2);
+        const allKeys = new Set([...keys1, ...keys2]);
+
+        allKeys.forEach(key => {
+            const newPath = Array.isArray(obj1) ? `${path}[${key}]` : `${path}.${key}`;
+
+            if (!keys2.includes(key)) {
+                reportDeep(obj1[key], newPath, 'removed', diffs, true);
+            } else if (!keys1.includes(key)) {
+                reportDeep(obj2[key], newPath, 'added', diffs, false);
+            } else {
+                getJsonDifferences(obj1[key], obj2[key], newPath, diffs);
+            }
+        });
+
+        return diffs;
+    }
+
+    function renderReport(diffs) {
+        const tbody = $('#diff-body').empty();
+        const table = $('#diff-table');
+        const emptyState = $('#empty-state');
+        const stats = $('#diff-stats');
+
+        if (diffs.length === 0) {
+            table.hide();
+            stats.text(t('jd_no_diff', 'Изменений не найдено'));
+            emptyState.html(`<span style="font-size:40px; display:block; margin-bottom:10px;">✅</span><b>${t('jd_msg_identical', 'Документы абсолютно идентичны!')}</b>`).show();
+            return;
+        }
+
+        $('#error-panel').hide();
+        emptyState.hide();
+        table.show();
+
+        let added = 0, removed = 0, changed = 0;
+
+        diffs.forEach(d => {
+            let statusHtml, oldHtml = '', newHtml = '';
+
+            const formatVal = (v) => {
+                if (v === undefined) return `<span style="color:var(--text-muted); font-style:italic;">${t('jd_val_missing', 'Отсутствует')}</span>`;
+                if (v === '[Array]' || v === '{Object}') return `<span style="color:#64748b; font-weight:bold;">${v}</span>`;
+                if (typeof v === 'object') return JSON.stringify(v, null, 2);
+                return String(v);
+            };
+
+            const safePath = escapeHtml(d.path);
+            const hintLeft = t('jd_hint_left', '🎯 Найти слева');
+            const hintRight = t('jd_hint_right', '🎯 Найти справа');
+
+            if (d.type === 'added') {
+                added++;
+                statusHtml = `<span class="status-added">+ ${t('jd_stat_added', 'Добавлено')}</span>`;
+                newHtml = `<div class="val-box clickable-val" onclick="jumpToEditorPath('new', this)" data-path="${safePath}" title="${t('jd_title_right', 'Искать в правой панели')}"><span class="val-box-hint">${hintRight}</span>${escapeHtml(formatVal(d.newVal))}</div>`;
+            } else if (d.type === 'removed') {
+                removed++;
+                statusHtml = `<span class="status-removed">- ${t('jd_stat_removed', 'Удалено')}</span>`;
+                oldHtml = `<div class="val-box clickable-val" onclick="jumpToEditorPath('old', this)" data-path="${safePath}" title="${t('jd_title_left', 'Искать в левой панели')}"><span class="val-box-hint">${hintLeft}</span>${escapeHtml(formatVal(d.oldVal))}</div>`;
+            } else {
+                changed++;
+                statusHtml = `<span class="status-changed">~ ${t('jd_stat_changed', 'Изменено')}</span>`;
+                oldHtml = `<div class="val-box clickable-val" onclick="jumpToEditorPath('old', this)" data-path="${safePath}" title="${t('jd_title_left', 'Искать в левой панели')}"><span class="val-box-hint">${hintLeft}</span>${escapeHtml(formatVal(d.oldVal))}</div>`;
+                newHtml = `<div class="val-box clickable-val" onclick="jumpToEditorPath('new', this)" data-path="${safePath}" title="${t('jd_title_right', 'Искать в правой панели')}"><span class="val-box-hint">${hintRight}</span>${escapeHtml(formatVal(d.newVal))}</div>`;
+            }
+
+            tbody.append(`
+                <tr>
+                    <td>${statusHtml}</td>
+                    <td style="color: #3b82f6; font-weight: bold;">${safePath}</td>
+                    <td>${oldHtml}</td>
+                    <td>${newHtml}</td>
+                </tr>
+            `);
+        });
+
+        stats.html(`<span style="color:#10b981">${t('jd_stat_added', 'Добавлено')}: ${added}</span> | <span style="color:#ef4444">${t('jd_stat_removed', 'Удалено')}: ${removed}</span> | <span style="color:#f59e0b">${t('jd_stat_changed', 'Изменено')}: ${changed}</span>`);
+    }
+
+    window.loadSample = function() {
+        const json1 = {
+            "api_version": "1.0",
+            "client": { "id": "1001", "name": "Иван Иванов", "status": "ACTIVE", "contacts": ["email@test.ru"] }
+        };
+        const json2 = {
+            "api_version": "1.1",
+            "client": { "id": "1001", "name": "Иван Иванов", "is_active": true, "contacts": ["email@test.ru", "+79991234567"] },
+            "new_field": "test"
+        };
+        editorOld.setValue(JSON.stringify(json1, null, 4));
+        editorNew.setValue(JSON.stringify(json2, null, 4));
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

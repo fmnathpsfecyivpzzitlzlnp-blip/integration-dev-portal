@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="sw_page_title">Swagger / OpenAPI 3.0 Generator</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --panel-head-bg: #f8fafc;
+            --box-bg: #f1f5f9;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --panel-head-bg: #0f172a;
+            --box-bg: #0f172a;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); }
+        .header p { color: var(--text-muted); }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; min-height: 0; }
+        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: background 0.3s, border-color 0.3s; }
+
+        .panel-head { background: var(--panel-head-bg); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s, color 0.3s; }
+        .panel-body { display: flex; flex-direction: column; flex: 1; padding: 15px; gap: 15px; overflow-y: auto; }
+
+        .CodeMirror { flex: 1; border: 1px solid var(--border-color); border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; height: 200px !important; background: var(--input-bg); color: var(--text-main); }
+        .CodeMirror-yaml { height: 100% !important; background: #282a36 !important; color: #f8f8f2 !important; }
+
+        .form-row { display: flex; gap: 10px; align-items: center; }
+        .form-row label { font-size: 12px; font-weight: bold; color: var(--text-muted); width: 120px; }
+        .form-row input, .form-row select { flex: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text-main); }
+        .form-row input:focus, .form-row select:focus { border-color: #3b82f6; }
+
+        .btn-gen { background: #10b981; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; text-align: center; }
+        .btn-gen:hover { background: #059669; }
+
+        .error-msg { background: rgba(220, 38, 38, 0.1); color: #ef4444; padding: 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; margin-bottom: 10px; border: 1px solid rgba(220, 38, 38, 0.3); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px;" data-i18n="sw_title">Генератор Swagger (OpenAPI 3.0)</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="sw_subtitle">Конвертация JSON в YAML спецификацию</p>
+        </div>
+    </div>
+    <button class="secondary" onclick="copyYaml()" data-i18n="sw_btn_copy">📋 Копировать YAML</button>
+</div>
+
+<div class="workspace">
+    <!-- ЛЕВАЯ КОЛОНКА: Настройки и JSON -->
+    <div class="col">
+        <div class="panel-head" data-i18n="sw_col1_head">1. Параметры API и Данные</div>
+        <div class="panel-body">
+
+            <div style="background: var(--box-bg); padding: 15px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px; transition: background 0.3s, border-color 0.3s;">
+                <div class="form-row">
+                    <label data-i18n="sw_lbl_name">Название API:</label>
+                    <input type="text" id="api-title" value="Client Management API">
+                </div>
+                <div class="form-row">
+                    <label data-i18n="sw_lbl_path">Path (Путь):</label>
+                    <input type="text" id="api-path" value="/api/v1/clients/create">
+                </div>
+                <div class="form-row">
+                    <label data-i18n="sw_lbl_method">HTTP Метод:</label>
+                    <select id="api-method">
+                        <option value="post">POST</option>
+                        <option value="put">PUT</option>
+                        <option value="patch">PATCH</option>
+                        <option value="get" data-i18n="sw_opt_get">GET (Без Request Body)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="error-msg" id="json-error"></div>
+
+            <div style="display: flex; flex-direction: column; flex: 1; gap: 5px;">
+                <label style="font-weight: bold; font-size: 12px; color: #3b82f6;" data-i18n="sw_lbl_req">📥 Входящий запрос (Request JSON):</label>
+                <textarea id="json-req"></textarea>
+            </div>
+
+            <div style="display: flex; flex-direction: column; flex: 1; gap: 5px;">
+                <label style="font-weight: bold; font-size: 12px; color: #10b981;" data-i18n="sw_lbl_res">📤 Ответ (Response 200 JSON):</label>
+                <textarea id="json-res"></textarea>
+            </div>
+
+            <button class="btn-gen" onclick="generateSwagger()" data-i18n="sw_btn_gen">⚡ Сгенерировать OpenAPI YAML</button>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: Результат YAML -->
+    <div class="col">
+        <div class="panel-head" data-i18n="sw_col2_head">2. Готовая спецификация OpenAPI 3.0</div>
+        <textarea id="yaml-out"></textarea>
+    </div>
+</div>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let editorReq, editorRes, editorYaml;
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('title')) {
+            $('#api-title').val(urlParams.get('title'));
+        }
+        if (urlParams.has('path')) {
+            $('#api-path').val(urlParams.get('path'));
+        }
+
+        // Инициализация редакторов
+        editorReq = CodeMirror.fromTextArea(document.getElementById('json-req'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme
+        });
+        editorRes = CodeMirror.fromTextArea(document.getElementById('json-res'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme
+        });
+        editorYaml = CodeMirror.fromTextArea(document.getElementById('yaml-out'), {
+            mode: "text/x-yaml", lineNumbers: true, theme: "dracula", readOnly: true
+        });
+
+        // Добавляем классы для переопределения стилей
+        $(editorYaml.getWrapperElement()).addClass('CodeMirror-yaml');
+
+        window.addEventListener('themeChanged', function(e) {
+            const isDarkNow = e.detail.isDark;
+            const newCmTheme = isDarkNow ? 'dracula' : 'default';
+            editorReq.setOption('theme', newCmTheme);
+            editorRes.setOption('theme', newCmTheme);
+        });
+
+        // Пример данных
+        editorReq.setValue(`{\n  "clientId": "12345",\n  "isActive": true,\n  "details": {\n    "address": "Moscow",\n    "age": 30\n  },\n  "roles": ["admin", "user"]\n}`);
+        editorRes.setValue(`{\n  "status": "success",\n  "code": 0,\n  "message": "Client created successfully"\n}`);
+
+        // Авто-сокрытие Request Body если выбран GET
+        $('#api-method').on('change', function() {
+            if($(this).val() === 'get') {
+                $(editorReq.getWrapperElement()).parent().hide();
+            } else {
+                $(editorReq.getWrapperElement()).parent().show();
+            }
+        });
+
+        if (urlParams.get('load_temp') === 'true') {
+            const tempJson = localStorage.getItem('swagger_temp_req');
+            if (tempJson) {
+                editorReq.setValue(tempJson);
+                localStorage.removeItem('swagger_temp_req');
+            }
+        }
+    });
+
+    window.generateSwagger = function() {
+        $('#json-error').hide();
+        const title = $('#api-title').val().trim() || 'My API';
+        const path = $('#api-path').val().trim() || '/resource';
+        const method = $('#api-method').val();
+
+        let reqObj = null;
+        let resObj = null;
+
+        // Парсинг JSON
+        try {
+            if (method !== 'get') {
+                const reqTxt = editorReq.getValue().trim();
+                reqObj = reqTxt ? JSON.parse(reqTxt) : null;
+            }
+            const resTxt = editorRes.getValue().trim();
+            resObj = resTxt ? JSON.parse(resTxt) : null;
+        } catch(e) {
+            return $('#json-error').text(t('sw_err_json', "Ошибка синтаксиса JSON: ") + e.message).show();
+        }
+
+        // СБОРКА YAML
+        let yaml = `openapi: 3.0.0\n`;
+        yaml += `info:\n  title: ${title}\n  version: 1.0.0\n`;
+        yaml += `paths:\n  ${path}:\n    ${method}:\n`;
+        yaml += `      summary: Auto-generated ${method.toUpperCase()} operation\n`;
+
+        // Request Body (если не GET и есть данные)
+        if (method !== 'get' && reqObj) {
+            yaml += `      requestBody:\n        required: true\n        content:\n          application/json:\n            schema:\n              $ref: '#/components/schemas/RequestSchema'\n`;
+        }
+
+        // Responses
+        yaml += `      responses:\n        '200':\n          description: Successful response\n`;
+        if (resObj) {
+            yaml += `          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/ResponseSchema'\n`;
+        }
+
+        // Components & Schemas
+        if (reqObj || resObj) {
+            yaml += `components:\n  schemas:\n`;
+
+            if (reqObj && method !== 'get') {
+                yaml += `    RequestSchema:\n`;
+                yaml += jsonToYamlSchema(reqObj, 6);
+            }
+            if (resObj) {
+                yaml += `    ResponseSchema:\n`;
+                yaml += jsonToYamlSchema(resObj, 6);
+            }
+        }
+
+        editorYaml.setValue(yaml);
+        if(typeof showNotification === 'function') showNotification(t('sw_msg_gen_ok', "OpenAPI спецификация сгенерирована!"));
+    }
+
+    // Движок конвертации JSON в OpenAPI Schema (YAML)
+    function jsonToYamlSchema(obj, indentLvl) {
+        let ind = " ".repeat(indentLvl);
+        let y = "";
+
+        if (obj === null) {
+            y += `${ind}type: string\n${ind}nullable: true\n`;
+        }
+        else if (Array.isArray(obj)) {
+            y += `${ind}type: array\n${ind}items:\n`;
+            if (obj.length > 0) {
+                y += jsonToYamlSchema(obj[0], indentLvl + 2);
+            } else {
+                y += `${ind}  type: string\n`;
+            }
+        }
+        else if (typeof obj === 'object') {
+            y += `${ind}type: object\n${ind}properties:\n`;
+            for (let key in obj) {
+                y += `${ind}  ${key}:\n`;
+                y += jsonToYamlSchema(obj[key], indentLvl + 4);
+            }
+        }
+        else if (typeof obj === 'number') {
+            y += `${ind}type: ${Number.isInteger(obj) ? 'integer' : 'number'}\n${ind}example: ${obj}\n`;
+        }
+        else if (typeof obj === 'boolean') {
+            y += `${ind}type: boolean\n${ind}example: ${obj}\n`;
+        }
+        else {
+            y += `${ind}type: string\n`;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(obj)) y += `${ind}format: date\n`;
+            else if (/^\d{4}-\d{2}-\d{2}T/.test(obj)) y += `${ind}format: date-time\n`;
+            y += `${ind}example: "${obj.replace(/"/g, '\\"')}"\n`;
+        }
+        return y;
+    }
+
+    window.copyYaml = function() {
+        navigator.clipboard.writeText(editorYaml.getValue());
+        if(typeof showNotification === 'function') showNotification(t('sw_msg_copied', "YAML скопирован в буфер!"));
+        else alert(t('sw_msg_copied', "YAML скопирован в буфер!"));
+    }
+</script>
+</body>
+</html>

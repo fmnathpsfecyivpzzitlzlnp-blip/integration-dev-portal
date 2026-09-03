@@ -2,219 +2,336 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Справочники таблиц</title>
-    <!-- Библиотеки -->
+    <title data-i18n="dtbl_page_title">Справочники таблиц</title>
     <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
 
     <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-panel: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --item-hover: #f8fafc;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-header: #0b1120;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --item-hover: #334155;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
         body {
-            background-color: #f4f7f9;
-            margin: 0; padding: 20px;
-            height: 100vh;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', sans-serif;
-            display: flex; flex-direction: column;
-            overflow: hidden;
+            background-color: var(--bg-main) !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
         }
 
-        .top-bar {
-            display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-shrink: 0;
-        }
+        .top-bar { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-shrink: 0; }
+        .top-bar h2 { color: var(--text-main); margin: 0; }
 
-        /* Две колонки во всю высоту */
+        /* Три колонки */
         .workspace-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Поровну */
-            gap: 20px;
-            height: 100%;
-            overflow: hidden;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px; height: 100%; overflow: hidden;
         }
 
         .panel {
-            background: #fff; border: 1px solid #e2e8f0;
-            border-radius: 6px; display: flex; flex-direction: column;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow: hidden;
-            height: 100%;
+            background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 6px;
+            display: flex; flex-direction: column; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            overflow: hidden; height: 100%; transition: background 0.3s, border-color 0.3s;
         }
 
         .panel-head {
-            padding: 12px 15px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;
-            font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 15px; background: var(--bg-header); border-bottom: 1px solid var(--border-color);
+            font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.3s, border-color 0.3s, color 0.3s;
         }
 
-        .panel-body {
-            padding: 15px; overflow-y: auto; flex: 1; background-color: #fff;
-        }
+        .panel-body { padding: 15px; overflow-y: auto; flex: 1; background-color: var(--bg-main); transition: background 0.3s; }
 
-        /* Элементы списка */
         .list-item {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px;
+            padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 13px;
+            background: var(--bg-panel); color: var(--text-main); transition: 0.3s; border-radius: 4px; margin-bottom: 4px;
         }
-        .list-item:hover { background: #f8fafc; }
+        .list-item:hover { background: var(--item-hover); }
 
-        .badge {
-            padding: 2px 6px; border-radius: 4px; font-size: 10px;
-            color: white; font-weight: bold; margin-left: 8px;
-        }
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; color: white; font-weight: bold; margin-left: 8px; }
 
-        .input-row {
-            display: flex; gap: 8px; margin-bottom: 15px;
-            padding-bottom: 15px; border-bottom: 1px dashed #e2e8f0;
-        }
-        .input-row input, .input-row select {
-            padding: 7px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;
-        }
+        .input-row { display: flex; gap: 8px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--border-color); transition: 0.3s; }
+        .input-row input, .input-row select { padding: 7px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; background: var(--input-bg); color: var(--text-main); transition: 0.3s; }
+        .input-row input:focus, .input-row select:focus { outline: none; border-color: #3b82f6; }
 
-        .btn-rem {
-            color: #ef4444; border: none; background: none; font-size: 18px; cursor: pointer;
-        }
-        .btn-rem:hover { color: #dc2626; }
+        .btn-rem { color: var(--text-muted); border: none; background: none; font-size: 18px; cursor: pointer; transition: 0.2s;}
+        .btn-rem:hover { color: #ef4444; }
+
+        /* Элементы словаря стадий */
+        .stage-box { background: var(--bg-header); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; position: relative; margin-bottom: 10px; transition: 0.3s; }
+        .stage-box:hover { border-color: #3b82f6; }
+        .stage-name-input { font-weight: 700; width: calc(100% - 25px); margin-bottom: 8px; border: 1px solid transparent; background: transparent; font-size: 13px; color: var(--text-main); outline: none; padding: 2px; transition: 0.3s; }
+        .stage-name-input:focus { border-bottom: 1px solid #3b82f6; }
+        .stage-statuses-input { width: 100%; font-size: 12px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; resize: vertical; font-family: 'Consolas', monospace; color: var(--text-main); background: var(--input-bg); box-sizing: border-box; outline: none; transition: 0.3s;}
+        .stage-statuses-input:focus { border-color: #3b82f6; }
+
+        #toast { position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#10b981; color:#fff; border-radius:4px; display:none; z-index:9999; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
-    <h2 style="margin:0;">Справочники Данных (Окружения и Системы)</h2>
+    <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+    <h2 data-i18n="dtbl_title">🏢 Справочники Данных</h2>
 </div>
+
+<div id="toast"></div>
 
 <div class="workspace-grid">
 
     <!-- 1. ОКРУЖЕНИЯ -->
     <div class="panel">
         <div class="panel-head">
-            <span>🌍 Справочник Окружений (Hosts)</span>
-            <button onclick="saveSettings()" class="success" style="font-size:12px;">💾 Сохранить список</button>
+            <span data-i18n="dtbl_env_title">🌍 Окружения (Hosts)</span>
+            <button onclick="saveSettings('env')" class="success" style="font-size:12px;" data-i18n="dtbl_btn_save">💾 Сохранить</button>
         </div>
         <div class="panel-body">
-            <div style="margin-bottom:10px; color:#666; font-size:11px;">
-                Используется для подсветки PROD/TEST в истории вызовов.
-            </div>
+            <div style="margin-bottom:10px; color:var(--text-muted); font-size:11px;" data-i18n="dtbl_env_desc">Используется для подсветки PROD/TEST в истории.</div>
             <div class="input-row">
-                <input id="in_host" placeholder="Хост (напр. brmq-dev1)" style="flex: 2;">
-                <select id="in_env" style="width: 100px;">
+                <input id="in_host" style="flex: 2;">
+                <select id="in_env" style="width: 90px;">
                     <option value="DEV">DEV</option>
                     <option value="TEST">TEST</option>
                     <option value="PROD">PROD</option>
                     <option value="UAT">UAT</option>
                 </select>
-                <button onclick="addEnv()" class="primary" style="padding: 0 20px;">+</button>
+                <button onclick="addEnv()" class="primary">+</button>
             </div>
-            <div id="env_list">Загрузка...</div>
+            <div id="env_list" style="color: var(--text-muted); font-size: 13px;"></div>
         </div>
     </div>
 
     <!-- 2. СИСТЕМЫ -->
     <div class="panel">
         <div class="panel-head">
-            <span>🖥️ Справочник Систем (BS)</span>
+            <span data-i18n="dtbl_sys_title">🖥️ Системы (BS)</span>
         </div>
         <div class="panel-body">
-            <div style="margin-bottom:10px; color:#666; font-size:11px;">
-                Используется в выпадающих списках конструктора потоков.
-            </div>
+            <div style="margin-bottom:10px; color:var(--text-muted); font-size:11px;" data-i18n="dtbl_sys_desc">Используется в конструкторах потоков.</div>
             <div class="input-row">
-                <input id="in_sid" placeholder="ID (напр. BS_CRM)" style="flex: 1; font-weight: bold;">
-                <input id="in_desc" placeholder="Полное описание системы" style="flex: 2;">
-                <button onclick="addSys()" class="primary">Добавить</button>
+                <input id="in_sid" style="flex: 1; font-weight: bold;">
+                <input id="in_desc" style="flex: 2;">
+                <button onclick="addSys()" class="primary" id="btn-add-sys" data-i18n="dtbl_btn_add">Добавить</button>
             </div>
-            <div id="sys_list">Загрузка...</div>
+            <div id="sys_list" style="color: var(--text-muted); font-size: 13px;"></div>
+        </div>
+    </div>
+
+    <!-- 3. ЭТАПЫ И СТАТУСЫ -->
+    <div class="panel">
+        <div class="panel-head">
+            <span data-i18n="dtbl_stg_title">🗂️ Жизненный цикл задач</span>
+            <button onclick="saveSettings('stages')" class="success" style="font-size:12px;" data-i18n="dtbl_btn_save">💾 Сохранить</button>
+        </div>
+        <div class="panel-body">
+            <div style="margin-bottom:10px; color:var(--text-muted); font-size:11px;" data-i18n="dtbl_stg_desc">Определяет Этапы и Статусы. Статусы вводите через запятую.</div>
+            <div class="input-row">
+                <input id="in_stage_name" style="flex: 1;">
+                <button onclick="addStage()" class="primary">+</button>
+            </div>
+            <div id="stages_list" style="display:flex; flex-direction:column; color: var(--text-muted); font-size: 13px;"></div>
         </div>
     </div>
 
 </div>
 
 <script>
-    // DATA
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
     let DATA_ENV = [];
     let DATA_SYS = [];
+    let DATA_STAGES = {};
 
     $(function(){
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        // Установка локализованных плейсхолдеров и состояний загрузки через JS
+        $('#in_host').attr('placeholder', t('dtbl_ph_host', 'Хост (brmq-dev1)'));
+        $('#in_sid').attr('placeholder', t('dtbl_ph_sid', 'ID (BS_CRM)'));
+        $('#in_desc').attr('placeholder', t('dtbl_ph_desc', 'Описание'));
+        $('#in_stage_name').attr('placeholder', t('dtbl_ph_stage', 'Название нового этапа'));
+
+        $('#env_list, #sys_list, #stages_list').text(t('dtbl_loading', 'Загрузка...'));
+
         loadData();
     });
 
     function loadData() {
-        // Загрузка настроек (Среды)
         $.get('/api/tasks/settings', function(d) {
             try { DATA_ENV = JSON.parse(d.env_dictionary || '[]'); } catch(e){ DATA_ENV=[]; }
+            try { DATA_STAGES = JSON.parse(d.task_stages_dictionary || '{}'); } catch(e){ DATA_STAGES={}; }
             renderEnv();
+            renderStages();
         });
-
-        // Загрузка Систем
         $.get('/api/systems', function(d) {
             DATA_SYS = d || [];
             renderSys();
         });
     }
 
+    function showToast(msg) {
+        $('#toast').text(msg).fadeIn(200).delay(1500).fadeOut(200);
+    }
+
     // --- ENVS ---
     function renderEnv() {
         const c = $('#env_list').empty();
+        if (DATA_ENV.length === 0) {
+            c.text(t('dtbl_empty', 'Список пуст'));
+            return;
+        }
         DATA_ENV.forEach((item, i) => {
-            let bg = item.type === 'PROD' ? '#16a34a' : (item.type === 'TEST' ? '#f59e0b' : '#64748b');
+            let bg = item.type === 'PROD' ? '#10b981' : (item.type === 'TEST' ? '#f59e0b' : '#64748b');
             c.append(`
                 <div class="list-item">
                     <span>${escapeHtml(item.host)} <span class="badge" style="background:${bg}">${item.type}</span></span>
-                    <button class="btn-rem" onclick="deleteEnv(${i})">&times;</button>
+                    <button class="btn-rem" onclick="deleteEnv(${i})" title="${t('btn_delete', 'Удалить')}">&times;</button>
                 </div>
             `);
         });
     }
-
     window.addEnv = function() {
         const h = $('#in_host').val().trim();
-        if(h) {
-            DATA_ENV.push({host:h, type:$('#in_env').val()});
-            renderEnv();
-            $('#in_host').val('');
-        }
+        if(h) { DATA_ENV.push({host:h, type:$('#in_env').val()}); renderEnv(); $('#in_host').val(''); }
     }
     window.deleteEnv = (i) => { DATA_ENV.splice(i,1); renderEnv(); };
-
-    window.saveSettings = function() {
-        $.ajax({
-            url:'/api/tasks/settings', type:'POST', contentType:'application/json',
-            data:JSON.stringify({ env_dictionary: JSON.stringify(DATA_ENV) }),
-            success: ()=>alert('Окружения сохранены!'),
-            error: (x)=>alert('Ошибка: '+x.responseText)
-        });
-    }
 
     // --- SYSTEMS ---
     function renderSys() {
         const c = $('#sys_list').empty();
+        if (DATA_SYS.length === 0) {
+            c.text(t('dtbl_empty', 'Список пуст'));
+            return;
+        }
         DATA_SYS.forEach(s => {
             c.append(`
                 <div class="list-item">
-                    <div><b>${escapeHtml(s.sid)}</b> <span style="color:#999; margin-left:10px;">${escapeHtml(s.description||'')}</span></div>
-                    <button class="btn-rem" onclick="deleteSys(${s.id})">&times;</button>
+                    <div><b>${escapeHtml(s.sid)}</b> <span style="color:var(--text-muted); margin-left:10px;">${escapeHtml(s.description||'')}</span></div>
+                    <button class="btn-rem" onclick="deleteSys(${s.id})" title="${t('btn_delete', 'Удалить')}">&times;</button>
                 </div>
             `);
         });
     }
-
     window.addSys = function() {
-        const sid = $('#in_sid').val().trim();
-        const desc = $('#in_desc').val().trim();
+        const sid = $('#in_sid').val().trim(); const desc = $('#in_desc').val().trim();
         if(!sid) return;
         $.ajax({
-            url: '/api/systems', type:'POST', contentType:'application/json',
-            data:JSON.stringify({ sid:sid, description:desc }),
-            success: ()=>{
-                $.get('/api/systems', d=>{ DATA_SYS=d||[]; renderSys(); $('#in_sid').val(''); $('#in_desc').val('');});
-            }
+            url: '/api/systems', type:'POST', contentType:'application/json', data:JSON.stringify({ sid:sid, description:desc }),
+            success: ()=>{ $.get('/api/systems', d=>{ DATA_SYS=d||[]; renderSys(); $('#in_sid').val(''); $('#in_desc').val('');}); }
+        });
+    }
+    window.deleteSys = function(id) {
+        if(confirm(t('dtbl_conf_del_sys', 'Удалить систему?'))) {
+            $.ajax({ url:'/api/systems', type:'DELETE', contentType:'application/json', data:JSON.stringify({id}), success:() => { DATA_SYS = DATA_SYS.filter(x => x.id !== id); renderSys(); }});
+        }
+    }
+
+    // --- STAGES & STATUSES ---
+    function renderStages() {
+        const c = $('#stages_list').empty();
+        const keys = Object.keys(DATA_STAGES);
+        if (keys.length === 0) {
+            c.text(t('dtbl_empty', 'Список пуст'));
+            return;
+        }
+        keys.forEach(stage => {
+            const statuses = DATA_STAGES[stage].join(', ');
+            c.append(`
+                <div class="stage-box">
+                    <button class="btn-rem" onclick="deleteStage('${escapeHtml(stage)}')" style="position:absolute; top:8px; right:5px;" title="${t('btn_delete', 'Удалить')}">&times;</button>
+                    <input value="${escapeHtml(stage)}" class="stage-name-input" onchange="updateStageName('${escapeHtml(stage)}', this.value)">
+                    <textarea class="stage-statuses-input" rows="2" onchange="updateStatuses('${escapeHtml(stage)}', this.value)">${escapeHtml(statuses)}</textarea>
+                </div>
+            `);
+        });
+    }
+    window.addStage = function() {
+        const s = $('#in_stage_name').val().trim();
+        if(s && !DATA_STAGES[s]) {
+            DATA_STAGES[s] = [t('dtbl_default_status', 'Новая')];
+            $('#in_stage_name').val('');
+            renderStages();
+        }
+    }
+    window.deleteStage = function(stage) {
+        if(confirm(t('dtbl_conf_del_stg', 'Точно удалить этап и все его статусы?'))) { delete DATA_STAGES[stage]; renderStages(); }
+    }
+    window.updateStageName = function(oldName, newName) {
+        newName = newName.trim();
+        if(oldName !== newName && newName !== '') {
+            DATA_STAGES[newName] = DATA_STAGES[oldName];
+            delete DATA_STAGES[oldName];
+            renderStages();
+        }
+    }
+    window.updateStatuses = function(stage, val) {
+        DATA_STAGES[stage] = val.split(',').map(s => s.trim()).filter(s => s);
+    }
+
+    // --- ОБЩЕЕ СОХРАНЕНИЕ ---
+    window.saveSettings = function(type) {
+        const payload = {};
+        if (type === 'env') payload.env_dictionary = JSON.stringify(DATA_ENV);
+        if (type === 'stages') payload.task_stages_dictionary = JSON.stringify(DATA_STAGES);
+
+        $.ajax({
+            url:'/api/tasks/settings', type:'POST', contentType:'application/json',
+            data:JSON.stringify(payload),
+            success: ()=>showToast(t('dtbl_msg_saved', '✅ Успешно сохранено в БД!')),
+            error: (x)=>alert(t('dtbl_err_save', 'Ошибка: ') + x.responseText)
         });
     }
 
-    window.deleteSys = function(id) {
-        if(confirm('Удалить систему?')) $.ajax({ url:'/api/systems', type:'DELETE', contentType:'application/json', data:JSON.stringify({id}), success:() => {
-                DATA_SYS = DATA_SYS.filter(x => x.id !== id); renderSys();
-            }});
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-
-    function escapeHtml(text) { return text ? text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''; }
 </script>
 </body>
 </html>

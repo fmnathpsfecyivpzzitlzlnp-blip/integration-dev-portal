@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>XSD ➔ JSON Schema Конвертер</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <!-- CodeMirror Core -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+
+    <!-- CodeMirror Addons для сворачивания (Folding) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/brace-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/xml-fold.min.js"></script>
+
+    <!-- CodeMirror Addons для ПОИСКА (Search) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/search.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/jump-to-line.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        body { background: #f4f7f9; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+
+        .col { flex: 1; display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; min-width: 0; }
+
+        .panel-head { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; }
+
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; }
+
+        /* Стилизация диалогового окна поиска */
+        .CodeMirror-dialog { background: #f8fafc; color: #1e293b; padding: 8px 12px; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-family: 'Segoe UI', sans-serif; }
+        .CodeMirror-dialog input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; outline: none; margin: 0 5px; }
+        .CodeMirror-dialog input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+        .CodeMirror-dialog button { background: #e2e8f0; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; margin-left: 5px; color: #334155; font-size: 12px;}
+        .CodeMirror-dialog button:hover { background: #cbd5e1; }
+
+        .error-panel { display: none; padding: 15px; background: #fff5f5; color: #c62828; border: 1px solid #ffcdd2; border-radius: 8px; margin-bottom: 20px; font-family: 'Consolas', monospace; white-space: pre-wrap; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .error-line-bg { background-color: #ffcdd2 !important; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px; color: #1e293b;">🏗️ XSD ➔ JSON Schema Конвертер</h2>
+            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Умный парсер: понимает массивы (unbounded), типы, атрибуты и документацию.</p>
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button class="secondary" onclick="loadSample()">📄 Загрузить сложный XSD</button>
+        <button class="primary" onclick="convertXSD()" style="background: #3b82f6; border-color: #3b82f6;">🚀 Сгенерировать JSON Schema</button>
+    </div>
+</div>
+
+<div id="error-panel" class="error-panel"></div>
+
+<div class="workspace">
+    <!-- ЛЕВАЯ КОЛОНКА: XSD -->
+    <div class="col">
+        <div class="panel-head">
+            <span>Входной XSD (XML Schema)</span>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn-icon" onclick="editorXsd.execCommand('find')" title="Поиск (Ctrl+F)">🔍</button>
+                <button class="btn-icon" onclick="editorXsd.setValue('')" title="Очистить">🗑</button>
+            </div>
+        </div>
+        <textarea id="editor-xsd"></textarea>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: JSON SCHEMA -->
+    <div class="col">
+        <div class="panel-head">
+            <span>Результат (JSON Schema)</span>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button class="btn-icon" onclick="editorJson.execCommand('find')" title="Поиск (Ctrl+F)">🔍</button>
+                <button class="secondary btn-small" style="font-size: 11px; padding: 3px 10px; height: 26px;" onclick="copyResult()">📋 Копировать</button>
+            </div>
+        </div>
+        <textarea id="editor-json"></textarea>
+    </div>
+</div>
+
+<script>
+    let editorXsd, editorJson;
+    let errorLineHandle = null;
+
+    $(function() {
+        // Настройка редакторов с поддержкой сворачивания (Folding) и Поиска
+        editorXsd = CodeMirror.fromTextArea(document.getElementById('editor-xsd'), {
+            mode: "application/xml", lineNumbers: true, matchBrackets: true, theme: "default",
+            foldGutter: true, gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            extraKeys: {"Ctrl-F": "find", "Cmd-F": "find"}
+        });
+
+        editorJson = CodeMirror.fromTextArea(document.getElementById('editor-json'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: "dracula", readOnly: true,
+            foldGutter: true, gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            extraKeys: {"Ctrl-F": "find", "Cmd-F": "find"}
+        });
+
+        editorXsd.on('change', clearError);
+    });
+
+    function clearError() {
+        $('#error-panel').fadeOut(150);
+        if (errorLineHandle) {
+            editorXsd.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+            errorLineHandle = null;
+        }
+    }
+
+    function convertXSD() {
+        clearError();
+        const xmlText = editorXsd.getValue().trim();
+        if (!xmlText) return alert("Вставьте XSD схему слева!");
+
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+            // Проверка на синтаксические ошибки XML
+            const errorNode = xmlDoc.querySelector("parsererror");
+            if (errorNode) {
+                throw new Error("Невалидный XML: " + errorNode.textContent);
+            }
+
+            const schemaNode = xmlDoc.documentElement;
+            if (schemaNode.tagName.replace(/.*:/, '') !== 'schema') {
+                throw new Error("Корневой элемент должен быть <schema> (например, xs:schema)");
+            }
+
+            // Находим все корневые элементы
+            const rootElements = getChildElements(schemaNode, "element");
+            if (rootElements.length === 0) {
+                throw new Error("В схеме не найден ни один корневой элемент <element>");
+            }
+
+            // Берем первый корневой элемент (стандартная практика)
+            const parsedData = parseElement(rootElements[0], schemaNode);
+
+            // Оборачиваем в стандартную JSON Schema
+            const finalSchema = {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "title": parsedData.name || "GeneratedSchema",
+                ...parsedData.schema
+            };
+
+            editorJson.setValue(JSON.stringify(finalSchema, null, 4));
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    // === ДВИЖОК ПАРСИНГА XSD ===
+
+    // Утилита: получение детей по имени тега (игнорируя префиксы xs: или xsd:)
+    function getChildElements(parent, localName) {
+        if (!parent || !parent.children) return [];
+        return Array.from(parent.children).filter(c => c.tagName.replace(/.*:/, '') === localName);
+    }
+
+    // Извлечение xs:annotation/xs:documentation
+    function getDocumentation(node) {
+        let annotation = getChildElements(node, "annotation")[0];
+        if (annotation) {
+            let doc = getChildElements(annotation, "documentation")[0];
+            if (doc) return doc.textContent.trim();
+        }
+        return null;
+    }
+
+    // Парсинг элемента
+    function parseElement(node, rootSchemaNode) {
+        let name = node.getAttribute("name");
+        let typeAttr = node.getAttribute("type");
+        let minOccurs = node.getAttribute("minOccurs");
+        let maxOccurs = node.getAttribute("maxOccurs");
+
+        let schemaObj = {};
+
+        let doc = getDocumentation(node);
+        if (doc) schemaObj.description = doc;
+
+        let isArray = maxOccurs === "unbounded" || parseInt(maxOccurs) > 1;
+        let isRequired = minOccurs !== "0";
+
+        let fieldSchema = {};
+
+        // Ищем вложенные типы
+        let complexType = getChildElements(node, "complexType")[0];
+        let simpleType = getChildElements(node, "simpleType")[0];
+
+        if (complexType) {
+            fieldSchema = parseComplexType(complexType, rootSchemaNode);
+        } else if (simpleType) {
+            fieldSchema = parseSimpleType(simpleType);
+        } else if (typeAttr) {
+            // Тип передан через атрибут (например type="xs:string" или type="tns:MyCustomType")
+            let typeName = typeAttr.replace(/.*:/, '');
+            let jsonType = mapXsdTypeToJson(typeName);
+
+            if (jsonType) {
+                fieldSchema.type = jsonType; // Это базовый тип (string, int и т.д.)
+            } else {
+                // Это кастомный глобальный тип, ищем его в корне схемы
+                let foundComplex = findGlobalType(rootSchemaNode, "complexType", typeName);
+                if (foundComplex) {
+                    fieldSchema = parseComplexType(foundComplex, rootSchemaNode);
+                } else {
+                    let foundSimple = findGlobalType(rootSchemaNode, "simpleType", typeName);
+                    if (foundSimple) {
+                        fieldSchema = parseSimpleType(foundSimple);
+                    } else {
+                        fieldSchema.type = "string"; // Фолбэк, если тип не найден (например импорт из другого файла)
+                    }
+                }
+            }
+        } else {
+            fieldSchema.type = "string"; // Фолбэк
+        }
+
+        // Если это массив, оборачиваем
+        if (isArray) {
+            schemaObj.type = "array";
+            schemaObj.items = fieldSchema;
+        } else {
+            Object.assign(schemaObj, fieldSchema); // Сливаем свойства
+        }
+
+        return { name: name, schema: schemaObj, required: isRequired };
+    }
+
+    // Парсинг сложного типа (complexType)
+    function parseComplexType(node, rootSchemaNode) {
+        let obj = { type: "object", properties: {}, required: [] };
+
+        // Обрабатываем sequence, choice или all
+        let wrapper = getChildElements(node, "sequence")[0] || getChildElements(node, "choice")[0] || getChildElements(node, "all")[0];
+
+        if (wrapper) {
+            let elements = getChildElements(wrapper, "element");
+            elements.forEach(el => {
+                let parsed = parseElement(el, rootSchemaNode);
+                if (parsed.name) {
+                    obj.properties[parsed.name] = parsed.schema;
+                    if (parsed.required) obj.required.push(parsed.name);
+                }
+            });
+        }
+
+        // Обрабатываем атрибуты (xs:attribute)
+        let attributes = getChildElements(node, "attribute");
+        attributes.forEach(attr => {
+            let name = attr.getAttribute("name");
+            if (!name) return;
+            let type = attr.getAttribute("type") || "string";
+            let use = attr.getAttribute("use");
+            let doc = getDocumentation(attr);
+
+            let jsonType = mapXsdTypeToJson(type.replace(/.*:/, '')) || "string";
+
+            let attrName = "@" + name; // Помечаем атрибуты символом @
+            obj.properties[attrName] = { type: jsonType };
+            if (doc) obj.properties[attrName].description = doc;
+
+            if (use === "required") obj.required.push(attrName);
+        });
+
+        if (obj.required.length === 0) delete obj.required;
+        if (Object.keys(obj.properties).length === 0) delete obj.properties;
+
+        return obj;
+    }
+
+    // Парсинг простого типа (simpleType) - Enum / Restriction
+    function parseSimpleType(node) {
+        let restriction = getChildElements(node, "restriction")[0];
+        if (restriction) {
+            let base = restriction.getAttribute("base");
+            let type = mapXsdTypeToJson(base ? base.replace(/.*:/, '') : "string") || "string";
+            let res = { type: type };
+
+            let enums = getChildElements(restriction, "enumeration");
+            if (enums.length > 0) {
+                res.enum = enums.map(e => e.getAttribute("value"));
+            }
+            return res;
+        }
+        return { type: "string" };
+    }
+
+    // Поиск глобально объявленных типов в корне XSD
+    function findGlobalType(root, nodeName, typeName) {
+        return Array.from(root.children).find(c =>
+            c.tagName.replace(/.*:/, '') === nodeName && c.getAttribute("name") === typeName
+        );
+    }
+
+    // Маппинг типов XSD в типы JSON Schema
+    function mapXsdTypeToJson(xsdType) {
+        const typeMap = {
+            'string': 'string', 'normalizedString': 'string', 'token': 'string', 'date': 'string', 'dateTime': 'string', 'time': 'string',
+            'int': 'integer', 'integer': 'integer', 'long': 'integer', 'short': 'integer', 'byte': 'integer',
+            'decimal': 'number', 'float': 'number', 'double': 'number',
+            'boolean': 'boolean',
+            'base64Binary': 'string', 'hexBinary': 'string', 'anyURI': 'string'
+        };
+        return typeMap[xsdType] || null;
+    }
+
+    // === УТИЛИТЫ UI ===
+
+    function showError(msg) {
+        let fullError = `❌ Ошибка конвертации:\n\n${msg}`;
+        $('#error-panel').text(fullError).fadeIn(200);
+    }
+
+    function copyResult() {
+        const txt = editorJson.getValue();
+        if (!txt) return alert("Нечего копировать!");
+        navigator.clipboard.writeText(txt).then(() => {
+            if(typeof showNotification === 'function') showNotification('JSON Schema скопирована!');
+        });
+    }
+
+    function loadSample() {
+        const sample = `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <!-- Корневой элемент -->
+    <xs:element name="ClientProfile" type="ClientProfileType">
+        <xs:annotation>
+            <xs:documentation>Профиль клиента банка</xs:documentation>
+        </xs:annotation>
+    </xs:element>
+
+    <!-- Сложный тип -->
+    <xs:complexType name="ClientProfileType">
+        <xs:sequence>
+            <xs:element name="ClientId" type="xs:int">
+                <xs:annotation><xs:documentation>Уникальный ИД</xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element name="FullName" type="xs:string"/>
+
+            <!-- Опциональное поле (minOccurs=0) -->
+            <xs:element name="MiddleName" type="xs:string" minOccurs="0"/>
+
+            <!-- Массив (unbounded) -->
+            <xs:element name="Documents" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="DocType" type="DocTypeEnum"/>
+                        <xs:element name="DocNumber" type="xs:string"/>
+                    </xs:sequence>
+                    <xs:attribute name="isActive" type="xs:boolean" use="required">
+                        <xs:annotation><xs:documentation>Активен ли документ</xs:documentation></xs:annotation>
+                    </xs:attribute>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Простой тип (Enum) -->
+    <xs:simpleType name="DocTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="PASSPORT"/>
+            <xs:enumeration value="SNILS"/>
+            <xs:enumeration value="DRIVER_LICENSE"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>`;
+        editorXsd.setValue(sample);
+    }
+</script>
+</body>
+</html>

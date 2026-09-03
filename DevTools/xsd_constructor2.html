@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="xc2_page_title">XSD Builder IDE (Tabs, D&D, History, Import)</title>
+
+    <!-- Подключаем jQuery и нашу утилиту локализации перед React -->
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Только локальные библиотеки! -->
+    <script src="libs/tailwindcss.com_3.4.17"></script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="libs/react.development.js"></script>
+    <script crossorigin src="libs/react-dom.development.js"></script>
+
+    <!-- Babel для JSX/TS -->
+    <script src="libs/babel.min.js"></script>
+
+    <!-- Monaco Editor Loader -->
+    <script src="libs/loader.min.js"></script>
+
+    <style>
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            overflow: hidden !important;
+            font-family: 'Inter', sans-serif !important;
+            height: 100vh !important;
+            display: block !important;
+        }
+
+        #root {
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Вкладки */
+        .tabs-container { display: flex; background: #0b1120; border-bottom: 1px solid #1e293b; overflow-x: auto; }
+        .tab { padding: 8px 16px; font-size: 13px; color: #94a3b8; border-right: 1px solid #1e293b; display: flex; align-items: center; gap: 8px; cursor: pointer; border-bottom: 2px solid transparent; user-select: none; }
+        .tab:hover { background: #1e293b; color: #f8fafc; }
+        .tab.active { background: #0f172a; color: #60a5fa; border-bottom-color: #3b82f6; }
+        .tab-close { opacity: 0.5; padding: 2px; border-radius: 4px; transition: 0.2s; }
+        .tab-close:hover { opacity: 1; background: #ef4444; color: white; }
+
+        .split-pane { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 420px; background-color: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; }
+        .tree-container { flex: 1; overflow-y: auto; padding: 10px; }
+        .properties-panel { height: 380px; background-color: #0f172a; border-top: 1px solid #334155; padding: 15px; overflow-y: auto; flex-shrink: 0; }
+        .editor-container { flex: 1; position: relative; }
+
+        /* Стили кастомного дерева и D&D */
+        .tree-node { display: flex; align-items: center; padding: 4px 8px; cursor: pointer; border-radius: 4px; user-select: none; border: 1px solid transparent; transition: background 0.1s; }
+        .tree-node:hover { background-color: #334155; }
+        .tree-node.selected { background-color: #1e40af; border-color: #3b82f6; color: white; }
+        .tree-node.drag-over { background-color: #047857 !important; border-color: #10b981 !important; }
+
+        .tree-children { margin-left: 20px; border-left: 1px dashed #475569; padding-top: 2px; padding-bottom: 2px; }
+        .badge { font-size: 10px; padding: 2px 6px; border-radius: 999px; font-family: monospace; margin-left: 8px; }
+        .highlight { background-color: #fde047; color: #854d0e; border-radius: 2px; padding: 0 2px; }
+
+        /* Скроллбары */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-type="module">
+    const { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback } = React;
+
+    // Локальная обертка для перевода внутри React
+    const t = (key, defaultStr) => {
+        if (window.t) return window.t(key, defaultStr);
+        return defaultStr;
+    };
+
+    const XSD_TYPES = [
+        'xsd:string', 'xsd:integer', 'xsd:decimal', 'xsd:boolean',
+        'xsd:date', 'xsd:dateTime', 'xsd:time', 'xsd:base64Binary'
+    ];
+    const uid = () => Math.random().toString(36).substr(2, 9);
+
+    // --- 1. REACT CONTEXT (TABS & HISTORY) ---
+    const SchemaContext = createContext();
+
+    const createEmptyTab = (title) => {
+        const rId = 'root_' + uid();
+        return {
+            id: 'tab_' + uid(),
+            title: title,
+            nodes: {
+                [rId]: { id: rId, parentId: null, name: 'RootSchema', nodeType: 'schema', dataType: null, isExpanded: true }
+            },
+            selectedNodeId: rId,
+            past: [],
+            future: []
+        };
+    };
+
+    const SchemaProvider = ({ children }) => {
+        const [tabs, setTabs] = useState([createEmptyTab(t('xc2_schema', 'Схема') + ' 1')]);
+        const [activeTabId, setActiveTabId] = useState(tabs[0].id);
+        const [treeSearchTerm, setTreeSearchTerm] = useState('');
+
+        const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+
+        // Запись истории
+        const commitChange = useCallback((tabId, newNodes, newSelectedId = null) => {
+            setTabs(prev => prev.map(tab => {
+                if (tab.id !== tabId) return tab;
+                const pastState = { nodes: tab.nodes, selectedId: tab.selectedNodeId };
+                const past = [...tab.past, pastState].slice(-50); // храним 50 шагов
+                return {
+                    ...tab,
+                    nodes: newNodes,
+                    selectedNodeId: newSelectedId || tab.selectedNodeId,
+                    past: past,
+                    future: []
+                };
+            }));
+        }, []);
+
+        // Горячие клавиши (Ctrl+Z, Ctrl+Y)
+        useEffect(() => {
+            const handleKeyDown = (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.key === 'z') {
+                        e.preventDefault();
+                        if (e.shiftKey) redo(); else undo();
+                    }
+                    if (e.key === 'y') {
+                        e.preventDefault();
+                        redo();
+                    }
+                }
+            };
+            window.addEventListener('keydown', handleKeyDown);
+            return () => window.removeEventListener('keydown', handleKeyDown);
+        }, [activeTabId, tabs]);
+
+        const undo = () => {
+            setTabs(prev => prev.map(tab => {
+                if (tab.id !== activeTabId || tab.past.length === 0) return tab;
+                const prevHistory = tab.past[tab.past.length - 1];
+                const newPast = tab.past.slice(0, -1);
+                const newFuture = [{ nodes: tab.nodes, selectedId: tab.selectedNodeId }, ...tab.future];
+                return { ...tab, nodes: prevHistory.nodes, selectedNodeId: prevHistory.selectedId, past: newPast, future: newFuture };
+            }));
+        };
+
+        const redo = () => {
+            setTabs(prev => prev.map(tab => {
+                if (tab.id !== activeTabId || tab.future.length === 0) return tab;
+                const nextHistory = tab.future[0];
+                const newFuture = tab.future.slice(1);
+                const newPast = [...tab.past, { nodes: tab.nodes, selectedId: tab.selectedNodeId }];
+                return { ...tab, nodes: nextHistory.nodes, selectedNodeId: nextHistory.selectedId, past: newPast, future: newFuture };
+            }));
+        };
+
+        const actions = useMemo(() => ({
+            addTab: () => {
+                const newTab = createEmptyTab(t('xc2_schema', 'Схема') + ` ${tabs.length + 1}`);
+                setTabs(prev => [...prev, newTab]);
+                setActiveTabId(newTab.id);
+            },
+            closeTab: (e, tabId) => {
+                e.stopPropagation();
+                if (tabs.length === 1) return;
+                const newTabs = tabs.filter(t => t.id !== tabId);
+                setTabs(newTabs);
+                if (activeTabId === tabId) setActiveTabId(newTabs[0].id);
+            },
+            setActiveTabId,
+            setSearchTerm: setTreeSearchTerm,
+
+            selectNode: (id) => setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, selectedNodeId: id } : t)),
+
+            toggleExpand: (id, forceState = null) => {
+                setTabs(prev => prev.map(t => {
+                    if (t.id !== activeTabId) return t;
+                    return { ...t, nodes: { ...t.nodes, [id]: { ...t.nodes[id], isExpanded: forceState !== null ? forceState : !t.nodes[id].isExpanded } } };
+                }));
+            },
+
+            updateNode: (id, updates, saveHistory = false) => {
+                const newNodes = { ...activeTab.nodes, [id]: { ...activeTab.nodes[id], ...updates } };
+                if (saveHistory) {
+                    commitChange(activeTab.id, newNodes);
+                } else {
+                    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, nodes: newNodes } : t));
+                }
+            },
+
+            addNode: (parentId, nodeType, name, dataType = 'xsd:string') => {
+                const id = 'node_' + uid();
+                const newNodes = {
+                    ...activeTab.nodes,
+                    [parentId]: { ...activeTab.nodes[parentId], isExpanded: true },
+                    [id]: { id, parentId, name, nodeType, dataType, minOccurs: 1, maxOccurs: 1, isExpanded: true }
+                };
+                commitChange(activeTab.id, newNodes, id);
+                return id;
+            },
+
+            removeNode: (id) => {
+                const newNodes = { ...activeTab.nodes };
+                const deleteRecursive = (nodeId) => {
+                    Object.values(newNodes).filter(n => n.parentId === nodeId).forEach(n => deleteRecursive(n.id));
+                    delete newNodes[nodeId];
+                };
+                deleteRecursive(id);
+                commitChange(activeTab.id, newNodes, activeTab.nodes[id].parentId);
+            },
+
+            // D&D Перемещение
+            moveNode: (dragId, targetId) => {
+                if (dragId === targetId) return;
+                let current = activeTab.nodes[targetId];
+                while (current) {
+                    if (current.id === dragId) return; // Нельзя в своего ребенка
+                    current = activeTab.nodes[current.parentId];
+                }
+
+                const newNodes = { ...activeTab.nodes };
+                newNodes[dragId] = { ...newNodes[dragId], parentId: targetId };
+                newNodes[targetId].isExpanded = true;
+
+                commitChange(activeTab.id, newNodes);
+            },
+
+            importSchema: (newNodesMap) => {
+                commitChange(activeTab.id, newNodesMap, Object.keys(newNodesMap)[0]);
+            }
+        }), [activeTab, tabs, activeTabId, commitChange]);
+
+        const store = {
+            tabs,
+            activeTab,
+            treeSearchTerm,
+            undo,
+            redo,
+            ...actions,
+            getChildren: (parentId) => Object.values(activeTab.nodes).filter(n => n.parentId === parentId)
+        };
+
+        return <SchemaContext.Provider value={store}>{children}</SchemaContext.Provider>;
+    };
+
+    const useSchemaStore = () => useContext(SchemaContext);
+
+    // --- 2. XSD / XML PARSER ALGORITHM ---
+    class XsdParser {
+        constructor() { this.nodes = {}; }
+        parse(xmlString) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+            if (xmlDoc.querySelector("parsererror")) throw new Error(t('xc2_err_invalid_xml', "Невалидный XML/XSD файл"));
+
+            this.nodes = {};
+            const rootElements = Array.from(xmlDoc.documentElement.children).filter(c => c.tagName.replace(/.*:/, '') === 'element');
+            if (rootElements.length === 0) throw new Error(t('xc2_err_no_root', "В схеме не найден корневой элемент <element>"));
+
+            const rootId = 'node_root_main';
+            this.nodes[rootId] = { id: rootId, parentId: null, name: 'RootSchema', nodeType: 'schema', isExpanded: true };
+
+            rootElements.forEach(el => this._parseXsdElement(el, rootId));
+            return this.nodes;
+        }
+        _parseXsdElement(domElement, parentId) {
+            const name = domElement.getAttribute('name') || 'Unnamed';
+            const type = domElement.getAttribute('type');
+            const minOccurs = parseInt(domElement.getAttribute('minOccurs') || '1', 10);
+            const maxOccursRaw = domElement.getAttribute('maxOccurs');
+            const maxOccurs = maxOccursRaw === 'unbounded' ? 'unbounded' : parseInt(maxOccursRaw || '1', 10);
+
+            const elId = 'n_' + uid();
+            const childrenTags = Array.from(domElement.children);
+            const complexTypeNode = childrenTags.find(c => c.tagName.replace(/.*:/, '') === 'complexType');
+
+            let dataType = type ? (type.startsWith('xsd:') ? type : 'xsd:' + type) : 'xsd:string';
+            if (complexTypeNode) dataType = null;
+
+            this.nodes[elId] = { id: elId, parentId, name, nodeType: 'element', dataType, minOccurs: isNaN(minOccurs) ? 1 : minOccurs, maxOccurs, isExpanded: true };
+
+            if (complexTypeNode) {
+                const cId = 'n_' + uid();
+                this.nodes[cId] = { id: cId, parentId: elId, name: 'complexType', nodeType: 'complex', isExpanded: true };
+                const sequenceNode = Array.from(complexTypeNode.children).find(c => ['sequence', 'choice', 'all'].includes(c.tagName.replace(/.*:/, '')));
+                const sId = 'n_' + uid();
+                this.nodes[sId] = { id: sId, parentId: cId, name: 'sequence', nodeType: 'sequence', isExpanded: true };
+
+                if (sequenceNode) {
+                    Array.from(sequenceNode.children).filter(c => c.tagName.replace(/.*:/, '') === 'element').forEach(subEl => this._parseXsdElement(subEl, sId));
+                }
+            }
+        }
+    }
+
+    // --- 3. ADVANCED JSON -> XSD INFERENCE ALGORITHM ---
+    class JsonInferer {
+        constructor() { this.nodes = {}; }
+        inferType(value) {
+            if (typeof value === 'boolean') return 'xsd:boolean';
+            if (typeof value === 'number') return Number.isInteger(value) ? 'xsd:integer' : 'xsd:decimal';
+            if (typeof value === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'xsd:date';
+                if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) return 'xsd:dateTime';
+                return 'xsd:string';
+            }
+            return 'xsd:string';
+        }
+        mergeObjects(objList) {
+            const merged = {}; const presence = {};
+            objList.forEach(obj => {
+                if(typeof obj !== 'object' || obj === null) return;
+                Object.keys(obj).forEach(key => { presence[key] = (presence[key] || 0) + 1; if (merged[key] === undefined) merged[key] = obj[key]; });
+            });
+            return { merged, presence, total: objList.length };
+        }
+        build(jsonObj, rootName = "Root") {
+            this.nodes = {};
+            const rootId = this._addNode(null, 'element', rootName, null);
+            const complexId = this._addNode(rootId, 'complex', 'complexType');
+            const seqId = this._addNode(complexId, 'sequence', 'sequence');
+            this._traverse(jsonObj, seqId);
+            return this.nodes;
+        }
+        _addNode(parentId, nodeType, name, dataType = null, min = 1, max = 1) {
+            const id = 'n_' + uid();
+            this.nodes[id] = { id, parentId, name, nodeType, dataType, minOccurs: min, maxOccurs: max, isExpanded: true };
+            return id;
+        }
+        _traverse(obj, parentSeqId, forceOptional = false) {
+            for (const [key, value] of Object.entries(obj)) {
+                const min = forceOptional ? 0 : 1;
+                if (value === null) this._addNode(parentSeqId, 'element', key, 'xsd:string', min);
+                else if (Array.isArray(value)) {
+                    if (value.length === 0) this._addNode(parentSeqId, 'element', key, 'xsd:string', 0, 'unbounded');
+                    else {
+                        const first = value[0];
+                        if (typeof first === 'object' && first !== null) {
+                            const { merged, presence, total } = this.mergeObjects(value);
+                            const elId = this._addNode(parentSeqId, 'element', key, null, min, 'unbounded');
+                            const cId = this._addNode(elId, 'complex', 'complexType');
+                            const sId = this._addNode(cId, 'sequence', 'sequence');
+                            for (const [mKey, mVal] of Object.entries(merged)) this._traverse({ [mKey]: mVal }, sId, presence[mKey] < total);
+                        } else this._addNode(parentSeqId, 'element', key, this.inferType(first), min, 'unbounded');
+                    }
+                } else if (typeof value === 'object') {
+                    const elId = this._addNode(parentSeqId, 'element', key, null, min);
+                    const cId = this._addNode(elId, 'complex', 'complexType');
+                    const sId = this._addNode(cId, 'sequence', 'sequence');
+                    this._traverse(value, sId);
+                } else this._addNode(parentSeqId, 'element', key, this.inferType(value), min);
+            }
+        }
+    }
+
+    // --- 4. XSD GENERATOR ---
+    class XsdGenerator {
+        static generate(nodes) {
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            xml += '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">\n';
+            const rootNodes = Object.values(nodes).filter(n => n.parentId === null);
+
+            const buildNode = (node, indent) => {
+                const children = Object.values(nodes).filter(n => n.parentId === node.id);
+                let attrs = '';
+                if(node.minOccurs !== undefined && node.minOccurs !== 1) attrs += ` minOccurs="${node.minOccurs}"`;
+                if(node.maxOccurs !== undefined && node.maxOccurs !== 1) attrs += ` maxOccurs="${node.maxOccurs}"`;
+
+                if (node.nodeType === 'element') {
+                    if (children.length > 0) {
+                        xml += `${indent}<xsd:element name="${node.name}"${attrs}>\n`;
+                        children.forEach(c => buildNode(c, indent + "  "));
+                        xml += `${indent}</xsd:element>\n`;
+                    } else xml += `${indent}<xsd:element name="${node.name}" type="${node.dataType || 'xsd:string'}"${attrs}/>\n`;
+                } else if (node.nodeType === 'complex') {
+                    xml += `${indent}<xsd:complexType>\n`;
+                    children.forEach(c => buildNode(c, indent + "  "));
+                    xml += `${indent}</xsd:complexType>\n`;
+                } else if (node.nodeType === 'sequence') {
+                    xml += `${indent}<xsd:sequence${attrs}>\n`;
+                    children.forEach(c => buildNode(c, indent + "  "));
+                    xml += `${indent}</xsd:sequence>\n`;
+                } else if (node.nodeType === 'schema') {
+                    children.forEach(c => buildNode(c, indent));
+                }
+            };
+
+            rootNodes.forEach(n => buildNode(n, "  "));
+            xml += '</xsd:schema>';
+            return xml;
+        }
+    }
+
+    // --- 5. REACT COMPONENTS ---
+    const Icons = {
+        element: () => <span className="text-blue-400 mr-2">📄</span>,
+        complex: () => <span className="text-amber-400 mr-2">📁</span>,
+        sequence: () => <span className="text-emerald-400 mr-2">≡</span>,
+        schema: () => <span className="text-purple-400 mr-2">🌐</span>
+    };
+
+    const Highlighter = ({ text, highlight }) => {
+        if (!highlight) return <span>{text}</span>;
+        const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+        return <span>{parts.map((part, i) => part.toLowerCase() === highlight.toLowerCase() ? <span key={i} className="highlight">{part}</span> : part)}</span>;
+    };
+
+    const TreeNode = ({ id, level = 0 }) => {
+        const { activeTab, treeSearchTerm, getChildren, selectNode, toggleExpand, moveNode } = useSchemaStore();
+        const [isDragOver, setIsDragOver] = useState(false);
+
+        const node = activeTab.nodes[id];
+        const children = getChildren(id);
+        const isSelected = activeTab.selectedNodeId === id;
+
+        if (!node) return null;
+
+        const isMatch = treeSearchTerm && node.name.toLowerCase().includes(treeSearchTerm.toLowerCase());
+        const shouldExpand = node.isExpanded || (treeSearchTerm && children.length > 0);
+
+        // D&D Handlers
+        const handleDragStart = (e) => {
+            e.dataTransfer.setData('text/plain', id);
+            e.stopPropagation();
+        };
+        const handleDragOver = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            if (!isDragOver) setIsDragOver(true);
+        };
+        const handleDragLeave = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            setIsDragOver(false);
+        };
+        const handleDrop = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            setIsDragOver(false);
+            const draggedId = e.dataTransfer.getData('text/plain');
+            moveNode(draggedId, id);
+        };
+
+        return (
+            <div>
+                <div
+                    className={`tree-node ${isSelected ? 'selected' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                    style={{ paddingLeft: `${level * 15 + 10}px` }}
+                    onClick={() => selectNode(id)}
+                    onDoubleClick={() => toggleExpand(id)}
+                    draggable={node.parentId !== null} // Корневой нельзя таскать
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    {children.length > 0 ? (
+                        <span className="mr-1 w-4 text-center cursor-pointer opacity-70" onClick={(e) => { e.stopPropagation(); toggleExpand(id); }}>
+                                {shouldExpand ? '▼' : '▶'}
+                            </span>
+                    ) : <span className="mr-1 w-4"></span>}
+
+                    {Icons[node.nodeType] ? Icons[node.nodeType]() : Icons.element()}
+
+                    <span className={`font-semibold`}>
+                            <Highlighter text={node.name} highlight={treeSearchTerm} />
+                        </span>
+
+                    {node.nodeType === 'element' && node.dataType && children.length === 0 && (
+                        <span className="badge bg-slate-700 text-blue-300 border border-slate-600">
+                                {node.dataType}
+                            </span>
+                    )}
+
+                    {(node.minOccurs !== 1 || node.maxOccurs !== 1) && (node.nodeType === 'element' || node.nodeType === 'sequence') && (
+                        <span className="badge bg-slate-600 text-slate-300">
+                                [{node.minOccurs}..{node.maxOccurs === 'unbounded' ? 'n' : node.maxOccurs}]
+                            </span>
+                    )}
+                </div>
+
+                {shouldExpand && children.length > 0 && (
+                    <div className="tree-children">
+                        {children.map(child => <TreeNode key={child.id} id={child.id} level={level + 1} />)}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const PropertiesPanel = () => {
+        const { activeTab, updateNode, removeNode, addNode, getChildren } = useSchemaStore();
+        const node = activeTab.selectedNodeId ? activeTab.nodes[activeTab.selectedNodeId] : null;
+
+        if (!node) return <div className="text-slate-500 text-center mt-10">{t('xc2_sel_node', 'Выберите узел для редактирования')}</div>;
+
+        const handleAddChild = () => addNode(node.id, 'element', 'newElement', 'xsd:string');
+        const handleMakeComplex = () => {
+            updateNode(node.id, { dataType: null }, true);
+            const cid = addNode(node.id, 'complex', 'complexType');
+            addNode(cid, 'sequence', 'sequence');
+        };
+
+        return (
+            <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+                    <h3 className="text-lg font-bold text-slate-200 flex items-center">
+                        {Icons[node.nodeType] ? Icons[node.nodeType]() : ''} {t('xc2_props', 'Свойства:')} {node.nodeType}
+                    </h3>
+                    {node.parentId && (
+                        <button onClick={() => removeNode(node.id)} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1 rounded text-sm transition">
+                            {t('xc2_btn_del', 'Удалить')}
+                        </button>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs text-slate-400 mb-1">{t('xc2_lbl_name', 'Имя элемента')}</label>
+                        <input
+                            type="text" value={node.name} disabled={!node.parentId}
+                            onChange={(e) => updateNode(node.id, { name: e.target.value }, false)}
+                            onBlur={(e) => updateNode(node.id, { name: e.target.value }, true)}
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition text-white disabled:opacity-50"
+                        />
+                    </div>
+
+                    {node.nodeType === 'element' && !getChildren(node.id).length && (
+                        <div>
+                            <label className="block text-xs text-slate-400 mb-1">{t('xc2_lbl_type', 'Тип данных (XSD)')}</label>
+                            <select
+                                value={node.dataType || 'xsd:string'}
+                                onChange={(e) => updateNode(node.id, { dataType: e.target.value }, true)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition text-white"
+                            >
+                                {XSD_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                            </select>
+                        </div>
+                    )}
+
+                    {(node.nodeType === 'element' || node.nodeType === 'sequence') && (
+                        <>
+                            <div>
+                                <label className="block text-xs text-slate-400 mb-1">minOccurs</label>
+                                <input
+                                    type="number" min="0" value={node.minOccurs}
+                                    onChange={(e) => updateNode(node.id, { minOccurs: parseInt(e.target.value) }, true)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-400 mb-1">maxOccurs</label>
+                                <select
+                                    value={node.maxOccurs}
+                                    onChange={(e) => updateNode(node.id, { maxOccurs: e.target.value === 'unbounded' ? 'unbounded' : parseInt(e.target.value) }, true)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white"
+                                >
+                                    <option value="1">1</option>
+                                    <option value="unbounded">unbounded ({t('xc2_opt_array', 'массив')})</option>
+                                </select>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <div className="flex gap-2 pt-4 border-t border-slate-700">
+                    {(node.nodeType === 'sequence' || node.nodeType === 'schema' || node.nodeType === 'complex') && (
+                        <button onClick={handleAddChild} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm transition font-medium">
+                            {t('xc2_btn_add_field', '+ Добавить поле')}
+                        </button>
+                    )}
+                    {node.nodeType === 'element' && !getChildren(node.id).length && (
+                        <button onClick={handleMakeComplex} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-2 rounded text-sm transition font-medium">
+                            {t('xc2_btn_make_struct', 'Сделать структурой')}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const MonacoEditor = () => {
+        const editorRef = useRef(null);
+        const monacoInst = useRef(null);
+        const { activeTab } = useSchemaStore();
+
+        useEffect(() => {
+            require.config({ paths: { 'vs': 'libs/monaco-editor/min/vs' }});
+            require(['vs/editor/editor.main'], function() {
+                monacoInst.current = monaco.editor.create(editorRef.current, {
+                    value: '<?xml version="1.0" encoding="UTF-8"?>',
+                    language: 'xml',
+                    theme: 'vs-dark',
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    automaticLayout: true,
+                    fontSize: 13,
+                    fontFamily: 'Consolas, monospace',
+                    scrollBeyondLastLine: false,
+                    formatOnType: true
+                });
+            });
+            return () => { if (monacoInst.current) monacoInst.current.dispose(); };
+        }, []);
+
+        useEffect(() => {
+            if (monacoInst.current) {
+                const xml = XsdGenerator.generate(activeTab.nodes);
+                const model = monacoInst.current.getModel();
+                if (model.getValue() !== xml) monacoInst.current.setValue(xml);
+            }
+        }, [activeTab.nodes]);
+
+        const copyToClipboard = () => {
+            if (monacoInst.current) {
+                navigator.clipboard.writeText(monacoInst.current.getValue());
+                alert(t('xc2_msg_copied', "XSD Схема скопирована!"));
+            }
+        };
+
+        return (
+            <div className="flex flex-col h-full bg-[#1e1e1e]">
+                <div className="bg-[#252526] p-2 flex justify-between items-center border-b border-[#333]">
+                    <span className="text-slate-300 text-sm font-semibold ml-2">{t('xc2_gen_xsd', 'Сгенерированный XSD')}</span>
+                    <div className="flex gap-2">
+                        <button onClick={() => monacoInst.current.getAction('actions.find').run()} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">🔍 {t('xc2_btn_search', 'Поиск')}</button>
+                        <button onClick={() => monacoInst.current.getAction('editor.action.formatDocument').run()} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">🪄 {t('xc2_btn_format', 'Формат')}</button>
+                        <button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs transition">📋 {t('xc2_btn_copy', 'Копировать')}</button>
+                    </div>
+                </div>
+                <div ref={editorRef} className="flex-1" />
+            </div>
+        );
+    };
+
+    const JsonImportModal = ({ isOpen, onClose }) => {
+        const [jsonText, setJsonText] = useState('{\n  "Client": {\n    "Id": 123,\n    "IsActive": true\n  }\n}');
+        const { importSchema } = useSchemaStore();
+
+        const handleImport = () => {
+            try {
+                const obj = JSON.parse(jsonText);
+                const inferer = new JsonInferer();
+                importSchema(inferer.build(obj));
+                onClose();
+            } catch (e) { alert(t('xc2_err_json_parse', "Ошибка парсинга JSON: ") + e.message); }
+        };
+
+        if (!isOpen) return null;
+        return (
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center">
+                <div className="bg-slate-800 p-6 rounded-lg w-[800px] border border-slate-700 shadow-2xl">
+                    <h2 className="text-xl font-bold mb-2 text-white">{t('xc2_import_json_title', 'Умный импорт из JSON Payload')}</h2>
+                    <textarea value={jsonText} onChange={e => setJsonText(e.target.value)} className="w-full h-[300px] bg-slate-900 text-green-400 font-mono text-sm p-4 rounded border border-slate-700 focus:border-blue-500 outline-none" />
+                    <div className="flex justify-end gap-3 mt-4">
+                        <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white transition">{t('xc2_btn_cancel', 'Отмена')}</button>
+                        <button onClick={handleImport} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded text-white font-semibold transition">{t('xc2_btn_gen_xsd', 'Сгенерировать XSD')}</button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const App = () => {
+        const [isModalOpen, setModalOpen] = useState(false);
+        const { tabs, activeTab, addTab, closeTab, setActiveTabId, treeSearchTerm, setSearchTerm, undo, redo, importSchema } = useSchemaStore();
+        const fileInputRef = useRef(null);
+
+        useEffect(() => {
+            if(typeof window.initLocalization === 'function') window.initLocalization();
+        }, []);
+
+        const rootNodes = Object.values(activeTab.nodes).filter(n => n.parentId === null);
+
+        const handleFileChange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const parser = new XsdParser();
+                    importSchema(parser.parse(event.target.result));
+                    alert(t('xc2_msg_imp_ok', "XSD успешно импортирован!"));
+                } catch (err) { alert(t('xc2_err_imp', "Ошибка импорта: ") + err.message); }
+                finally { e.target.value = ''; }
+            };
+            reader.readAsText(file);
+        };
+
+        return (
+            <>
+                <header className="bg-slate-900 p-3 flex justify-between items-center shadow-md z-10 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-xl">X</div>
+                        <div>
+                            <h1 className="text-lg font-bold leading-tight">{t('xc2_title', 'XSD Builder IDE')}</h1>
+                            <p className="text-xs text-slate-400">{t('xc2_subtitle', 'Tabs • D&D • History (Ctrl+Z) • Local')}</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={undo} disabled={activeTab.past.length === 0} className="bg-slate-700 disabled:opacity-30 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition font-medium" title={t('xc2_btn_undo_hint', 'Отменить (Ctrl+Z)')}>↩ {t('xc2_btn_undo', 'Undo')}</button>
+                        <button onClick={redo} disabled={activeTab.future.length === 0} className="bg-slate-700 disabled:opacity-30 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition font-medium mr-4" title={t('xc2_btn_redo_hint', 'Вернуть (Ctrl+Y)')}>↪ {t('xc2_btn_redo', 'Redo')}</button>
+
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xsd, .xml" className="hidden" />
+                        <button onClick={() => fileInputRef.current.click()} className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-1.5 rounded shadow-lg transition font-medium flex items-center gap-2">
+                            <span>📥</span> {t('xc2_btn_import_xsd', 'Импорт XSD')}
+                        </button>
+                        <button onClick={() => setModalOpen(true)} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded shadow-lg transition font-medium flex items-center gap-2">
+                            <span>🤖</span> {t('xc2_btn_import_json', 'Импорт JSON')}
+                        </button>
+                    </div>
+                </header>
+
+                {/* Панель вкладок */}
+                <div className="tabs-container">
+                    {tabs.map(tab => (
+                        <div key={tab.id} className={`tab ${tab.id === activeTab.id ? 'active' : ''}`} onClick={() => setActiveTabId(tab.id)}>
+                            📄 {tab.title}
+                            <span className="tab-close" onClick={(e) => closeTab(e, tab.id)}>✖</span>
+                        </div>
+                    ))}
+                    <div className="tab hover:bg-slate-800" onClick={addTab} title={t('xc2_hint_new_schema', 'Создать новую схему')}>
+                        <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
+                    </div>
+                </div>
+
+                <div className="split-pane">
+                    <aside className="sidebar">
+                        <div className="bg-slate-800 p-3 border-b border-slate-700">
+                            <input type="text" placeholder={t('xc2_ph_search', '🔍 Поиск по дереву...')} value={treeSearchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-md py-1.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                        </div>
+                        <div className="tree-container">
+                            {rootNodes.map(n => <TreeNode key={n.id} id={n.id} />)}
+                        </div>
+                        <div className="properties-panel">
+                            <PropertiesPanel />
+                        </div>
+                    </aside>
+
+                    <main className="editor-container">
+                        <MonacoEditor />
+                    </main>
+                </div>
+
+                <JsonImportModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} />
+            </>
+        );
+    };
+
+    const Main = () => (
+        <SchemaProvider>
+            <App />
+        </SchemaProvider>
+    );
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Main />);
+</script>
+</body>
+</html>

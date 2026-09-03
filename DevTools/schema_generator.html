@@ -1,47 +1,189 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>JSON Schema Generator</title>
     <meta charset="UTF-8">
+    <title data-i18n="sch_gen_page_title">JSON Schema Generator</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-sec-bg: #e2e8f0;
+            --btn-sec-hover: #cbd5e1;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-sec-bg: #334155;
+            --btn-sec-hover: #475569;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important; /* Отключаем внешний скролл */
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+        }
+
+        .generator-page-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: 100%;
+        }
+
+        .generator-columns-container {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 0; /* Важно для flex-контейнеров, чтобы не распирало */
+        }
+
+        .generator-panel {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .generator-panel label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: var(--text-main);
+            transition: color 0.3s;
+        }
+
+        #json-input, #schema-output {
+            width: 100%;
+            flex: 1; /* Растягиваем на всю высоту панели */
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            resize: none; /* Убираем ползунок, так как flexbox сам тянет поле */
+            box-sizing: border-box;
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
+            outline: none;
+        }
+
+        #json-input:focus, #schema-output:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+        }
+        .btn.secondary { background: var(--btn-sec-bg); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { background: var(--btn-sec-hover); }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        #error-panel {
+            display: none;
+            padding: 12px 15px;
+            background: rgba(220, 38, 38, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+    </style>
 </head>
 <body>
-<div class="main-content generator-page-container">
-    <h2 style="flex-shrink: 0;">Генератор JSON Schema</h2>
-    <div class="generator-controls">
-        <button id="generateBtn" style="padding: 10px 15px;">Сгенерировать схему</button>
+<div class="generator-page-container">
+    <div class="header-controls">
+        <h2 style="margin: 0; border: none;" data-i18n="sch_gen_title">Генератор JSON Schema</h2>
+        <div style="display: flex; gap: 10px;">
+            <button id="clearBtn" class="btn secondary" data-i18n="sch_gen_btn_clear">🧹 Очистить</button>
+            <button id="generateBtn" class="btn primary" data-i18n="sch_gen_btn_gen">🚀 Сгенерировать схему</button>
+        </div>
     </div>
-    <div id="error-panel" style="display:none; padding:10px; background:#ffebee; color:#c62828; border:1px solid #c62828; margin-bottom:10px;"></div>
+
+    <div id="error-panel"></div>
 
     <div class="generator-columns-container">
         <div class="generator-panel">
-            <label for="json-input">Входной JSON:</label>
-            <textarea id="json-input" placeholder="Вставьте сюда ваш JSON..."></textarea>
+            <label for="json-input" data-i18n="sch_gen_lbl_in">Входной JSON:</label>
+            <textarea id="json-input" placeholder="Вставьте сюда ваш JSON..." data-i18n="sch_gen_ph_in"></textarea>
         </div>
         <div class="generator-panel">
-            <label for="schema-output">Сгенерированная JSON Schema:</label>
-            <textarea id="schema-output" readonly></textarea>
+            <label for="schema-output" data-i18n="sch_gen_lbl_out">Сгенерированная JSON Schema:</label>
+            <textarea id="schema-output" readonly placeholder="Здесь появится схема..." data-i18n="sch_gen_ph_out"></textarea>
         </div>
     </div>
 </div>
-<script src="libs/jquery-3.6.0.min.js"></script>
+
 <script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
     $(function () {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
         const errorPanel = $('#error-panel');
-        $('#generateBtn').on('click', function() {
-            errorPanel.hide();
-            const jsonText = $('#json-input').val();
-            if (!jsonText.trim()) return alert("Пожалуйста, вставьте JSON.");
-
-            try { JSON.parse(jsonText); } catch (e) { return alert("Ошибка: невалидный JSON."); }
-
-            $.ajax({
-                url: '/api/generate-schema', type: 'POST',
-                contentType: 'application/json', data: jsonText,
-                success: schema => $('#schema-output').val(JSON.stringify(schema, null, 4)),
-                error: xhr => errorPanel.text('Ошибка: ' + (xhr.responseJSON?.message || xhr.responseText)).show()
-            });
-        });
+        const inputField = $('#json-input');
+        const outputField = $('#schema-output');
 
         const exampleJson = `{
   "Request": {
@@ -52,8 +194,73 @@
     }
   }
 }`;
-        $('#json-input').val(exampleJson);
+
+        // === ЛОГИКА СОХРАНЕНИЯ СОСТОЯНИЯ (LocalStorage) ===
+        const savedJson = localStorage.getItem('saved_schema_json');
+        if (savedJson !== null) {
+            inputField.val(savedJson);
+        } else {
+            inputField.val(exampleJson);
+        }
+
+        inputField.on('input change', function() {
+            localStorage.setItem('saved_schema_json', $(this).val());
+            errorPanel.hide();
+        });
+
+        // Кнопка очистки
+        $('#clearBtn').on('click', function() {
+            if (confirm(t('sch_gen_conf_clear', 'Очистить поле ввода?'))) {
+                inputField.val('');
+                outputField.val('');
+                localStorage.removeItem('saved_schema_json');
+                errorPanel.hide();
+            }
+        });
+
+        // === ЛОГИКА ГЕНЕРАЦИИ ===
+        $('#generateBtn').on('click', function() {
+            errorPanel.hide();
+            const jsonText = inputField.val();
+            if (!jsonText.trim()) return alert(t('sch_gen_err_empty', "Пожалуйста, вставьте JSON."));
+
+            try {
+                JSON.parse(jsonText);
+            } catch (e) {
+                return alert(t('sch_gen_err_invalid', "Ошибка: невалидный JSON."));
+            }
+
+            const btn = $(this);
+            const originalText = btn.text();
+            btn.text(t('sch_gen_msg_loading', 'Генерация...')).prop('disabled', true);
+
+            $.ajax({
+                url: '/api/generate-schema',
+                type: 'POST',
+                contentType: 'application/json',
+                data: jsonText,
+                success: schema => {
+                    outputField.val(JSON.stringify(schema, null, 4));
+                },
+                error: xhr => {
+                    errorPanel.text(t('sch_gen_err_api', 'Ошибка: ') + (xhr.responseJSON?.message || xhr.responseText)).show();
+                },
+                complete: () => {
+                    btn.text(originalText).prop('disabled', false);
+                }
+            });
+        });
     });
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

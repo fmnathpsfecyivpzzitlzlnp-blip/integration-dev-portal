@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="wc_page_title">WSDL Конструктор</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="utils.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-bg-hover: #f1f5f9;
+            --tree-bg: #fafafa;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-bg-hover: #334155;
+            --tree-bg: #1e293b;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html { margin: 0 !important; padding: 0 !important; height: 100% !important; }
+        body {
+            background: var(--bg-main) !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;}
+
+        /* Табы */
+        .tabs-nav { display: flex; gap: 5px; margin-bottom: 15px; background: var(--bg-card); padding: 5px; border-radius: 6px; border: 1px solid var(--border-color); flex-shrink: 0; transition: background 0.3s, border-color 0.3s;}
+        .tab-btn { padding: 10px 20px; background: transparent; border: none; border-radius: 4px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: 0.2s; font-size: 13px; }
+        .tab-btn:hover { background: var(--btn-bg-hover); color: var(--text-main); }
+        .tab-btn.active { background: #3b82f6; color: white; }
+
+        .tab-content { display: none; flex: 1; flex-direction: column; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: background 0.3s, border-color 0.3s; }
+        .tab-content.active { display: flex; }
+
+        /* Внутренности табов */
+        .editor-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .CodeMirror { height: 100% !important; font-family: 'Consolas', monospace; font-size: 13px; border-top: 1px solid var(--border-color); }
+
+        /* Дерево (jsTree) */
+        .tree-container { flex: 1; overflow: auto; padding: 20px; background: var(--tree-bg); border-right: 1px solid var(--border-color); transition: background 0.3s, border-color 0.3s; }
+        .tree-toolbar { padding: 10px 20px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s; }
+
+        /* Иконки дерева (как в XSD конструкторе) */
+        .jstree-anchor { height: auto !important; padding-right: 5px; display: inline-flex !important; align-items: center; color: var(--text-main) !important; }
+        body.dark-theme .jstree-hovered { background: rgba(255,255,255,0.1) !important; border-radius: 4px; }
+        body.dark-theme .jstree-clicked { background: rgba(59, 130, 246, 0.4) !important; border-radius: 4px; }
+
+        .node-content { display: inline-flex; align-items: center; }
+        .node-name { font-weight: 700; color: var(--text-main); }
+        .node-type-label { color: #3b82f6; font-weight: bold; font-family: Consolas, monospace; font-size: 0.85em; margin-left: 8px; background: rgba(59, 130, 246, 0.1); padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2); }
+        .node-cardinality { font-size: 10px; color: #fff; background: #9ca3af; border-radius: 10px; padding: 1px 6px; margin-left: 6px; font-weight: 600; font-family: monospace; }
+
+        .icon-schema { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M12 2l6 4v6a8 8 0 0 1-4.73 7.3l-.34.13-.93.29V13h3V9h-3V6h-4v3H5v4h3v6.73L7 19.5A8 8 0 0 1 2 12V6l10-4z' fill='%23eab308'/%3E%3C/svg%3E") !important; background-size: cover !important; }
+        .icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M12.414 5H21a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7.414l2 2z' fill='%23f59e0b'/%3E%3C/svg%3E") !important; background-size: cover !important; }
+        .icon-file   { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M15 4H5v16h14V8h-4V4zM3 2.992C3 2.444 3.447 2 3.999 2H16l5 5v13.993A1 1 0 0 1 20.007 22H3.993A1 1 0 0 1 3 21.008V2.992z' fill='%233b82f6'/%3E%3C/svg%3E") !important; background-size: cover !important; }
+        .icon-list   { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Cpath fill='none' d='M0 0h24v24H0z'/%3E%3Cpath d='M8 4h13v2H8V4zm-5-.5h3v3H3v-3zm0 7h3v3H3v-3zm0 7h3v3H3v-3zM8 11h13v2H8v-2zm0 7h13v2H8v-2z' fill='%2310b981'/%3E%3C/svg%3E") !important; background-size: cover !important; }
+
+        /* Таблицы настроек */
+        .config-table { width: 100%; border-collapse: collapse; margin-top: 15px; color: var(--text-main); }
+        .config-table th, .config-table td { padding: 10px; border: 1px solid var(--border-color); text-align: left; }
+        .config-table th { background: var(--bg-main); font-weight: 600; color: var(--text-muted); }
+        .config-table input { width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; background: var(--input-bg); color: var(--text-main); }
+        .config-table .del-btn { color: #dc2626; cursor: pointer; font-weight: bold; background: none; border: none; font-size: 16px; }
+
+        /* Модалки */
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-card); padding:25px; border-radius:8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-main); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display:flex; align-items:center; gap:15px;">
+        <h2 style="margin:0;color:var(--text-main)" data-i18n="wc_title">WSDL Конструктор (DOM Engine)</h2>
+        <span class="badge b-blue" style="font-size: 10px;">PRO</span>
+    </div>
+    <div style="display:flex; gap:10px;">
+        <button id="btn-parse" class="primary" data-i18n="wc_btn_parse">⚙️ Разобрать WSDL</button>
+        <button id="btn-generate" class="success" style="display:none;" data-i18n="wc_btn_generate">✅ Сгенерировать Итог</button>
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+    </div>
+</div>
+
+<div class="tabs-nav">
+    <button class="tab-btn active" data-tab="tab-source" data-i18n="wc_tab_source">1. Исходный WSDL</button>
+    <button class="tab-btn" data-tab="tab-namespaces" id="nav-ns" disabled data-i18n="wc_tab_ns">2. Namespaces</button>
+    <button class="tab-btn" data-tab="tab-types" id="nav-types" disabled data-i18n="wc_tab_types">3. Конструктор XSD</button>
+    <button class="tab-btn" data-tab="tab-endpoints" id="nav-ep" disabled data-i18n="wc_tab_ep">4. Эндпоинты</button>
+    <button class="tab-btn" data-tab="tab-result" id="nav-res" disabled data-i18n="wc_tab_res">5. Готовый код</button>
+    <button class="tab-btn" data-tab="tab-tester" id="nav-tester" disabled style="color: #8b5cf6;" data-i18n="wc_tab_soap">6. Сгенерировать SOAP</button>
+</div>
+
+<div id="tab-source" class="tab-content active">
+    <div class="editor-wrapper">
+        <textarea id="editor-in"></textarea>
+    </div>
+</div>
+
+<div id="tab-namespaces" class="tab-content" style="padding: 20px; overflow-y: auto;">
+    <h3 style="margin-top:0;" data-i18n="wc_ns_title">Управление пространствами имен (xmlns)</h3>
+    <p style="color:var(--text-muted); font-size: 12px;" data-i18n="wc_ns_desc">Здесь собраны все неймспейсы корневого тега <code>&lt;wsdl:definitions&gt;</code>. Вы можете добавлять новые, они не потеряются.</p>
+    <button class="secondary" onclick="addNamespaceRow()" data-i18n="wc_btn_add_ns">+ Добавить Namespace</button>
+    <table class="config-table" id="ns-table">
+        <thead><tr><th width="150" data-i18n="wc_th_prefix">Префикс (xmlns:...)</th><th data-i18n="wc_th_uri">URI (Значение)</th><th width="50" data-i18n="wc_th_del">Удалить</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="tab-types" class="tab-content">
+    <div class="tree-toolbar">
+        <span style="font-size:12px; color:var(--text-muted);" data-i18n="wc_tree_hint"><b>ПКМ</b> — меню. <b>F2</b> — переименовать ("имя : тип"). Вы можете перетаскивать элементы мышкой.</span>
+        <button class="secondary btn-small" onclick="$('#modal-import-wsdl').fadeIn()" data-i18n="wc_btn_import_types">📥 Импорт типов из другого WSDL</button>
+    </div>
+    <div class="tree-container">
+        <div id="jstree"></div>
+    </div>
+</div>
+
+<div id="tab-endpoints" class="tab-content" style="padding: 20px; overflow-y: auto;">
+    <h3 style="margin-top:0;" data-i18n="wc_ep_title">Адреса сервисов (Endpoints)</h3>
+    <p style="color:var(--text-muted); font-size: 12px;" data-i18n="wc_ep_desc">Управление блоком <code>&lt;wsdl:service&gt;</code> -> <code>&lt;soap:address&gt;</code>.</p>
+    <table class="config-table" id="ep-table">
+        <thead><tr><th width="200" data-i18n="wc_th_service">Сервис / Порт</th><th data-i18n="wc_th_url">URL (location)</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="tab-result" class="tab-content">
+    <div style="padding: 10px; background: rgba(34, 197, 94, 0.1); border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items: center;">
+        <span style="font-size:12px; color:#166534; font-weight:bold;" data-i18n="wc_res_success">WSDL успешно пересобран! Структуры, порты и сообщения сохранены.</span>
+        <button class="secondary" onclick="copyResult()" data-i18n="wc_btn_copy">📋 Копировать код</button>
+    </div>
+    <div class="editor-wrapper">
+        <textarea id="editor-out"></textarea>
+    </div>
+</div>
+<!-- ВКЛАДКА: SOAP ГЕНЕРАТОР -->
+<div id="tab-tester" class="tab-content">
+    <div style="padding: 15px; background: var(--bg-main); border-bottom: 1px solid var(--border-color); display:flex; gap: 15px; align-items:flex-end;">
+        <div style="flex: 1;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 5px;" data-i18n="wc_soap_lbl_op">Выберите операцию (Operation):</label>
+            <select id="op-select" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); border-radius: 4px; font-size: 13px;"></select>
+        </div>
+        <button class="primary" onclick="generateSoapMock()" style="padding: 9px 20px; background: #8b5cf6; border-color: #8b5cf6;" data-i18n="wc_btn_soap_gen">⚡ Получить XML-запрос</button>
+        <button class="secondary" onclick="copySoapMock()" data-i18n="wc_btn_copy">📋 Копировать</button>
+    </div>
+    <div class="editor-wrapper">
+        <textarea id="editor-soap"></textarea>
+    </div>
+</div>
+<div id="modal-import-wsdl" class="modal">
+    <div class="modal-content" style="width:600px;">
+        <h3 style="margin-top:0;" data-i18n="wc_modal_imp_title">Импорт структур из другого файла</h3>
+        <p style="font-size:12px; color:var(--text-muted);" data-i18n="wc_modal_imp_desc">Вставьте WSDL или XSD. Парсер найдет все <b>ComplexType</b> и элементы, и добавит их в новую схему внизу вашего дерева. Оттуда вы сможете перетащить их в нужные места.</p>
+        <textarea id="import-wsdl-text" style="width:100%; height:250px; font-family:monospace; font-size:12px; border:1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); padding:10px; margin-bottom:15px; border-radius: 4px;"></textarea>
+        <div style="text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+            <button class="secondary" onclick="$('#modal-import-wsdl').fadeOut()" data-i18n="wc_btn_cancel">Отмена</button>
+            <button class="primary" onclick="mergeWsdlTypes()" data-i18n="wc_btn_merge">➕ Слить с текущим деревом</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let editorIn, editorOut, editorSoap;
+    let wsdlDoc = null;
+
+    const TYPE_MAP = {
+        'string':'xsd:string', 'str':'xsd:string', 'int':'xsd:int', 'integer':'xsd:integer',
+        'bool':'xsd:boolean', 'boolean':'xsd:boolean', 'date':'xsd:date', 'time':'xsd:time',
+        'datetime':'xsd:dateTime', 'decimal':'xsd:decimal', 'long':'xsd:long', 'base64':'xsd:base64Binary'
+    };
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
+        editorSoap = CodeMirror.fromTextArea(document.getElementById('editor-soap'), {
+            mode: "xml", lineNumbers: true, theme: cmTheme, lineWrapping: true
+        });
+
+        editorIn = CodeMirror.fromTextArea(document.getElementById('editor-in'), {
+            mode: "xml", lineNumbers: true, matchBrackets: true, lineWrapping: true, theme: cmTheme
+        });
+
+        editorOut = CodeMirror.fromTextArea(document.getElementById('editor-out'), {
+            mode: "xml", lineNumbers: true, theme: cmTheme, lineWrapping: true, readOnly: true
+        });
+
+        // Демо WSDL
+        editorIn.setValue(`<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:tns="http://example.com/api"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  targetNamespace="http://example.com/api">
+
+    <wsdl:types>
+        <xsd:schema targetNamespace="http://example.com/api" elementFormDefault="qualified">
+            <xsd:element name="GetClientRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="clientId" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </wsdl:types>
+
+    <wsdl:message name="GetClientMsgIn">
+        <wsdl:part name="parameters" element="tns:GetClientRequest"/>
+    </wsdl:message>
+
+    <wsdl:portType name="ClientPortType">
+        <wsdl:operation name="GetClient">
+            <wsdl:input message="tns:GetClientMsgIn"/>
+        </wsdl:operation>
+    </wsdl:portType>
+
+    <wsdl:binding name="ClientBinding" type="tns:ClientPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="GetClient">
+            <soap:operation soapAction="urn:GetClient"/>
+            <wsdl:input><soap:body use="literal"/></wsdl:input>
+        </wsdl:operation>
+    </wsdl:binding>
+
+    <wsdl:service name="ClientService">
+        <wsdl:port name="ClientPort" binding="tns:ClientBinding">
+            <soap:address location="http://localhost:8080/soap/client"/>
+        </wsdl:port>
+    </wsdl:service>
+</wsdl:definitions>`);
+
+        // Табы логика
+        $('.tab-btn').on('click', function() {
+            if ($(this).prop('disabled')) return;
+            $('.tab-btn').removeClass('active');
+            $('.tab-content').removeClass('active');
+            $(this).addClass('active');
+            $('#' + $(this).data('tab')).addClass('active');
+            editorIn.refresh();
+            editorOut.refresh();
+            editorSoap.refresh();
+        });
+
+        // 1. ПАРСИНГ WSDL В ДОМ
+        $('#btn-parse').on('click', function() {
+            let xmlText = editorIn.getValue().trim();
+            if(!xmlText) return alert(t('wc_err_no_wsdl', 'Вставьте WSDL код'));
+
+            const parser = new DOMParser();
+            wsdlDoc = parser.parseFromString(xmlText, "text/xml");
+
+            if (wsdlDoc.querySelector("parsererror")) {
+                return alert(t('wc_err_parse_wsdl', "Ошибка синтаксиса в исходном XML! Парсинг невозможен."));
+            }
+
+            initNamespaces();
+            initEndpoints();
+            initJstreeFromXML();
+
+            $('.tab-btn').prop('disabled', false);
+            $('#btn-generate').show();
+            $('.tab-btn[data-tab="tab-types"]').click();
+
+            // Наполняем селект операций
+            populateOperations();
+
+            $('.tab-btn[data-tab="tab-types"]').click();
+        });
+
+        // 2. ГЕНЕРАЦИЯ ГОТОВОГО WSDL
+        $('#btn-generate').on('click', function() {
+            if(!wsdlDoc) return;
+
+            // A. Обновляем Неймспейсы
+            const root = wsdlDoc.documentElement;
+            Array.from(root.attributes).forEach(attr => {
+                if (attr.name.startsWith('xmlns:')) root.removeAttribute(attr.name);
+            });
+            $('#ns-table tbody tr').each(function() {
+                let p = $(this).find('.ns-prefix').val().trim();
+                let u = $(this).find('.ns-uri').val().trim();
+                if(p && u) root.setAttribute('xmlns:' + p, u);
+            });
+
+            // B. Обновляем Эндпоинты
+            $('#ep-table tbody tr').each(function() {
+                let portName = $(this).data('port');
+                let newLoc = $(this).find('.ep-url').val().trim();
+                let portNode = wsdlDoc.querySelector(`port[name="${portName}"]`);
+                if (portNode) {
+                    let addr = Array.from(portNode.children).find(c => c.localName === 'address');
+                    if(addr && newLoc) addr.setAttribute('location', newLoc);
+                }
+            });
+
+            // C. Пересобираем блок Types из Дерева
+            const typesNode = wsdlDoc.querySelector("types");
+            if(typesNode) {
+                let newXsdString = generateXsdStringFromTree();
+                const tempDoc = new DOMParser().parseFromString(newXsdString, "text/xml");
+
+                while(typesNode.firstChild) typesNode.removeChild(typesNode.firstChild);
+
+                Array.from(tempDoc.documentElement.children).forEach(schemaNode => {
+                    let importedNode = wsdlDoc.importNode(schemaNode, true);
+                    typesNode.appendChild(importedNode);
+                });
+            }
+
+            // D. Сериализация и форматирование
+            const serializer = new XMLSerializer();
+            let finalXml = serializer.serializeToString(wsdlDoc);
+            finalXml = formatXml(finalXml);
+
+            editorOut.setValue(finalXml);
+            $('.tab-btn[data-tab="tab-result"]').click();
+        });
+
+        // Инициализация jsTree (Пустое)
+        $('#jstree').jstree({
+            core: {
+                check_callback: true,
+                themes: { name: 'default', responsive: false, dots: true, icons: true },
+                data: []
+            },
+            plugins: ['contextmenu', 'dnd', 'types', 'wholerow'],
+            types: {
+                schema:   { icon: "icon-schema", valid_children: ["element", "complex"] },
+                element:  { icon: "icon-file", valid_children: ["complex"] },
+                complex:  { icon: "icon-folder", valid_children: ["sequence"] },
+                sequence: { icon: "icon-list", valid_children: ["element", "complex"] }
+            },
+            contextmenu: { items: getContextMenu }
+        })
+            .on('rename_node.jstree', function(e, data) {
+                let name = data.text;
+                if(!data.node.data) data.node.data = {};
+                let type = data.node.data.type || 'xsd:string';
+
+                if (name.includes(':')) {
+                    const parts = name.split(':');
+                    name = parts[0].trim();
+                    const rt = parts[1].trim().toLowerCase();
+                    type = TYPE_MAP[rt] || (rt.startsWith('xsd:') ? rt : 'xsd:'+rt);
+                }
+                data.node.data.cleanName = name;
+                data.node.data.type = type;
+                data.instance.redraw_node(data.node, false, false, false);
+            })
+            .on('redraw_node.jstree', customRedrawNode);
+    });
+
+    window.addEventListener('themeChanged', function(e) {
+        const cmTheme = e.detail.isDark ? 'dracula' : 'default';
+        if (editorIn) editorIn.setOption("theme", cmTheme);
+        if (editorOut) editorOut.setOption("theme", cmTheme);
+        if (editorSoap) editorSoap.setOption("theme", cmTheme);
+    });
+
+    // =====================================
+    // ЛОГИКА ВКЛАДКИ 2: NAMESPACES
+    // =====================================
+    function initNamespaces() {
+        const tbody = $('#ns-table tbody').empty();
+        const attrs = wsdlDoc.documentElement.attributes;
+        for (let i = 0; i < attrs.length; i++) {
+            if (attrs[i].name.startsWith('xmlns:')) {
+                let prefix = attrs[i].name.replace('xmlns:', '');
+                appendNsRow(prefix, attrs[i].value);
+            }
+        }
+    }
+
+    function appendNsRow(prefix, uri) {
+        const btnDel = t('wc_th_del', 'Удалить');
+        $('#ns-table tbody').append(`
+            <tr>
+                <td><input type="text" class="ns-prefix" value="${prefix}"></td>
+                <td><input type="text" class="ns-uri" value="${uri}"></td>
+                <td style="text-align:center;"><button class="del-btn" title="${btnDel}" onclick="$(this).closest('tr').remove()">×</button></td>
+            </tr>
+        `);
+    }
+    window.addNamespaceRow = () => appendNsRow('ns' + Math.floor(Math.random()*100), 'http://new.org/');
+
+    // =====================================
+    // ЛОГИКА ВКЛАДКИ 4: ENDPOINTS
+    // =====================================
+    function initEndpoints() {
+        const tbody = $('#ep-table tbody').empty();
+        const ports = wsdlDoc.querySelectorAll('port');
+        ports.forEach(p => {
+            let srvName = p.parentNode.getAttribute('name');
+            let portName = p.getAttribute('name');
+            let addr = Array.from(p.children).find(c => c.localName === 'address');
+            let loc = addr ? addr.getAttribute('location') : '';
+
+            tbody.append(`
+                <tr data-port="${portName}">
+                    <td style="font-size:12px; color:var(--text-muted);"><b>${srvName}</b><br>${portName}</td>
+                    <td><input type="text" class="ep-url" value="${loc}"></td>
+                </tr>
+            `);
+        });
+    }
+
+    // =====================================
+    // ЛОГИКА ВКЛАДКИ 3: XSD ENGINE
+    // =====================================
+    function initJstreeFromXML() {
+        let typesNode = wsdlDoc.querySelector("types");
+        let fakeRoot = { id: "fake_root", text: "WSDL Types Container", state: {opened: true}, children: [] };
+
+        if (typesNode) {
+            Array.from(typesNode.children).forEach(schemaNode => {
+                if(schemaNode.localName === 'schema') {
+                    let sData = {
+                        text: "xsd:schema", type: "schema", state: {opened: true},
+                        data: { nodeName: 'schema', attributes: getAttrs(schemaNode) },
+                        children: parseXmlNodeToJstree(schemaNode)
+                    };
+                    fakeRoot.children.push(sData);
+                }
+            });
+        }
+
+        const tree = $('#jstree').jstree(true);
+        tree.settings.core.data = fakeRoot.children;
+        tree.refresh();
+    }
+
+    function parseXmlNodeToJstree(xmlNode) {
+        let children = [];
+        Array.from(xmlNode.children).forEach(child => {
+            let ln = child.localName;
+            if(ln === 'annotation' || ln === 'documentation') return;
+
+            let jType = 'element';
+            if(ln === 'complexType') jType = 'complex';
+            else if(['sequence','all','choice'].includes(ln)) jType = 'sequence';
+
+            let name = child.getAttribute('name') || ln;
+            let typeAttr = child.getAttribute('type') || '';
+            let min = child.getAttribute('minOccurs') || '1';
+            let max = child.getAttribute('maxOccurs') || '1';
+
+            let node = {
+                text: name, type: jType, state: {opened: true},
+                data: { cleanName: name, type: typeAttr, min: min, max: max, nodeName: ln },
+                children: parseXmlNodeToJstree(child)
+            };
+            children.push(node);
+        });
+        return children;
+    }
+
+    function getAttrs(node) {
+        let obj = {};
+        Array.from(node.attributes).forEach(a => obj[a.name] = a.value);
+        return obj;
+    }
+
+    function generateXsdStringFromTree() {
+        const tree = $('#jstree').jstree(true);
+        const json = tree.get_json('#', {flat: false});
+
+        let xml = "<wrapper>\n";
+
+        function walk(nodes, indent) {
+            if(!nodes) return;
+            nodes.forEach(n => {
+                let d = n.data || {};
+                let type = n.type;
+                let name = d.cleanName || n.text.split(':')[0].trim();
+                let attrs = "";
+
+                if(d.min !== undefined && d.min != 1) attrs += ` minOccurs="${d.min}"`;
+                if(d.max !== undefined && d.max != 1) attrs += ` maxOccurs="${d.max}"`;
+
+                if(type === 'schema') {
+                    let schemaAttrs = "";
+                    let hasXsdNs = false;
+                    if(d.attributes) {
+                        for(let k in d.attributes) {
+                            schemaAttrs += ` ${k}="${d.attributes[k]}"`;
+                            if (k === 'xmlns:xsd') hasXsdNs = true;
+                        }
+                    }
+                    if(!hasXsdNs) {
+                        schemaAttrs += ` xmlns:xsd="http://www.w3.org/2001/XMLSchema"`;
+                    }
+                    xml += `${indent}<xsd:schema${schemaAttrs}>\n`;
+                    walk(n.children, indent+"  ");
+                    xml += `${indent}</xsd:schema>\n`;
+                }
+                else if(type === 'element') {
+                    let xType = d.type || 'xsd:string';
+                    if(xType.includes('[')) xType=xType.split('[')[0].trim();
+
+                    if(n.children.length > 0) {
+                        xml += `${indent}<xsd:element name="${name}"${attrs}>\n`;
+                        walk(n.children, indent+"  ");
+                        xml += `${indent}</xsd:element>\n`;
+                    } else {
+                        xml += `${indent}<xsd:element name="${name}"${attrs} type="${xType}"/>\n`;
+                    }
+                }
+                else if(type === 'complex') {
+                    let nAttr = name !== 'complexType' ? ` name="${name}"` : '';
+                    xml += `${indent}<xsd:complexType${nAttr}>\n`;
+                    walk(n.children, indent+"  ");
+                    xml += `${indent}</xsd:complexType>\n`;
+                }
+                else if(type === 'sequence') {
+                    xml += `${indent}<xsd:sequence${attrs}>\n`;
+                    walk(n.children, indent+"  ");
+                    xml += `${indent}</xsd:sequence>\n`;
+                }
+            });
+        }
+
+        walk(json, "  ");
+        xml += "</wrapper>";
+        return xml;
+    }
+
+    // --- Меню дерева ---
+    function getContextMenu(node) {
+        const ty = node.type;
+        const items = {};
+
+        const addElem = (typeStr) => {
+            const tree = $("#jstree").jstree(true);
+            const name = "field_" + Math.floor(Math.random()*1000);
+            let id = tree.create_node(node, { text: name, type: 'element', data: { cleanName: name, type: typeStr, min: 1, max: 1, nodeName: 'element' } }, "last");
+            tree.open_node(node);
+            setTimeout(() => tree.edit(id), 100);
+        };
+
+        if (ty === 'schema' || ty === 'sequence') {
+            items.addString = { label: t('wc_ctx_add_str', "Добавить: String"), action: () => addElem('xsd:string') };
+            items.addInt    = { label: t('wc_ctx_add_int', "Добавить: Integer"), action: () => addElem('xsd:integer') };
+            items.addBool   = { label: t('wc_ctx_add_bool', "Добавить: Boolean"), action: () => addElem('xsd:boolean') };
+            items.addDate   = { label: t('wc_ctx_add_date', "Добавить: Date"), action: () => addElem('xsd:date') };
+            items.addCpx    = { label: t('wc_ctx_add_cpx', "Добавить Комплексный Элемент"), separator_before: true, action: function() {
+                    const tree = $("#jstree").jstree(true);
+                    const name = "ComplexField_" + Math.floor(Math.random()*100);
+                    let id = tree.create_node(node, { text: name, type: 'element', data: { cleanName: name, type: null, nodeName: 'element' } }, "last");
+                    let cId = tree.create_node(id, { text: 'complexType', type: 'complex', data: { nodeName: 'complexType' } }, "last");
+                    tree.create_node(cId, { text: 'sequence', type: 'sequence', data: { nodeName: 'sequence' } }, "last");
+                    tree.open_node(node); tree.open_node(id); tree.open_node(cId);
+                }};
+        }
+
+        if (ty === 'element' || ty === 'sequence') {
+            const setCard = (min, max) => { node.data.min = min; node.data.max = max; $('#jstree').jstree(true).redraw_node(node, false, false, false); };
+            items.cardinality = {
+                label: t('wc_ctx_card', "Повторяемость (Cardinality)"), separator_before: true,
+                submenu: {
+                    c11: { label: "1..1 (Default)", action: () => setCard(1, 1) },
+                    c01: { label: "0..1 (Optional)", action: () => setCard(0, 1) },
+                    c1n: { label: "1..n (List)", action: () => setCard(1, 'unbounded') },
+                    c0n: { label: "0..n (Optional List)", action: () => setCard(0, 'unbounded') }
+                }
+            };
+        }
+
+        if (ty === 'element') {
+            items.rename = { label: t('wc_ctx_ren', "Переименовать"), separator_before: true, action: () => $("#jstree").jstree(true).edit(node) };
+        }
+
+        if (ty !== 'schema') {
+            items.remove = { label: t('wc_ctx_del', "Удалить узел"), separator_before: true, action: () => $("#jstree").jstree(true).delete_node(node) };
+        }
+
+        return items;
+    }
+
+    function customRedrawNode(e, data) {
+        const node = data.node;
+        if(node.type !== 'element' && node.type !== 'sequence') return;
+        const anchor = $(data.element).children('.jstree-anchor');
+        let d = node.data || {};
+        let name = d.cleanName || node.text.split(':')[0].trim();
+        let type = d.type;
+        let isStruct = node.children.length > 0 && node.type === 'element';
+        if (isStruct) type = null;
+        if (node.type === 'element' && !isStruct && !type) type = 'xsd:string';
+
+        let cardStr = "";
+        if ((d.min != 1 || d.max != 1) && d.min !== undefined) {
+            cardStr = `[${d.min}..${d.max === 'unbounded' ? 'n' : d.max}]`;
+        }
+
+        let iconHtml = anchor.find('i.jstree-icon').prop('outerHTML');
+        if(!iconHtml) return;
+        let html = `${iconHtml} <span class="node-content"><span class="node-name">${name}</span>`;
+        if (type && node.type === 'element') html += `<span class="node-type-label">: ${type}</span>`;
+        if (cardStr) html += `<span class="node-cardinality">${cardStr}</span>`;
+        html += `</span>`;
+        anchor.html(html);
+    }
+
+    // --- Утилита форматирования XML ---
+    function formatXml(xml) {
+        let formatted = '';
+        let reg = /(>)(<)(\/*)/g;
+        xml = xml.replace(reg, '$1\r\n$2$3');
+        let pad = 0;
+        jQuery.each(xml.split('\r\n'), function(index, node) {
+            let indent = 0;
+            if (node.match( /.+<\/\w[^>]*>$/ )) indent = 0;
+            else if (node.match( /^<\/\w/ )) {
+                if (pad != 0) pad -= 1;
+            } else if (node.match( /^<\w[^>]*[^\/]>.*$/ )) indent = 1;
+            else indent = 0;
+
+            let padding = '';
+            for (let i = 0; i < pad; i++) padding += '  ';
+            formatted += padding + node + '\r\n';
+            pad += indent;
+        });
+        return formatted;
+    }
+
+    window.copyResult = function() {
+        navigator.clipboard.writeText(editorOut.getValue());
+        if(typeof showNotification === 'function') showNotification(t('wc_msg_copied', "Код скопирован!"));
+        else alert(t('wc_msg_copied', "Код скопирован!"));
+    }
+
+    // =====================================
+    // ИМПОРТ ИЗ ВТОРОГО WSDL (MERGE)
+    // =====================================
+    window.mergeWsdlTypes = function() {
+        let xmlText = $('#import-wsdl-text').val().trim();
+        if (!xmlText) return alert(t('wc_err_no_import', "Вставьте код для импорта!"));
+
+        xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+
+        const parser = new DOMParser();
+        const tempDoc = parser.parseFromString(xmlText, "text/xml");
+
+        if (tempDoc.querySelector("parsererror")) {
+            return alert(t('wc_err_parse_imp', "Ошибка синтаксиса в импортируемом файле!"));
+        }
+
+        let typesNode = tempDoc.querySelector("types");
+        if (!typesNode) {
+            let schemaNode = Array.from(tempDoc.children).find(n => n.localName === 'schema');
+            if (schemaNode) {
+                typesNode = tempDoc.createElement("types");
+                typesNode.appendChild(schemaNode.cloneNode(true));
+            }
+        }
+
+        if (!typesNode) {
+            return alert(t('wc_err_no_types', "В файле не найдены структуры <types> или <schema>!"));
+        }
+
+        const tree = $('#jstree').jstree(true);
+        let importedNodesCount = 0;
+
+        Array.from(typesNode.children).forEach(schemaNode => {
+            if (schemaNode.localName === 'schema') {
+                let jstreeChildren = parseXmlNodeToJstree(schemaNode);
+                let newSchemaData = {
+                    text: t('wc_imp_schema_title', "ИМПОРТИРОВАННАЯ СХЕМА (Перетащите элементы)"),
+                    type: "schema",
+                    state: { opened: true },
+                    data: { nodeName: 'schema', attributes: getAttrs(schemaNode) },
+                    children: jstreeChildren
+                };
+
+                tree.create_node('#', newSchemaData, 'last');
+                importedNodesCount++;
+            }
+        });
+
+        if (importedNodesCount > 0) {
+            $('#modal-import-wsdl').fadeOut();
+            $('#import-wsdl-text').val('');
+            alert(t('wc_msg_imp_ok', "Импорт прошел успешно! Прокрутите дерево вниз, чтобы увидеть новые элементы."));
+        } else {
+            alert(t('wc_msg_imp_none', "Не найдено элементов для импорта внутри схем."));
+        }
+    };
+
+    // =====================================
+    // ЛОГИКА ВКЛАДКИ 6: SOAP ГЕНЕРАТОР
+    // =====================================
+    function populateOperations() {
+        const sel = $('#op-select').empty();
+        // Ищем все операции внутри portType
+        const ops = wsdlDoc.querySelectorAll('portType operation');
+        if(ops.length === 0) {
+            sel.append(`<option value="">${t('wc_err_no_op', "Операции не найдены")}</option>`);
+            return;
+        }
+        ops.forEach(op => {
+            const name = op.getAttribute('name');
+            sel.append(new Option(name, name));
+        });
+    }
+
+    window.generateSoapMock = function() {
+        const opName = $('#op-select').val();
+        if(!opName) return;
+
+        // 1. Ищем input сообщение для выбранной операции
+        const op = wsdlDoc.querySelector(`portType operation[name="${opName}"]`);
+        const input = op.querySelector('input');
+        if(!input) return alert(t('wc_err_no_in', 'У операции нет входящего сообщения (input)!'));
+
+        let msgName = input.getAttribute('message');
+        if(msgName && msgName.includes(':')) msgName = msgName.split(':')[1];
+
+        // 2. Ищем message и его part
+        const msg = wsdlDoc.querySelector(`message[name="${msgName}"]`);
+        if(!msg) return alert(t('wc_err_no_msg', 'Не найдено сообщение: ') + msgName);
+
+        const part = msg.querySelector('part');
+        if(!part) return alert(t('wc_err_no_part', 'У сообщения нет параметра (part)!'));
+
+        // Поддержка как element="", так и type="" атрибутов
+        let elName = part.getAttribute('element') || part.getAttribute('type');
+        if(elName && elName.includes(':')) elName = elName.split(':')[1];
+
+        // 3. Ищем корневой элемент во ВСЕХ схемах (а не только в первой)
+        const schemas = wsdlDoc.querySelectorAll('types schema');
+        let rootEl = null;
+        let activeSchema = null;
+
+        schemas.forEach(s => {
+            if(!rootEl) {
+                rootEl = Array.from(s.children).find(c => c.localName === 'element' && c.getAttribute('name') === elName);
+                if(rootEl) activeSchema = s;
+            }
+        });
+
+        // 4. Подготавливаем Target Namespace
+        let tns = "http://example.com/api"; // Фолбэк
+
+        // Пытаемся взять tns из схемы, либо из корневого definitions
+        if (activeSchema && activeSchema.getAttribute('targetNamespace')) {
+            tns = activeSchema.getAttribute('targetNamespace');
+        } else if (wsdlDoc.documentElement.getAttribute('targetNamespace')) {
+            tns = wsdlDoc.documentElement.getAttribute('targetNamespace');
+        }
+
+        // 5. Сборка Body (С защитой от импортированных XSD)
+        let xmlBody = "";
+
+        if (rootEl && activeSchema) {
+            // Если структура найдена локально, строим полное дерево
+            xmlBody = buildMockNode(rootEl, activeSchema, "      ");
+        } else {
+            // ГЛАВНЫЙ ФИКС: Если структура во внешнем XSD (import), делаем красивую заглушку
+            xmlBody = `      <api:${elName}>\n         <!-- Детальная структура скрыта во внешнем файле (xsd:import) -->\n         <!-- Подставьте необходимые поля вручную -->\n      </api:${elName}>\n`;
+            }
+
+        // 6. Финальная сборка конверта
+        let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+        xml += `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="${tns}">\n`;
+        xml += `   <soapenv:Header/>\n`;
+        xml += `   <soapenv:Body>\n`;
+        xml += xmlBody;
+        xml += `   </soapenv:Body>\n</soapenv:Envelope>`;
+
+        editorSoap.setValue(xml);
+
+        // Перерисовываем редактор, чтобы код корректно отобразился
+        setTimeout(() => { editorSoap.refresh(); }, 50);
+    };
+
+    function buildMockNode(element, schema, indent) {
+        const name = element.getAttribute("name");
+        let type = element.getAttribute("type");
+        let result = "";
+
+        let complexType = Array.from(element.children).find(n => n.localName === 'complexType');
+
+        if (complexType) {
+            result += `${indent}<api:${name}>\n`;
+            result += processMockComplex(complexType, schema, indent + "   ");
+            result += `${indent}</api:${name}>\n`;
+        } else if (type) {
+            let cleanType = type.includes(':') ? type.split(':')[1] : type;
+            const stdTypes = ['string', 'integer', 'int', 'boolean', 'date', 'dateTime', 'decimal', 'long'];
+
+            if (stdTypes.includes(cleanType)) {
+                let dummy = "?";
+                if (cleanType === 'string') dummy = "test_string";
+                if (cleanType === 'integer' || cleanType === 'int') dummy = "123";
+                if (cleanType === 'boolean') dummy = "true";
+                if (cleanType === 'date') dummy = "2026-05-24";
+
+                result += `${indent}<api:${name}>${dummy}</api:${name}>\n`;
+            } else {
+                // Если тип кастомный, ищем его в схеме
+                const customTypes = Array.from(schema.children).filter(n => n.localName === 'complexType');
+                const customType = customTypes.find(n => n.getAttribute("name") === cleanType);
+
+                if (customType) {
+                    result += `${indent}<api:${name}>\n`;
+                    result += processMockComplex(customType, schema, indent + "   ");
+                    result += `${indent}</api:${name}>\n`;
+                } else {
+                    result += `${indent}<api:${name}>?</api:${name}>\n`;
+                }
+            }
+        } else {
+            result += `${indent}<api:${name}>?</api:${name}>\n`;
+        }
+        return result;
+    }
+
+    function processMockComplex(complexType, schema, indent) {
+        let result = "";
+        const wrapper = Array.from(complexType.children).find(n => ['sequence','all','choice'].includes(n.localName));
+        if (wrapper) {
+            Array.from(wrapper.children).filter(n => n.localName === 'element').forEach(child => {
+                result += buildMockNode(child, schema, indent);
+            });
+        }
+        return result;
+    }
+
+    window.copySoapMock = function() {
+        navigator.clipboard.writeText(editorSoap.getValue());
+        if(typeof showNotification === 'function') showNotification(t('wc_msg_copied', "Код скопирован!"));
+        else alert(t('wc_msg_copied', "Код скопирован!"));
+    }
+</script>
+</body>
+</html>

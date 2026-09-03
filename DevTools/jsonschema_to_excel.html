@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSON Schema to Excel</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+    <script src="utils.js"></script>
+    <style>
+        .editor-wrapper {
+            display: flex;
+            height: 70vh;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+        }
+        .line-numbers {
+            background: #f8f9fa;
+            color: #999;
+            padding: 10px 5px;
+            text-align: right;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 21px;
+            overflow: hidden;
+            border-right: 1px solid #ddd;
+            user-select: none;
+            min-width: 35px;
+        }
+        .line-numbers div { height: 21px; }
+        .error-line {
+            color: #c62828;
+            font-weight: bold;
+            background: #ffcdd2;
+            border-radius: 2px;
+            display: block;
+        }
+        textarea {
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 21px;
+            box-sizing: border-box;
+            border: none;
+            resize: none;
+            outline: none;
+            white-space: pre;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="main-content">
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <h2 style="margin: 0; border: none;">Экспорт JSON Schema в Excel</h2>
+    </div>
+
+    <p>Парсер читает блок <code>required</code>, определяет массивы <code>items</code> и переносит <code>description</code> прямо в таблицу.</p>
+
+    <button id="exportBtn" style="padding: 10px 15px; cursor: pointer; margin-bottom: 10px; background: #007bff; color: white; border: none; border-radius: 4px;">Скачать структуру в Excel</button>
+
+    <div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; border-radius: 4px; font-family: monospace;"></div>
+
+    <div class="editor-wrapper">
+        <div class="line-numbers" id="line-numbers"></div>
+        <textarea id="json-input" placeholder="Вставьте сюда вашу JSON Schema..."></textarea>
+    </div>
+</div>
+
+<script src="libs/jquery-3.6.0.min.js"></script>
+<script>
+    $(function () {
+        const errorPanel = $('#error-panel');
+        const textarea = $('#json-input');
+        const gutter = $('#line-numbers');
+
+        function updateLineNumbers(errorLine = -1) {
+            const linesCount = textarea.val().split('\n').length;
+            let html = '';
+            for (let i = 1; i <= linesCount; i++) {
+                html += `<div class="${i === errorLine ? 'error-line' : ''}">${i}</div>`;
+            }
+            gutter.html(html);
+        }
+
+        textarea.on('input', function() {
+            errorPanel.hide();
+            updateLineNumbers();
+        });
+
+        textarea.on('scroll', function() {
+            gutter.scrollTop(textarea.scrollTop());
+        });
+
+        // Загружаем твой рабочий пример со льготами
+        const exampleSchema = `{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Схема заявки на льготы",
+  "type": "object",
+  "properties": {
+    "Access-Token": {
+      "type": "string",
+      "description": "Токен авторизации"
+    },
+    "id": {
+      "type": "integer",
+      "description": "необязательный параметр, передается если заявка уже сохранена"
+    },
+    "benefits": {
+      "type": "array",
+      "description": "Массив данных, который содержит информацию по доступным льготам",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Тип льготы, которая доступна сотруднику НС РФ"
+          },
+          "data": {
+            "type": "object",
+            "description": "Объект данных с информацией по выбранной льготе",
+            "properties": {
+              "relative": { "type": "string", "description": "id родственника в текущий момент" },
+              "program": { "type": "string", "description": "Программа, выбранная сотрудником НС РФ" },
+              "number": { "type": "string", "description": "Номер телефона родственника" },
+              "address": { "type": "string", "description": "Адрес регистрации родственника" },
+              "benefitCode": { "type": "string", "description": "Код выбранной льготы" },
+              "amount": { "type": "integer", "description": "Стоимость льготы" }
+            },
+            "required": ["program", "benefitCode"]
+          }
+        },
+        "required": ["type", "data"]
+      }
+    },
+    "signatureAgreement": {
+      "type": "boolean",
+      "description": "Ознакомление с заявлением на льготы и подписание его электронной подписью"
+    },
+    "signatureAgreementDeduction": {
+      "type": "boolean",
+      "description": "Ознакомление с заявлением на списание и подписание его электронной подписью"
+    }
+  },
+  "required": [
+    "benefits",
+    "signatureAgreement",
+    "signatureAgreementDeduction"
+  ]
+}`;
+        textarea.val(exampleSchema);
+        updateLineNumbers();
+
+        $('#exportBtn').on('click', function() {
+            errorPanel.hide();
+            updateLineNumbers();
+
+            let jsonText = textarea.val();
+
+            // МАГИЯ: Меняем ВСЕ вордовские кавычки на одинарные ('), чтобы они не ломали структуру JSON!
+            jsonText = jsonText.replace(/[\u201C\u201D\u00AB\u00BB\u2018\u2019]/g, "'");
+
+            // Удаляем неразрывные пробелы
+            jsonText = jsonText.replace(/\u00A0/g, ' ');
+
+            // Автоматически убираем висячие запятые перед закрывающими скобками
+            jsonText = jsonText.replace(/,\s*([}\]])/g, '$1');
+
+            textarea.val(jsonText);
+
+            if (!jsonText.trim()) {
+                errorPanel.text("Пожалуйста, вставьте JSON Schema.").show();
+                return;
+            }
+
+            try {
+                JSON.parse(jsonText);
+            } catch (e) {
+                const match = e.message.match(/line\s+(\d+)/i);
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    updateLineNumbers(lineNum);
+                    textarea.scrollTop((lineNum - 1) * 21 - 60);
+                }
+                errorPanel.text("Ошибка синтаксиса JSON: " + e.message).show();
+                return;
+            }
+
+            var form = $('<form></form>').attr('action', '/api/jsonschema-to-excel').attr('method', 'post');
+            form.append($('<input></input>').attr('type', 'hidden').attr('name', 'json').attr('value', jsonText));
+            form.appendTo('body').submit().remove();
+        });
+    });
+</script>
+</body>
+</html>

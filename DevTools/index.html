@@ -1,178 +1,520 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>Инструменты для разработчика</title>
+    <title data-i18n="portal_title">Инструменты для разработчика</title>
     <meta charset="UTF-8">
+
+    <!-- Защита от эффекта "матрешки": предотвращает загрузку index.html внутри iframe -->
+    <script>
+        if (window.self !== window.top) {
+            window.top.location.href = window.location.href;
+        }
+    </script>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
     <style>
-        /* Базовые стили */
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-            background-color: #f4f7f9;
+        :root {
+            --sidebar-bg: #1e293b;
+            --sidebar-color: #cbd5e1;
+            --sidebar-border: #334155;
+            --sidebar-hover: #334155;
+            --sidebar-active-bg: #0f172a;
+            --sidebar-active-border: #38bdf8;
+            --sidebar-title: #94a3b8;
+            --frame-bg: #f4f7f9;
+        }
+
+        body.dark-theme {
+            --sidebar-bg: #0f172a;
+            --sidebar-color: #f8fafc;
+            --sidebar-border: #1e293b;
+            --sidebar-hover: #1e293b;
+            --sidebar-active-bg: #1e293b;
+            --sidebar-active-border: #38bdf8;
+            --sidebar-title: #64748b;
+            --frame-bg: #0f172a;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+            background-color: var(--frame-bg) !important;
+            transition: background-color 0.3s;
         }
 
         /* --- САЙДБАР (МЕНЮ) --- */
         #sidebar {
-            width: 260px; /* Базовая ширина */
-            min-width: 260px;
-            background: #2c3e50;
-            color: #ecf0f1;
-            display: flex;
-            flex-direction: column;
-            /* Анимация скрытия */
-            transition: margin-left 0.3s ease-in-out;
+            width: 260px !important;
+            min-width: 260px !important;
+            height: 100vh !important;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-color);
+            display: flex !important;
+            flex-direction: column !important;
+            transition: margin-left 0.3s ease-in-out, background 0.3s;
             position: relative;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             z-index: 10;
+            flex-shrink: 0 !important;
         }
 
-        /* Состояние: Меню скрыто */
         #sidebar.collapsed {
-            margin-left: -260px; /* Прячем влево за границу экрана */
+            margin-left: -260px !important;
         }
 
         #sidebar h1 {
-            font-size: 1.1em;
+            font-size: 15px;
+            font-weight: 800;
             text-align: center;
             margin: 0;
             padding: 20px 0;
             color: #ffffff;
-            border-bottom: 1px solid #34495e;
-            /* Чтобы текст не скакал при анимации, хотя здесь марджин решает */
+            border-bottom: 1px solid var(--sidebar-border);
             white-space: nowrap;
         }
 
         #sidebar-content {
             flex: 1;
             overflow-y: auto;
-            padding-top: 10px;
+            padding: 10px 0;
         }
 
-        #sidebar ul { list-style: none; padding: 0; margin: 0; }
-        #sidebar ul li a {
+        #sidebar-content::-webkit-scrollbar { width: 6px; }
+        #sidebar-content::-webkit-scrollbar-track { background: transparent; }
+        #sidebar-content::-webkit-scrollbar-thumb { background: var(--sidebar-border); border-radius: 3px; }
+
+        .menu-group { margin-bottom: 5px; }
+
+        .menu-title {
+            padding: 12px 20px;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--sidebar-title);
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: color 0.2s;
+            user-select: none;
+        }
+        .menu-title:hover { color: #fff; }
+        .menu-title::after { content: '▼'; font-size: 10px; transition: transform 0.3s; }
+        .menu-group.closed .menu-title::after { transform: rotate(-90deg); }
+
+        .menu-items {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .menu-group.closed .menu-items { max-height: 0 !important; }
+
+        .menu-items li a {
             display: flex;
             align-items: center;
-            padding: 12px 20px;
-            color: #bdc3c7;
+            padding: 10px 20px 10px 30px;
+            color: #cbd5e1;
             text-decoration: none;
             border-left: 4px solid transparent;
             transition: background 0.2s, color 0.2s;
-            font-size: 14px;
+            font-size: 13px;
         }
-        #sidebar ul li a:hover { background: #34495e; color: white; }
-        #sidebar ul li a.active {
-            background: #212f3d;
-            color: #ffffff;
-            border-left-color: #1abc9c; /* Зеленая полоска активного элемента */
+        .menu-items li a:hover { background: var(--sidebar-hover); color: white; }
+        .menu-items li a.active {
+            background: var(--sidebar-active-bg);
+            color: #38bdf8;
+            border-left-color: var(--sidebar-active-border);
+            font-weight: 600;
         }
 
-        /* Разделители */
-        hr { border: 0; border-top: 1px solid #3e5367; margin: 10px 20px; }
+        .menu-icon {
+            font-size: 15px;
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        /* --- ПАНЕЛЬ АВТОРИЗАЦИИ (ФУТЕР МЕНЮ) --- */
+        #sidebar-footer {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.15);
+            border-top: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        #user-info-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #fff;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #current-role-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #475569;
+            color: #fff;
+            text-transform: uppercase;
+        }
+        #current-role-badge.admin { background: #ef4444; }
+
+        .auth-btn {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--sidebar-border);
+            background: transparent;
+            color: var(--sidebar-title);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .auth-btn:hover { background: var(--sidebar-hover); color: #fff; }
+        .auth-btn.logout:hover { background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
 
         /* --- КНОПКА ТОГГЛЕР --- */
         #toggle-btn {
             position: absolute;
-            /* Опускаем кнопку ниже (было 15px).
-               Высота шапки на страницах примерно 50-60px,
-               поэтому 65px гарантированно выведет кнопку из зоны конфликта */
             top: 65px;
-
-            right: -32px; /* Чуть уменьшим вылет вправо, чтобы была компактнее */
-            width: 32px;  /* Уменьшим размер с 40 до 32 */
+            right: -32px;
+            width: 32px;
             height: 32px;
-
-            background: #2c3e50;
-            border: 1px solid #34495e; /* Добавим границу для четкости */
-            border-left: none;         /* Уберем границу слева, чтобы сливалось с меню */
+            background: var(--sidebar-bg);
+            border: 1px solid var(--sidebar-border);
+            border-left: none;
             border-radius: 0 6px 6px 0;
             cursor: pointer;
-            color: #ecf0f1; /* Чуть мягче белый */
-            font-size: 18px; /* Размер иконки под кнопку */
-
+            color: #ecf0f1;
+            font-size: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 3px 2px 5px rgba(0,0,0,0.15);
-            z-index: 1000; /* Поверх всего */
+            z-index: 1000;
             outline: none;
-            pointer-events: auto;
             transition: background 0.2s;
         }
+        #toggle-btn:hover { background: var(--sidebar-hover); color: #fff; }
 
-        #toggle-btn:hover {
-            background: #34495e;
-            color: #fff;
-        }
-
-        /* --- КОНТЕНТ --- */
+        /* --- КОНТЕНТ (IFRAME) --- */
         #content-frame {
-            flex-grow: 1;
-            border: none;
-            height: 100%;
-            background: #fff;
-            display: block;
+            flex-grow: 1 !important;
+            border: none !important;
+            height: 100vh !important;
+            width: calc(100vw - 260px) !important;
+            background: var(--frame-bg) !important;
+            display: block !important;
+            transition: width 0.3s ease-in-out;
+            margin: 0 !important;
+            padding: 0 !important;
         }
-    </style>
 
-    <!-- ЗАЩИТА ОТ ВЛОЖЕННОСТИ (Framebuster) -->
-    <script>
-        if (window.self !== window.top) {
-            window.top.location.href = window.self.location.href;
+        #sidebar.collapsed ~ #content-frame {
+            width: 100vw !important;
         }
-    </script>
+
+        /* --- МОДАЛКА ВХОДА --- */
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(3px); }
+        .modal-content { background: #ffffff; color: #333333; padding: 30px; border-radius: 8px; width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; }
+        body.dark-theme .modal-content { background: #1e293b; color: #f8fafc; border: 1px solid #334155; }
+        .modal-title { margin-top: 0; font-size: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+        body.dark-theme .modal-title { border-color: #334155; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #64748b; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; font-size: 14px; outline: none; }
+        body.dark-theme .form-group input { background: #0f172a; border-color: #475569; color: #fff; }
+        .form-group input:focus { border-color: #3b82f6; }
+
+        .btn-login { width: 100%; background: #3b82f6; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 14px; }
+        .btn-login:hover { background: #2563eb; }
+        .close-modal { position: absolute; top: 20px; right: 20px; cursor: pointer; font-size: 20px; color: #94a3b8; }
+        .close-modal:hover { color: #ef4444; }
+
+        #login-error { color: #ef4444; font-size: 12px; font-weight: bold; margin-bottom: 10px; text-align: center; display: none; }
+    </style>
 </head>
 <body>
 
-<!-- Сайдбар -->
 <div id="sidebar">
-    <!-- Кнопка "гамбургер", прикрепленная к сайдбару -->
     <button id="toggle-btn" onclick="toggleSidebar()">☰</button>
-
-    <h1>Инструменты</h1>
+    <h1 data-i18n="portal_title">Инструменты</h1>
 
     <div id="sidebar-content">
-        <ul>
-            <li><a href="task_tracker.html" target="content">Ведение задач</a></li>
-            <li><a href="labels.html" target="content">Метки</a></li>
-            <hr>
-            <li><a href="editor.html" target="content">Редактор XML/JSON</a></li>
-            <li><a href="xsd_constructor.html" target="content">XSD Конструктор</a></li>
-            <li><a href="xsd-to-wsdl.html" target="content">xsdToWsdl</a></li>
-            <hr>
-            <li><a href="xml_to_json.html" target="content">XML в JSON</a></li>
-            <li><a href="json_to_xml.html" target="content">JSON в XML</a></li>
-            <hr>
-            <li><a href="calls.html" target="content">Вызовы</a></li>
-            <li><a href="calls_history.html" target="content">История вызовов</a></li>
-            <hr>
-            <li><a href="schema_generator.html" target="content">JsonSchemaToJson</a></li>
-            <li><a href="spec_generator.html" target="content">Генератор спецификации</a></li>
-            <li><a href="excel_exporter.html" target="content">JsonToExcel</a></li>
-            <li><a href="xml_exporter.html" target="content">XmlToExcel</a></li>
-            <li><a href="example_generator.html" target="content">Пример JSON из схемы</a></li>
-            <hr>
-            <li><a href="dict_tables.html" target="content">🗃️ Справочник таблиц</a></li>
-            <li><a href="dict_templates.html" target="content">📑 Шаблоны ТЗ</a></li>
+        <!-- Главный Дашборд -->
+        <ul class="menu-items" style="margin-bottom: 10px;">
+            <li data-module="dashboard">
+                <a href="dashboard.html" target="content">
+                    <span class="menu-icon">🏠</span><span data-i18n="menu_dashboard">Главный Дашборд</span>
+                </a>
+            </li>
         </ul>
+
+        <!-- ВЫЗОВЫ И ESB -->
+        <div class="menu-group closed">
+            <div class="menu-title">
+                <span><span class="menu-icon">🚀</span><span data-i18n="group_calls_esb">Вызовы и ESB</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="calls">
+                    <a href="calls.html" target="content"><span class="menu-icon">⚡</span><span data-i18n="menu_api_calls">Вызовы API</span></a>
+                </li>
+                <li data-module="calls">
+                    <a href="calls_history.html" target="content"><span class="menu-icon">📜</span><span data-i18n="menu_calls_history">История вызовов</span></a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- ЗАДАЧИ И ТЗ -->
+        <div class="menu-group closed">
+            <div class="menu-title">
+                <span><span class="menu-icon">📑</span><span data-i18n="group_tasks_spec">Задачи и ТЗ</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="tasks">
+                    <a href="task_tracker.html" target="content"><span class="menu-icon">📋</span><span data-i18n="menu_task_tracker">Ведение задач</span></a>
+                </li>
+                <li data-module="mapper">
+                    <a href="data_catalog.html" target="content"><span class="menu-icon">🔍</span><span data-i18n="menu_data_catalog">Data Catalog (Поиск полей)</span></a>
+                </li>
+                <li data-module="mapper">
+                    <a href="mapper.html" target="content"><span class="menu-icon">🔀</span><span data-i18n="menu_mapper">Data Mapper</span></a>
+                </li>
+                <li data-module="tasks">
+                    <a href="labels.html" target="content"><span class="menu-icon">📚</span><span data-i18n="menu_labels">База Знаний (Метки)</span></a>
+                </li>
+                <li data-module="tasks">
+                    <a href="spec_generator.html" target="content"><span class="menu-icon">📝</span><span data-i18n="menu_spec_generator">Генератор спецификации</span></a>
+                </li>
+                <li data-module="tasks">
+                    <a href="dict_templates.html" target="content"><span class="menu-icon">📄</span><span data-i18n="menu_dict_templates">Шаблоны ТЗ</span></a>
+                </li>
+                <li data-module="tasks">
+                    <a href="dict_tables.html" target="content"><span class="menu-icon">🏢</span><span data-i18n="menu_dict_tables">Справочник систем</span></a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- КОНСТРУКТОРЫ -->
+        <div class="menu-group closed">
+            <div class="menu-title">
+                <span><span class="menu-icon">🛠</span><span data-i18n="group_constructors">Конструкторы (WSDL/XSD)</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="constructors">
+                    <a href="wsdl_constructor.html" target="content"><span class="menu-icon">🧩</span><span data-i18n="menu_wsdl_constructor">WSDL Конструктор</span></a>
+                </li>
+                <li data-module="constructors">
+                    <a href="xsd_constructor.html" target="content"><span class="menu-icon">📦</span><span data-i18n="menu_xsd_constructor">XSD Конструктор</span></a>
+                </li>
+                <li data-module="constructors">
+                    <a href="xsd_constructor2.html" target="content"><span class="menu-icon">🏗️</span><span data-i18n="menu_xsd_constructor2">XSD Конструктор 2(dev)</span></a>
+                </li>
+                <li data-module="constructors">
+                    <a href="json_schema_builder.html" target="content"><span class="menu-icon">🛠️</span><span data-i18n="menu_json_schema_builder">JSON Schema Конструктор</span></a>
+                </li>
+                <li data-module="constructors">
+                    <a href="json_schema_builder2.html" target="content"><span class="menu-icon">🚧</span><span data-i18n="menu_json_schema_builder2">JSON Schema Конструктор 2(dev)</span></a>
+                </li>
+                <li data-module="constructors">
+                    <a href="mermaid_editor.html" target="content"><span class="menu-icon">📐</span><span data-i18n="menu_mermaid_editor">Mermaid Sequence</span></a>
+                </li>
+                <li data-module="constructors">
+                    <a href="db_reverse.html" target="content"><span class="menu-icon">🗄️</span><span data-i18n="menu_db_reverse">Reverse Engineering БД</span></a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- КОНВЕРТЕРЫ -->
+        <div class="menu-group closed">
+            <div class="menu-title">
+                <span><span class="menu-icon">🔄</span><span data-i18n="group_converters">Конвертеры</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="converters">
+                    <a href="swagger_generator.html" target="content"><span class="menu-icon">🌐</span><span data-i18n="menu_swagger_generator">Swagger / OpenAPI Конструктор</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="xml_to_json.html" target="content"><span class="menu-icon">🔁</span><span data-i18n="menu_xml_to_json">XML ➔ JSON</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="json_to_xml.html" target="content"><span class="menu-icon">🔂</span><span data-i18n="menu_json_to_xml">JSON ➔ XML</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="xsd-to-wsdl.html" target="content"><span class="menu-icon">🔄</span><span data-i18n="menu_xsd_to_wsdl">XSD ➔ WSDL</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="xsd_to_json.html" target="content"><span class="menu-icon">🔃</span><span data-i18n="menu_xsd_to_json">XSD ➔ JSON</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="schema_generator.html" target="content"><span class="menu-icon">✨</span><span data-i18n="menu_schema_generator">JSON ➔ JSON Schema</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="example_generator.html" target="content"><span class="menu-icon">🎭</span><span data-i18n="menu_example_generator">JSON Schema ➔ Мок-данные</span></a>
+                </li>
+                <li data-module="converters">
+                    <a href="mock_generator.html" target="content"><span class="menu-icon">💻</span><span data-i18n="menu_mock_generator">cURL ➔ JSON ➔ WireMock</span></a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- ЭКСПОРТ В EXCEL -->
+        <div class="menu-group closed">
+            <div class="menu-title">
+                <span><span class="menu-icon">📊</span><span data-i18n="group_excel_export">Экспорт в Excel</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="excel">
+                    <a href="json_to_excel.html" target="content"><span class="menu-icon">📗</span><span data-i18n="menu_json_to_excel">JSON ➔ Excel</span></a>
+                </li>
+                <li data-module="excel">
+                    <a href="jsonschema_to_excel.html" target="content"><span class="menu-icon">📘</span><span data-i18n="menu_jsonschema_to_excel">JSON Schema ➔ Excel</span></a>
+                </li>
+                <li data-module="excel">
+                    <a href="xml_exporter.html" target="content"><span class="menu-icon">📙</span><span data-i18n="menu_xml_exporter">XML ➔ Excel</span></a>
+                </li>
+                <li data-module="excel">
+                    <a href="wsdl_to_excel.html" target="content"><span class="menu-icon">📓</span><span data-i18n="menu_wsdl_to_excel">WSDL/XSD ➔ Excel</span></a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- ВАЛИДАЦИЯ И УТИЛИТЫ -->
+        <div class="menu-group closed">
+            <div class="menu-title">
+                <span><span class="menu-icon">✅</span><span data-i18n="group_validation_utils">Валидация и Утилиты</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="validation">
+                    <a href="editor.html" target="content"><span class="menu-icon">✒️</span><span data-i18n="menu_editor">Редактор XML/JSON</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="json_diff.html" target="content"><span class="menu-icon">⚖️</span><span data-i18n="menu_json_diff">Сравнение схем (API Diff)</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="xpath_tester.html" target="content"><span class="menu-icon">🎯</span><span data-i18n="menu_xpath_tester">Тестер XPath / JSONPath</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="json_validator.html" target="content"><span class="menu-icon">✅</span><span data-i18n="menu_json_validator">JSON Schema Validator</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="json_analyzer.html" target="content"><span class="menu-icon">🔎</span><span data-i18n="menu_json_analyzer">JSON Analyzer</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="wsdl_validator.html" target="content"><span class="menu-icon">🛡️</span><span data-i18n="menu_wsdl_validator">WSDL Validator</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="utils_page.html" target="content"><span class="menu-icon">🧰</span><span data-i18n="menu_utils_page">Утилиты (Base64, JWT)</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="groovy_cheatsheet.html" target="content"><span class="menu-icon">📜</span><span data-i18n="menu_groovy_cheatsheet">Шпаргалка Groovy</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="schema_analyzer.html" target="content"><span class="menu-icon">⛏️</span><span data-i18n="menu_schema_analyzer">Экстрактор JSON Schema</span></a>
+                </li>
+                <li data-module="validation">
+                    <a href="symbols.html" target="content"><span class="menu-icon">👁️</span><span data-i18n="menu_symbols">Текстовый сканер</span></a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- СИСТЕМА (ТОЛЬКО ДЛЯ АДМИНА) -->
+        <div class="menu-group closed" data-module="system">
+            <div class="menu-title" style="color: #ef4444;">
+                <span><span class="menu-icon">⚙️</span><span data-i18n="group_system">Система</span></span>
+            </div>
+            <ul class="menu-items">
+                <li data-module="system">
+                    <a href="users.html" target="content"><span class="menu-icon">👥</span><span data-i18n="menu_users">Пользователи и Роли</span></a>
+                </li>
+                <li data-module="system">
+                    <a href="locale.html" target="content"><span class="menu-icon">🌍</span><span data-i18n="menu_locale">Глобальная локализация</span></a>
+                </li>
+                <li data-module="system">
+                    <a href="admin.html" target="content"><span class="menu-icon">💾</span><span data-i18n="menu_admin">Бэкапы и Админка</span></a>
+                </li>
+                <li data-module="system">
+                    <a href="settings.html" target="content"><span class="menu-icon">🎨</span><span data-i18n="menu_settings">Настройки интерфейса</span></a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ФУТЕР МЕНЮ: АВТОРИЗАЦИЯ -->
+    <div id="sidebar-footer">
+        <div id="user-info-display">
+            <span style="display:flex; align-items:center; gap:5px; overflow:hidden;">
+                <span style="font-size:16px;">👤</span>
+                <span id="current-username" style="overflow:hidden; text-overflow:ellipsis;">Гость</span>
+            </span>
+            <span id="current-role-badge"></span>
+        </div>
+        <button id="auth-btn" class="auth-btn" onclick="toggleAuth()">Войти в систему</button>
     </div>
 </div>
 
-<!-- Основной контент (Iframe) -->
-<iframe id="content-frame" name="content" src="task_tracker.html"></iframe>
+<iframe id="content-frame" name="content" src="dashboard.html"></iframe>
+
+<!-- МОДАЛКА ВХОДА -->
+<div id="login-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="$('#login-modal').fadeOut(150)">&times;</span>
+        <h2 class="modal-title">Вход в систему</h2>
+
+        <div id="login-error">Неверный логин или пароль</div>
+
+        <div class="form-group">
+            <label>Логин / Username</label>
+            <input type="text" id="login-username" placeholder="Например: admin">
+        </div>
+        <div class="form-group">
+            <label>Пароль</label>
+            <input type="password" id="login-password" placeholder="Введите пароль" onkeyup="if(event.key==='Enter') executeLogin()">
+        </div>
+
+        <button class="btn-login" onclick="executeLogin()">Авторизоваться</button>
+    </div>
+</div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const links = document.querySelectorAll('#sidebar ul li a');
-        const frame = document.getElementById('content-frame');
-        const sidebar = document.getElementById('sidebar');
+    let currentUser = null;
 
-        // === ЛОГИКА ПОДСВЕТКИ АКТИВНОЙ ССЫЛКИ ===
+    document.addEventListener("DOMContentLoaded", function() {
+        initAuthSystem();
+
+        const links = document.querySelectorAll('.menu-items li a');
+        const frame = document.getElementById('content-frame');
+        const groups = document.querySelectorAll('.menu-group');
+
         function setActiveLink(targetHref) {
             links.forEach(l => l.classList.remove('active'));
-            // Сравниваем href без учета слэша в начале, если есть
+
             const activeLink = Array.from(links).find(l => {
                 const linkHref = l.getAttribute('href');
                 return linkHref === targetHref || linkHref === targetHref.substring(1) || (targetHref.includes(linkHref) && linkHref !== '#');
@@ -180,69 +522,241 @@
 
             if (activeLink) {
                 activeLink.classList.add('active');
+                const parentGroup = activeLink.closest('.menu-group');
+                if (parentGroup) {
+                    parentGroup.classList.remove('closed');
+                    updateGroupHeights();
+                }
             }
         }
 
-        // Клик по меню
         links.forEach(link => {
             link.addEventListener('click', function(e) {
                 setActiveLink(e.currentTarget.getAttribute('href'));
-                // На мобильных устройствах можно скрывать меню после клика (опционально)
-                // if (window.innerWidth < 768) sidebar.classList.add('collapsed');
             });
         });
 
-        // Отслеживание загрузки фрейма для актуализации подсветки
-        // (Полезно, когда внутри фрейма переходим по ссылке "Назад")
+        document.querySelectorAll('.menu-title').forEach(title => {
+            title.addEventListener('click', function() {
+                const group = this.parentElement;
+                group.classList.toggle('closed');
+                updateGroupHeights();
+            });
+        });
+
         frame.addEventListener('load', () => {
             try {
-                const path = frame.contentWindow.location.pathname.split('/').pop(); // Получаем имя файла
-                const search = frame.contentWindow.location.search; // Если нужно учитывать параметры
-
-                // Небольшой хак: если открыта страница, которой нет в меню (детали), подсвечиваем родительскую
+                const path = frame.contentWindow.location.pathname.split('/').pop();
                 if(path.includes('flow-details') || path.includes('service-org')) {
                     setActiveLink('task_tracker.html');
                 } else {
                     setActiveLink(path);
                 }
+
+                // Передача темы и вызов локализации внутри iframe
+                const isDark = localStorage.getItem('global_dark_theme') === 'true';
+                if (frame.contentWindow && typeof frame.contentWindow.applyTheme === 'function') {
+                    frame.contentWindow.applyTheme(isDark);
+                }
+
+                if (frame.contentWindow && typeof frame.contentWindow.applyLanguage === 'function') {
+                    const lang = localStorage.getItem('app_lang') || 'ru';
+                    frame.contentWindow.applyLanguage(lang);
+                }
             } catch (e) {
-                // Cross-origin protection может мешать, если запускать не на localhost
-                console.log('Frame nav update skipped');
+                console.log('Frame nav update skipped (CORS/Cross-origin)');
             }
         });
 
-        // Первичная инициализация
+        setTimeout(updateGroupHeights, 100);
         setActiveLink(frame.getAttribute('src'));
+
+        // Инициализация темы и перевода кнопки при загрузке
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if (isDark) document.body.classList.add('dark-theme');
     });
 
-    // === ЛОГИКА СКРЫТИЯ МЕНЮ ===
-    function toggleSidebar() {
-        const sb = document.getElementById('sidebar');
-        const btn = document.getElementById('toggle-btn');
-
-        sb.classList.toggle('collapsed');
-
-        // Сохранение состояния в localStorage, чтобы помнить выбор при F5
-        const isClosed = sb.classList.contains('collapsed');
-        localStorage.setItem('sidebar_collapsed', isClosed);
-
-        // Небольшая косметика для кнопки
-        // btn.innerHTML = isClosed ? '➔' : '☰';
+    // === СИСТЕМА АВТОРИЗАЦИИ И ДОСТУПА ===
+    function initAuthSystem() {
+        const stored = localStorage.getItem('esb_user');
+        if (stored) {
+            try {
+                currentUser = JSON.parse(stored);
+                applyUserUi();
+            } catch(e) {
+                logout();
+            }
+        } else {
+            applyUserUi();
+        }
     }
 
-    // Восстановление состояния при загрузке
+    function toggleAuth() {
+        if (currentUser) {
+            logout();
+        } else {
+            $('#login-error').hide();
+            $('#login-username').val('');
+            $('#login-password').val('');
+            $('#login-modal').css('display', 'flex').hide().fadeIn(200);
+            setTimeout(() => $('#login-username').focus(), 100);
+        }
+    }
+
+    function executeLogin() {
+        const u = $('#login-username').val().trim();
+        const p = $('#login-password').val().trim();
+        if (!u || !p) {
+            $('#login-error').text('Введите логин и пароль').show();
+            return;
+        }
+
+        $.ajax({
+            url: '/api/login',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ login: u, password: p }),
+            success: function(user) {
+                localStorage.setItem('esb_user', JSON.stringify(user));
+                currentUser = user;
+                $('#login-modal').fadeOut(150);
+                applyUserUi();
+
+                // Перезагрузка фрейма, чтобы применились новые права для загрузки данных
+                const frame = document.getElementById('content-frame');
+                frame.contentWindow.location.reload();
+            },
+            error: function() {
+                $('#login-error').text('Неверный логин или пароль').show();
+            }
+        });
+    }
+
+    function logout() {
+        localStorage.removeItem('esb_user');
+        currentUser = null;
+        applyUserUi();
+
+        const frame = document.getElementById('content-frame');
+        frame.contentWindow.location.reload();
+    }
+
+    function applyUserUi() {
+        if (currentUser) {
+            // Обновляем плашку профиля
+            $('#current-username').text(currentUser.name || currentUser.username || 'User');
+            const badge = $('#current-role-badge');
+
+            if (currentUser.role === 'admin') {
+                badge.text('ADMIN').addClass('admin').show();
+            } else {
+                badge.text('USER').removeClass('admin').show();
+            }
+
+            $('#auth-btn').text(window.t ? window.t('btn_logout', 'Выйти из системы') : 'Выйти из системы').addClass('logout');
+        } else {
+            // Если гость
+            $('#current-username').text(window.t ? window.t('lbl_guest', 'Гость') : 'Гость');
+            $('#current-role-badge').hide();
+            $('#auth-btn').text(window.t ? window.t('btn_login', 'Войти в систему') : 'Войти в систему').removeClass('logout');
+        }
+
+        applyRoleAccess();
+    }
+
+    // СКРЫТИЕ МЕНЮ НА ОСНОВЕ РОЛЕЙ (RBAC)
+    function applyRoleAccess() {
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        const userGroups = (currentUser && Array.isArray(currentUser.groups)) ? currentUser.groups : [];
+
+        // 1. Проверяем индивидуальные ссылки (li)
+        $('.menu-items li').each(function() {
+            const mod = $(this).data('module');
+            if (!mod) {
+                $(this).show();
+                return;
+            }
+
+            if (isAdmin || userGroups.includes(mod)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+
+        // 2. Проверяем целые группы меню
+        $('.menu-group').each(function() {
+            const mod = $(this).data('module');
+
+            // Если на самой группе висит жесткий лок (например data-module="system")
+            if (mod) {
+                if (isAdmin || userGroups.includes(mod)) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                    return; // Дальше не проверяем детей
+                }
+            }
+
+            // Если в группе не осталось ни одной видимой ссылки - скрываем саму группу (заголовок)
+            let hasVisibleItems = false;
+            $(this).find('li').each(function() {
+                if ($(this).css('display') !== 'none') {
+                    hasVisibleItems = true;
+                }
+            });
+
+            if (hasVisibleItems) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+
+        updateGroupHeights();
+    }
+
+    // === УТИЛИТЫ И ОФОРМЛЕНИЕ ===
+    function updateGroupHeights() {
+        document.querySelectorAll('.menu-group').forEach(group => {
+            const ul = group.querySelector('.menu-items');
+            if (!group.classList.contains('closed') && group.style.display !== 'none') {
+                ul.style.maxHeight = ul.scrollHeight + "px";
+            } else {
+                ul.style.maxHeight = "0px";
+            }
+        });
+    }
+
+    function toggleSidebar() {
+        const sb = document.getElementById('sidebar');
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sidebar_collapsed', sb.classList.contains('collapsed'));
+    }
+
     (function initSidebarState() {
-        const isClosed = localStorage.getItem('sidebar_collapsed') === 'true';
-        if (isClosed) {
-            // Без анимации при загрузке
+        if (localStorage.getItem('sidebar_collapsed') === 'true') {
             const sb = document.getElementById('sidebar');
             sb.style.transition = 'none';
             sb.classList.add('collapsed');
-            // Возвращаем анимацию через тик
             setTimeout(() => sb.style.transition = '', 100);
         }
     })();
-</script>
 
+    function toggleGlobalTheme() {
+        const isCurrentlyDark = document.body.classList.contains('dark-theme');
+        const newThemeDark = !isCurrentlyDark;
+
+        localStorage.setItem('global_dark_theme', newThemeDark.toString());
+
+        if (typeof applyTheme === 'function') applyTheme(newThemeDark);
+
+        const frame = document.getElementById('content-frame');
+        if (frame && frame.contentWindow && typeof frame.contentWindow.applyTheme === 'function') {
+            frame.contentWindow.applyTheme(newThemeDark);
+        }
+    }
+</script>
 </body>
 </html>

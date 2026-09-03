@@ -2,637 +2,1068 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Ведение задач (DB Mode)</title>
+    <title data-i18n="tt_page_title">Ведение задач</title>
 
-    <!-- Библиотека jQuery (обязательно локально) -->
     <script src="libs/jquery-3.6.0.min.js"></script>
-
-    <!-- CodeMirror (Редактор кода) -->
-    <!-- Основные стили и скрипты -->
-    <link rel="stylesheet" href="libs/codemirror.min.css">
-    <link rel="stylesheet" href="libs/dracula.min.css">
-    <!-- Стили для светлой темы (если есть файл) или фолбэк -->
+    <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
 
-    <script src="libs/codemirror.min.js"></script>
-    <script src="libs/javascript.min.js"></script>
-    <script src="libs/xml.min.js"></script>
-    <script src="libs/clike.min.js"></script>
-    <!-- Если используете SQL, убедитесь что sql.min.js лежит в папке libs -->
-    <script src="libs/sql.min.js"></script>
-
     <style>
-        /* === ЛОКАЛЬНЫЕ СТИЛИ ДЛЯ ЭТОЙ СТРАНИЦЫ === */
-
-        /* Фикс высоты редактора кода */
-        .CodeMirror {
-            border: 1px solid #d1d5db;
-            border-top: none;
-            border-radius: 0 0 4px 4px;
-            height: 180px !important;
-            font-size: 13px;
-            font-family: 'Consolas', monospace;
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --table-hover: #f1f5f9;
+            --table-header: #f8fafc;
         }
 
-        .editor-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f8f9fa;
-            border: 1px solid #d1d5db;
-            padding: 5px 10px;
-            border-radius: 4px 4px 0 0;
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --table-hover: #334155;
+            --table-header: #0b1120;
         }
 
-        /* Выпадающее меню действий в таблице */
-        .task-table td { overflow: visible; position: relative; }
+        html, body { margin: 0 !important; padding: 0 !important; height: 100vh !important; overflow: hidden !important; }
 
-        .task-actions { position: relative; display: inline-block; }
-
-        .btn-menu {
-            background: #fff;
-            border: 1px solid #d1d5db;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            color: #555;
-            font-size: 12px;
-        }
-        .btn-menu:hover { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
-
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 100%;
-            margin-top: 4px;
-            background-color: #fff;
-            min-width: 240px;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-            z-index: 100;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
-            text-align: left;
+        body {
+            background: var(--bg-main) !important;
+            padding: 15px 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
         }
 
-        .task-actions:hover .dropdown-content { display: block; }
+        /* Шапка */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); }
 
-        /* "Мостик" для курсора, чтобы меню не пропадало */
-        .dropdown-content::before {
-            content: ''; position: absolute; top: -10px; left: 0; width: 100%; height: 10px; background: transparent;
+        /* Панель инструментов (Action Bar) */
+        .toolbar {
+            display: flex; flex-direction: column; gap: 10px;
+            background: var(--bg-card); padding: 12px 20px; border-radius: 8px;
+            border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 15px; flex-shrink: 0;
         }
 
-        .dropdown-content a {
-            display: block;
-            padding: 10px 16px;
-            color: #374151;
-            text-decoration: none;
-            border-bottom: 1px solid #f3f4f6;
-            font-size: 13px;
-            transition: background 0.2s;
+        .toolbar-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .toolbar-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        .toolbar input, .toolbar select {
+            padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px;
+            font-size: 13px; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.2s;
         }
-        .dropdown-content a:last-child { border-bottom: none; }
-        .dropdown-content a:hover { background-color: #eff6ff; color: #2563eb; }
+        .toolbar input:focus, .toolbar select:focus { border-color: #3b82f6; }
+        .toolbar input[type="text"] { width: 250px; }
 
-        .danger-action { color: #dc2626 !important; }
-        .danger-action:hover { background-color: #fef2f2 !important; }
+        /* Кнопки */
+        .btn { padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.success { background: #10b981; color: white; }
+        .btn.success:hover { background: #059669; }
+        .btn.warning { background: #f59e0b; color: white; }
+        .btn.warning:hover { background: #d97706; }
+        .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .btn.danger:hover { background: #ef4444; color: white; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); border-color: #cbd5e1;}
+        .btn.action-spec { background: rgba(139, 92, 246, 0.1); color: #7c3aed; border: 1px solid #ddd6fe; }
+        .btn.action-spec:hover { background: #8b5cf6; color: white; }
+        .btn.action-flow { background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid #bfdbfe; }
+        .btn.action-flow:hover { background: #3b82f6; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
 
-        /* Статусные бейджи */
-        .badge-stage {
-            font-size: 11px; padding: 2px 6px; border-radius: 4px;
-            background: #f3f4f6; color: #64748b; border: 1px solid #e2e8f0; font-weight: 600;
+        /* Кнопки внутри строк таблицы */
+        .btn-action {
+            font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);
+            background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: 0.2s;
+            display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 600;
         }
+        .btn-action:hover { filter: brightness(0.95); border-color: #3b82f6; color: #3b82f6; }
+        .btn-action.del:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.05); }
 
-        .badge { display:inline-block; padding:3px 8px; border-radius:99px; font-size:11px; font-weight:700; border:1px solid transparent; }
-        .b-blue { background:#dbeafe; color:#1e40af; border-color:#bfdbfe; }
-        .b-green { background:#dcfce7; color:#166534; border-color:#86efac; }
-        .b-gray { background:#f3f4f6; color:#4b5563; border-color:#e5e7eb; }
-        .b-red { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
-        .b-test { background:#fef9c3; color:#854d0e; border-color:#fde047; } /* Yellow */
+        /* Контейнер для смены видов (Таблица <-> Форма) */
+        .view-container { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+
+        /* ВИД 1: ТАБЛИЦА ЗАДАЧ */
+        #view-table { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .table-scroll { flex: 1; overflow: auto; }
+
+        table.styled-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.styled-table thead { position: sticky; top: 0; z-index: 10; background: var(--table-header); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        table.styled-table th { padding: 10px 15px; text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; user-select: none; }
+
+        /* Сортировка */
+        table.styled-table th.sortable { cursor: pointer; transition: background 0.2s; color: var(--text-main); font-weight: 700; }
+        table.styled-table th.sortable:hover { background: var(--border-color); }
+        .sort-ind { font-size: 10px; margin-left: 5px; color: #94a3b8; }
+
+        /* Строка фильтров столбцов */
+        table.styled-table tr.filter-row th { padding: 6px 10px; background: var(--bg-main); border-bottom: 2px solid var(--border-color); }
+        .col-filter-input { width: 100%; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box; outline: none; }
+        .col-filter-input:focus { border-color: #3b82f6; }
+
+        table.styled-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: top; }
+        table.styled-table tr:hover td { background: var(--table-hover); }
+
+        .row-checkbox { width: 16px; height: 16px; cursor: pointer; }
+
+        /* ВИД 2: КАРТОЧКА ЗАДАЧИ (ФОРМА) */
+        #view-form { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: none; }
+
+        .form-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+        .form-header h3 { margin: 0; color: var(--text-main); font-size: 18px; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: var(--text-muted); }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box; outline: none; transition: 0.2s; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #3b82f6; }
+        .form-group textarea { resize: vertical; min-height: 80px; font-family: 'Consolas', monospace; }
 
         /* Модальные окна */
-        .modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 10000;
-            align-items: center; justify-content: center;
-        }
-        .modal-content {
-            background: white; padding: 25px; border-radius: 8px; width: 600px; max-width: 90%;
-            box-shadow: 0 20px 25px rgba(0,0,0,0.2); position: relative; margin: 10% auto;
-        }
-        .modal-close {
-            position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #aaa;
-        }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-card); border-radius:8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-main); padding: 25px; max-height: 90vh; overflow-y: auto; }
+        .modal-title { margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: var(--border-color); color: var(--text-main); display: inline-block; margin-bottom: 4px; }
+        .badge.stage { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+        .badge.status { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        #toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
     </style>
 </head>
 <body>
 
-<div class="main-content">
-
-    <!-- Верхняя панель навигации -->
-    <div style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
-        <button onclick="window.top.location.href='index.html'" class="secondary">🏠 На главную</button>
-        <div id="msg_box" style="color:#27ae60; font-weight:bold; display:none; padding: 5px 10px; background: #dcfce7; border-radius: 4px;">✅ Успешно сохранено</div>
-    </div>
-
-    <!-- Секция настроек синхронизации (складная) -->
-    <div class="form-section" style="padding:10px 20px; margin-bottom:15px;">
-        <div onclick="$('#settings_panel').slideToggle()" style="cursor:pointer; font-weight:bold; color:#555; display:flex; align-items:center; user-select: none;">
-            ⚙️ Настройки интеграции / Синхронизация <span style="margin-left:10px; font-size:10px; color:#999;">▼</span>
-        </div>
-        <div id="settings_panel" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #eee;">
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Параметры для пересылки задач на внешний сервер (POST /api/tasks):</p>
-            <div class="form-grid">
-                <div><label>Target URL</label><input id="set_url" placeholder="http://remote-server:8080/api/tasks"></div>
-                <div><label>Basic Auth User</label><input id="set_user"></div>
-                <div><label>Basic Auth Password</label><input type="password" id="set_pass"></div>
-            </div>
-            <div style="margin-top:10px;">
-                <button onclick="saveGlobalSettings()" class="primary">Сохранить настройки</button>
-                <button onclick="syncToRemote()" class="secondary" title="Отправить все локальные задачи на удаленный сервер">📤 Запустить синхронизацию</button>
-            </div>
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 data-i18n="tt_page_title">📑 Ведение задач</h2>
         </div>
     </div>
+</div>
 
-    <!-- ФОРМА РЕДАКТИРОВАНИЯ ЗАДАЧИ -->
-    <div class="form-section">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
-            <h2 style="margin:0; border:none;">📝 Карточка Задачи</h2>
-            <button class="secondary" onclick="clearForm()">Очистить форму (Новая)</button>
+<div class="toolbar" id="main-toolbar">
+    <!-- Строка 1: Фильтры -->
+    <div class="toolbar-row">
+        <div class="toolbar-group">
+            <input type="text" id="search-input" placeholder="🔍 Глобальный поиск по всем полям..." data-i18n="tt_search_ph" onkeyup="filterTable()">
+            <select id="sys-filter" onchange="filterTable()">
+                <option value="ALL" data-i18n="tt_sys_all">🌍 Все системы</option>
+            </select>
+            <select id="stage-filter" onchange="filterTable()">
+                <option value="ALL" data-i18n="tt_stg_all">📋 Все этапы</option>
+            </select>
+            <button class="btn secondary" onclick="loadTasks()" title="Обновить список с сервера" data-i18n="tt_btn_refresh">🔄 Обновить</button>
+            <button class="btn secondary" onclick="clearAllFilters()" title="Сбросить все фильтры" style="color:#ef4444;" data-i18n="tt_btn_reset">✖ Сброс фильтров</button>
         </div>
 
-        <!-- Скрытое поле ID для режима редактирования (UPDATE) -->
-        <input type="hidden" id="t_id">
-
-        <div class="form-grid">
-            <div>
-                <label class="req-mark">Разработчик (User)</label>
-                <input type="text" id="t_user" placeholder="Ваше Имя / Login">
-            </div>
-            <div>
-                <label class="req-mark">Номер задачи (Key)</label>
-                <input type="text" id="t_num" placeholder="JIRA-123" style="font-weight:bold;">
-            </div>
-
-            <div>
-                <label>Этап (Pipeline)</label>
-                <select id="t_stage" onchange="updateStatuses()">
-                    <!-- Заполняется JS -->
-                </select>
-            </div>
-            <div>
-                <label>Статус</label>
-                <select id="t_status"></select>
-            </div>
-
-            <div><label>Ссылка на задачу (Jira)</label><input type="text" id="t_link" placeholder="https://tracker..."></div>
-            <div><label>Контактное лицо</label><input type="text" id="t_contact" placeholder="Заказчик / Аналитик"></div>
-
-            <!-- ДАТЫ -->
-            <div style="border-left:2px solid #3b82f6; padding-left:10px; background:#f0f9ff;">
-                <label style="font-weight:bold; color:#1e40af;">План оконч. разработки</label>
-                <input type="date" id="t_plan_dev">
-            </div>
-            <div style="border-left:2px solid #22c55e; padding-left:10px; background:#f0fdf4;">
-                <label style="font-weight:bold; color:#15803d;">Дата установки (План/Факт)</label>
-                <input type="text" id="t_date" placeholder="DD.MM.YYYY">
-            </div>
-        </div>
-
-        <!-- Wiki Link отдельно на всю ширину для удобства -->
-        <div class="form-grid-full-width" style="margin-top: 10px;">
-            <label>Ссылка на ТЗ / Wiki</label>
-            <input type="text" id="t_wiki" style="width:100%;">
-        </div>
-
-        <!-- Блок кода / Комментария -->
-        <div class="form-grid-full-width" style="margin-top: 15px;">
-            <div class="editor-bar">
-                <span style="font-weight:600; color:#555; font-size:12px;">Техническое описание / SQL / JSON / Заметки</span>
-                <div>
-                    <select onchange="cmEditor.setOption('mode', this.value)" style="width:auto; padding:2px; height:24px; font-size:11px; border: 1px solid #ccc; border-radius:3px;">
-                        <option value="text/x-java">Java / Groovy</option>
-                        <option value="application/json">JSON</option>
-                        <option value="application/xml">XML</option>
-                        <option value="text/x-sql">SQL</option>
-                        <option value="text/plain">Text (Plain)</option>
-                    </select>
-                    <button class="secondary" onclick="toggleTheme()" id="thm_btn" style="padding:2px 8px; font-size:11px; height: 24px; line-height: 1;">🌙 Dark</button>
-                </div>
-            </div>
-            <textarea id="t_comment"></textarea>
-        </div>
-
-        <div class="button-bar" style="margin-top:20px;">
-            <button onclick="saveTask()" class="success" style="padding:10px 25px;">💾 Сохранить задачу</button>
-
-            <div style="margin-left:auto; display:flex; gap:10px;">
-                <button onclick="exportExcel()" style="background:#17a2b8; color:white;">📊 Скачать Excel</button>
-                <button class="secondary" onclick="$('#infoModal').fadeIn()">ℹ Справка статусов</button>
-            </div>
+        <div class="toolbar-group">
+            <button class="btn warning" id="btn-bulk" onclick="openBulkModal()" disabled data-i18n="tt_btn_bulk">⚡ Массовое изменение</button>
+            <button class="btn danger" id="btn-delete" onclick="deleteSelectedTasks()" disabled data-i18n="btn_delete">🗑 Удалить</button>
         </div>
     </div>
 
-    <!-- ТАБЛИЦА СПИСКА ЗАДАЧ -->
-    <div class="form-section" style="margin-top:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="margin:0;">Список активных задач (DB)</h3>
-            <button class="secondary" onclick="loadTasksFromDB()">🔄 Обновить список</button>
+    <!-- Строка 2: Действия с выбранной задачей -->
+    <div class="toolbar-row" style="border-top: 1px solid var(--border-color); padding-top: 10px;">
+        <div class="toolbar-group">
+            <button class="btn success" onclick="openFormForNew()" data-i18n="tt_btn_create">➕ Создать задачу</button>
         </div>
-
-        <div style="margin-bottom: 10px;">
-            <input id="search_inp" onkeyup="renderTable()" placeholder="🔍 Быстрый поиск по номеру, разработчику или статусу..." style="width: 100%; max-width: 500px; padding: 10px;">
+        <div class="toolbar-group">
+            <button class="btn secondary" id="btn-edit" onclick="openFormForEdit()" disabled data-i18n="tt_btn_edit">✏️ Изменить</button>
+            <button class="btn secondary" id="btn-clone" onclick="cloneTask()" disabled data-i18n="tt_btn_clone">👯 Клонировать</button>
+            <button class="btn secondary" id="btn-copy-flows" onclick="openCopyModal('flows')" disabled data-i18n="tt_btn_copy_flows">🔄 Копир. потоки</button>
+            <button class="btn secondary" id="btn-copy-spec" onclick="openCopyModal('spec')" disabled data-i18n="tt_btn_copy_spec">📄 Копир. ТЗ</button>
+            <button class="btn action-flow" id="btn-int-flows" onclick="goToIntegrationFlows()" disabled data-i18n="tt_btn_int_flows">🔌 Интегр. потоки</button>
+            <button class="btn action-spec" id="btn-spec-gen" onclick="goToSpecGenerator()" disabled data-i18n="tt_btn_gen_spec">📑 Генератор ТЗ</button>
         </div>
+    </div>
+</div>
 
-        <div class="table-container" style="min-height: 300px;">
-            <table class="task-table" id="tasks_t">
+<div class="view-container">
+
+    <!-- === ВИД 1: ТАБЛИЦА === -->
+    <div id="view-table">
+        <div class="table-scroll">
+            <table class="styled-table">
                 <thead>
                 <tr>
-                    <th width="50">ID</th>
-                    <th width="140">Разработчик</th>
-                    <th width="120">Задача</th>
-                    <th>Этап / Статус</th>
-                    <th>Даты (План)</th>
-                    <th>Информация</th>
-                    <th width="80" style="text-align:right;">Действия</th>
+                    <th width="30" style="vertical-align: middle;"><input type="checkbox" id="cb-select-all" class="row-checkbox" onchange="toggleAllCheckboxes()"></th>
+                    <th width="15%" onclick="sortTable('task')" class="sortable"><span data-i18n="tt_th_task">Задача</span> <span class="sort-ind" id="sort-ind-task">↕</span></th>
+                    <th width="25%" onclick="sortTable('sys')" class="sortable"><span data-i18n="tt_th_sys">Система / Интерфейс</span> <span class="sort-ind" id="sort-ind-sys">↕</span></th>
+                    <th width="20%" onclick="sortTable('status')" class="sortable"><span data-i18n="tt_th_status">Этап / Статус</span> <span class="sort-ind" id="sort-ind-status">↕</span></th>
+                    <th width="15%" onclick="sortTable('dates')" class="sortable"><span data-i18n="tt_th_dates">Даты (План)</span> <span class="sort-ind" id="sort-ind-dates">↕</span></th>
+                    <th width="25%" onclick="sortTable('notes')" class="sortable"><span data-i18n="tt_th_notes">Заметки / Ссылки</span> <span class="sort-ind" id="sort-ind-notes">↕</span></th>
+                </tr>
+                <!-- СТРОКА ФИЛЬТРОВ СТОЛБЦОВ -->
+                <tr class="filter-row">
+                    <th></th>
+                    <th><input type="search" class="col-filter-input" id="f_task" data-col="task" placeholder="Фильтр..."></th>
+                    <th><input type="search" class="col-filter-input" id="f_sys" data-col="sys" placeholder="Фильтр..."></th>
+                    <th><input type="search" class="col-filter-input" id="f_status" data-col="status" placeholder="Фильтр..."></th>
+                    <th><input type="search" class="col-filter-input" id="f_dates" data-col="dates" placeholder="Фильтр..."></th>
+                    <th><input type="search" class="col-filter-input" id="f_notes" data-col="notes" placeholder="Фильтр..."></th>
                 </tr>
                 </thead>
-                <tbody id="tbody">
-                <!-- Заполняется JavaScript -->
+                <tbody id="task-tbody">
+                <!-- Рендерится через JS -->
                 </tbody>
             </table>
         </div>
     </div>
 
-</div>
+    <!-- === ВИД 2: КАРТОЧКА ЗАДАЧИ (ФОРМА) === -->
+    <div id="view-form">
+        <div class="form-header">
+            <h3 id="form-title" data-i18n="tt_form_new">Создание новой задачи</h3>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn secondary" onclick="closeForm()" data-i18n="tt_btn_cancel">Отмена (Назад к списку)</button>
+                <button class="btn primary" onclick="openAlmModal()" data-i18n="tt_btn_alm">📥 Подтянуть из JIRA/ALM</button>
+                <button class="btn success" onclick="saveTask()" data-i18n="tt_btn_save">💾 Сохранить задачу</button>
+            </div>
+        </div>
 
-<!-- МОДАЛЬНОЕ ОКНО: СПРАВКА ПО ЦИКЛУ -->
-<div id="infoModal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="$('#infoModal').fadeOut()">×</span>
-        <h2 style="margin-top:0;">Жизненный цикл задачи</h2>
-        <div id="info_content" style="line-height:1.6; font-size: 13px; max-height:400px; overflow-y:auto;"></div>
-        <div style="text-align:right; margin-top:20px;">
-            <button onclick="$('#infoModal').fadeOut()" class="primary">Понятно</button>
+        <input type="hidden" id="t_id">
+        <input type="hidden" id="t_version">
+
+        <div class="form-grid">
+            <!-- Левая колонка -->
+            <div>
+                <div class="form-group">
+                    <label data-i18n="tt_lbl_num">Название / Номер задачи *</label>
+                    <input type="text" id="t_num" placeholder="JIRA-123">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="tt_lbl_url">Ссылка на задачу (URL)</label>
+                    <input type="text" id="t_url" placeholder="https://jira.company.com/browse/TASK-123">
+                </div>
+
+                <div style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #3b82f6; font-size: 14px;" data-i18n="tt_lbl_sys_iface">Системы и Интерфейс</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_sender">Отправитель (Sender)</label><input type="text" id="t_sender"></div>
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_receiver">Получатель (Receiver)</label><input type="text" id="t_receiver"></div>
+                    </div>
+                    <div class="form-group"><label data-i18n="tt_lbl_iface_name">Имя интерфейса</label><input type="text" id="t_iface" placeholder="si_ao_MultiAccount..."></div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex:1">
+                            <label data-i18n="tt_lbl_conn_type">Тип связи</label>
+                            <select id="t_conn">
+                                <option value="" data-i18n="tt_opt_choose">- Выбрать -</option>
+                                <option value="sync" data-i18n="tt_opt_sync">Синхронный (REST/SOAP)</option>
+                                <option value="async" data-i18n="tt_opt_async">Асинхронный (MQ/Kafka)</option>
+                                <option value="file" data-i18n="tt_opt_file">Файловый</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label data-i18n="tt_lbl_format">Формат (In / Out)</label>
+                            <div style="display: flex; gap: 5px;">
+                                <select id="t_fmt_in" style="flex:1"><option value="">In</option><option>JSON</option><option>XML</option></select>
+                                <select id="t_fmt_out" style="flex:1"><option value="">Out</option><option>JSON</option><option>XML</option></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="tt_lbl_contact">Контактное лицо (Заказчик / Аналитик)</label>
+                    <input type="text" id="t_contact" placeholder="ФИО / Telegram">
+                </div>
+            </div>
+
+            <!-- Правая колонка -->
+            <div>
+                <div style="display: flex; gap: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label data-i18n="tt_lbl_stage">Этап (Pipeline)</label>
+                        <select id="t_stage" onchange="updateStatuses()"></select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label data-i18n="tt_lbl_status">Статус</label>
+                        <select id="t_status"></select>
+                    </div>
+                </div>
+
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #10b981; font-size: 14px;" data-i18n="tt_lbl_dates">Даты и Сроки</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_start">Начало разработки</label><input type="date" id="t_start_dev"></div>
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_end">Окончание разработки</label><input type="date" id="t_plan_dev"></div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_test">Установка (ТЕСТ)</label><input type="date" id="t_test"></div>
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_rel">Сборка (Релиз)</label><input type="date" id="t_rel"></div>
+                        <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_prod">Установка (ПРОД)</label><input type="date" id="t_prod"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="tt_lbl_spec">Ссылка на ТЗ / Wiki / Swagger</label>
+                    <input type="text" id="t_spec_url">
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="tt_lbl_notes">📝 Чек-лист / Заметки к задаче</label>
+                    <textarea id="t_notes"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="tt_lbl_tags">Ключевые слова (Теги для поиска)</label>
+                    <input type="text" id="t_tags">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: right;">
+            <button class="btn success" style="padding: 12px 30px; font-size: 15px;" onclick="saveTask()" data-i18n="tt_btn_save">💾 Сохранить задачу</button>
         </div>
     </div>
 </div>
 
-<!-- SCRIPT LOGIC -->
+<!-- === МОДАЛКА: МАССОВОЕ ИЗМЕНЕНИЕ === -->
+<div id="modal-bulk" class="modal">
+    <div class="modal-content" style="width: 500px;">
+        <h2 class="modal-title" data-i18n="tt_bulk_title">⚡ Массовое изменение задач</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;" data-i18n="tt_bulk_desc">
+            Укажите значения, которые нужно применить ко <b>всем выбранным задачам</b>. <br>
+            Оставьте поле пустым, если его менять не нужно.
+        </p>
+
+        <div class="form-group">
+            <label data-i18n="tt_bulk_status">Общий Статус:</label>
+            <select id="bulk-status">
+                <!-- Генерируется из БД через populateBulkStagesFilter -->
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-top: 15px;">
+            <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_start">Начало разработки</label><input type="date" id="bulk-start"></div>
+            <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_end">Окончание разработки</label><input type="date" id="bulk-end"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 5px;">
+            <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_test">Дата ТЕСТ</label><input type="date" id="bulk-test"></div>
+            <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_rel">Дата Релиза</label><input type="date" id="bulk-rel"></div>
+            <div class="form-group" style="flex:1"><label data-i18n="tt_lbl_prod">Дата ПРОД</label><input type="date" id="bulk-prod"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
+            <button class="btn secondary" onclick="$('#modal-bulk').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+            <button class="btn warning" id="btn-apply-bulk" onclick="applyBulkUpdate()" data-i18n="tt_bulk_apply">Применить изменения</button>
+        </div>
+    </div>
+</div>
+
+<!-- === МОДАЛКА: ИМПОРТ ALM === -->
+<div id="modal-alm" class="modal">
+    <div class="modal-content" style="width: 400px;">
+        <h2 class="modal-title" data-i18n="tt_alm_title">📥 Загрузка из ALM / JIRA</h2>
+        <p style="font-size: 13px; color: var(--text-muted);" data-i18n="tt_alm_desc">Введите номер задачи. Сервер скачает название и описание.</p>
+
+        <div class="form-group">
+            <label data-i18n="tt_alm_id">ID Задачи (напр. TASK-1234):</label>
+            <input type="text" id="alm-task-id" placeholder="TASK-1234">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button class="btn secondary" onclick="$('#modal-alm').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+            <button class="btn primary" id="btn-fetch-alm" onclick="fetchFromAlm()" data-i18n="tt_alm_load">Загрузить</button>
+        </div>
+    </div>
+</div>
+
+<!-- === МОДАЛКА: КОПИРОВАНИЕ (ПОТОКИ / ТЗ) === -->
+<div id="modal-copy" class="modal">
+    <div class="modal-content" style="width: 450px;">
+        <h2 class="modal-title" id="copy-modal-title" data-i18n="tt_copy_title">Копирование</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+            <span data-i18n="tt_copy_src">Выбранная задача (источник):</span> <br><b id="copy-source-name" style="color:var(--text-main); font-size: 14px;"></b><br><br>
+            <span data-i18n="tt_copy_target">Укажите задачу, <b>КУДА</b> нужно скопировать данные:</span>
+        </p>
+
+        <input type="hidden" id="copy-source-id">
+        <input type="hidden" id="copy-action-type">
+
+        <div class="form-group">
+            <label data-i18n="tt_copy_target_lbl">Задача-получатель (Цель):</label>
+            <select id="copy-target-id" style="width:100%; font-weight: bold;"></select>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 12px; color: var(--text-muted);">
+            <input type="checkbox" id="copy-no-confirm" style="width: 14px; height: 14px; cursor: pointer;">
+            <label for="copy-no-confirm" style="margin: 0; cursor: pointer; font-weight: normal;" data-i18n="tt_copy_noconfirm">Выполнять без дополнительных подтверждений</label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
+            <button class="btn secondary" onclick="$('#modal-copy').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+            <button class="btn primary" onclick="executeCopy()" data-i18n="tt_copy_btn">Скопировать</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
 <script>
-    // === 1. КОНФИГУРАЦИЯ СТАТУСОВ (PIPELINE) ===
-    const STAGES = {
-        "Этап 1: Очередь (Backlog)": ["Новая", "Взято в работу", "Оценка", "В очереди"],
-        "Этап 2: Аналитика (Analysis)": ["Анализ", "Проектирование / ТЗ", "Согласование ТЗ"],
-        "Этап 3: Разработка (Dev)": ["В разработке", "Code Review", "Исправление замечаний", "Dev Тест пройден"],
-        "Этап 4: Тестирование (Test/UAT)": ["Готово к установке (TEST)", "Установлено (TEST)", "Тестирование", "Приемка (UAT)"],
-        "Этап 5: Внедрение (Prod)": ["Готово к внедрению (PROD)", "Установка (PROD)", "Внедрение завершено"],
-        "Специальные": ["Приостановлено (On Hold)", "Заблокировано (Blocked)", "Отменено"]
-    };
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
 
-    // Глобальное состояние
-    let tasks = [];
-    let cmEditor;
-    let darkTheme = true; // Тема редактора по умолчанию
+    let currentUser = null;
+    let allTasks = [];
+    let STAGES_DICT = {};
 
-    // === 2. ИНИЦИАЛИЗАЦИЯ (ON LOAD) ===
+    let sortCol = localStorage.getItem('tt_sort_col') || 'last_updated';
+    let sortDir = localStorage.getItem('tt_sort_dir') || 'desc';
+    let colFilters = JSON.parse(localStorage.getItem('tt_col_filters') || '{}');
+
     $(function() {
-        // Инит редактора
-        cmEditor = CodeMirror.fromTextArea(document.getElementById('t_comment'), {
-            mode: "text/x-java", // Дефолтный режим
-            lineNumbers: true,
-            theme: "dracula",
-            lineWrapping: true,
-            viewportMargin: Infinity
+        if(typeof initLocalization === 'function') initLocalization();
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+
+        const storedUser = localStorage.getItem('esb_user');
+        if (storedUser) {
+            try {
+                currentUser = JSON.parse(storedUser);
+                const safeId = currentUser.id ? String(currentUser.id) : '1';
+                const safeRole = currentUser.role || 'admin';
+                $.ajaxSetup({ headers: { 'X-User-Id': safeId, 'X-User-Role': safeRole } });
+            } catch(e) {
+                $.ajaxSetup({ headers: { 'X-User-Id': '1', 'X-User-Role': 'admin' } });
+            }
+        } else {
+            $.ajaxSetup({ headers: { 'X-User-Id': '1', 'X-User-Role': 'admin' } });
+        }
+
+        initColFiltersUI();
+        loadSettingsAndTasks();
+
+        $('.col-filter-input').attr('placeholder', t('ph_filter', 'Фильтр...'));
+
+        $('.col-filter-input').on('keyup search', function() {
+            colFilters[$(this).data('col')] = $(this).val().trim();
+            localStorage.setItem('tt_col_filters', JSON.stringify(colFilters));
+            renderTable();
         });
-
-        // Заполнение Select "Этап"
-        const stg = $('#t_stage');
-        stg.empty();
-        for(let key in STAGES) {
-            stg.append(new Option(key, key));
-        }
-
-        // Событие обновления статусов при смене этапа
-        updateStatuses();
-
-        // Заполнение модалки справки
-        const hlp = $('#info_content');
-        for(let key in STAGES) {
-            hlp.append(`<div style="margin-bottom:8px;"><strong style="color:#333; display:block;">${key}</strong> <span style="color:#666;">${STAGES[key].join(' • ')}</span></div>`);
-        }
-
-        // Авто-заполнение разработчика (User Persistence)
-        const savedUser = localStorage.getItem('last_dev_user');
-        if(savedUser) {
-            $('#t_user').val(savedUser);
-        }
-
-        // Загрузка данных
-        loadSettings();
-        loadTasksFromDB();
     });
 
-    // === 3. UI HELPER FUNCTIONS ===
+    function showToast(msg, isError = false) {
+        const toast = $('#toast');
+        toast.text(msg).css('background', isError ? '#ef4444' : '#10b981').fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 2000);
+    }
 
-    // Обновление второго выпадающего списка
-    window.updateStatuses = function() {
-        const k = $('#t_stage').val();
-        const vals = STAGES[k] || [];
-        const sts = $('#t_status').empty();
-        vals.forEach(v => sts.append(new Option(v, v)));
-    };
-
-    // Переключение темы редактора
-    window.toggleTheme = function() {
-        darkTheme = !darkTheme;
-        cmEditor.setOption('theme', darkTheme ? 'dracula' : 'default'); // default - светлая тема CodeMirror
-        $('#thm_btn').text(darkTheme ? '🌙 Dark' : '☀️ Light');
-    };
-
-    // Очистка формы
-    window.clearForm = function() {
-        // Чистим все инпуты, КРОМЕ поля User (мы его помним)
-        $('input').not('#t_user').val('');
-        $('#t_id').val(''); // Сброс ID означает "Создание новой"
-        $('#t_stage').prop('selectedIndex', 0);
-        updateStatuses();
-        cmEditor.setValue('');
-
-        // Восстановление User из LocalStorage (на случай если пользователь стер и нажал очистить)
-        const saved = localStorage.getItem('last_dev_user');
-        if(saved) $('#t_user').val(saved);
-    };
-
-    // === 4. API (Взаимодействие с сервером) ===
-
-    // Загрузка списка
-    window.loadTasksFromDB = function() {
-        $('#tbody').html('<tr><td colspan="7" style="text-align:center; padding:20px; color:#777;">Загрузка данных...</td></tr>');
-
-        $.get('/api/tasks', function(data) {
-            tasks = data || []; // Ожидается массив
-            renderTable();
-        }).fail(function(xhr) {
-            $('#tbody').html('<tr><td colspan="7" style="text-align:center; color:red; padding:20px;">Ошибка API: Не удалось загрузить задачи.</td></tr>');
-            console.error(xhr);
+    // === DATA LOADING ===
+    function loadSettingsAndTasks() {
+        $.get('/api/tasks/settings', function(data) {
+            if (data && data.task_stages_dictionary) {
+                try { STAGES_DICT = JSON.parse(data.task_stages_dictionary); } catch(e) {}
+            }
+            populateStagesFilter();
+            populateFormStages();
+            populateBulkStagesFilter();
+            loadSystems();
+            loadTasks();
+        }).fail(() => {
+            showToast(t('err_load_settings', "Ошибка загрузки настроек"), true);
+            loadTasks();
         });
-    };
+    }
 
-    // Сохранение (Create / Update)
+    function loadSystems() {
+        $.get('/api/systems', function(data) {
+            const sel = $('#sys-filter');
+            sel.find('option:not(:first)').remove();
+            if (Array.isArray(data)) {
+                // Имя системы тоже переводится через словарь, если оно там есть
+                data.forEach(s => sel.append(new Option(t(s.sid, s.sid), s.sid)));
+            }
+        });
+    }
+
+    function populateStagesFilter() {
+        const sel = $('#stage-filter');
+        sel.find('option:not(:first)').remove();
+        Object.keys(STAGES_DICT).forEach(stage => {
+            sel.append(new Option(t(stage, stage), stage));
+        });
+    }
+
+    function populateFormStages() {
+        const sel = $('#t_stage').empty();
+        Object.keys(STAGES_DICT).forEach(stage => {
+            sel.append(new Option(t(stage, stage), stage));
+        });
+        updateStatuses();
+    }
+
+    window.updateStatuses = function() {
+        const stage = $('#t_stage').val();
+        const statSel = $('#t_status').empty();
+        if (STAGES_DICT[stage]) {
+            STAGES_DICT[stage].forEach(st => {
+                statSel.append(new Option(t(st, st), st));
+            });
+        }
+    }
+
+    // Динамическая генерация списков статусов для модалки массового изменения
+    function populateBulkStagesFilter() {
+        const sel = $('#bulk-status').empty();
+        sel.append(new Option(t('tt_bulk_no_change', '-- Не менять --'), ''));
+        Object.keys(STAGES_DICT).forEach(stage => {
+            const group = $('<optgroup>').attr('label', t(stage, stage));
+            STAGES_DICT[stage].forEach(st => {
+                group.append(new Option(t(st, st), st));
+            });
+            sel.append(group);
+        });
+    }
+
+    function loadTasks() {
+        $.get('/api/tasks', function(data) {
+            allTasks = Array.isArray(data) ? data : [];
+            renderTable();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            if (editId) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+                setTimeout(() => openFormForEdit(editId), 100);
+            }
+        }).fail(function() {
+            showToast(t('err_load_tasks', "Ошибка загрузки задач"), true);
+        });
+    }
+
+    function initColFiltersUI() {
+        $('#f_task').val(colFilters.task || '');
+        $('#f_sys').val(colFilters.sys || '');
+        $('#f_status').val(colFilters.status || '');
+        $('#f_dates').val(colFilters.dates || '');
+        $('#f_notes').val(colFilters.notes || '');
+    }
+
+    window.clearAllFilters = function() {
+        colFilters = {};
+        localStorage.setItem('tt_col_filters', JSON.stringify(colFilters));
+        $('.col-filter-input').val('');
+        $('#search-input').val('');
+        $('#sys-filter').val('ALL');
+        $('#stage-filter').val('ALL');
+        renderTable();
+    }
+
+    window.sortTable = function(col) {
+        if (sortCol === col) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortCol = col;
+            sortDir = 'asc';
+        }
+        localStorage.setItem('tt_sort_col', sortCol);
+        localStorage.setItem('tt_sort_dir', sortDir);
+        renderTable();
+    }
+
+    function updateSortIndicators() {
+        $('.sort-ind').text('↕').css('color', '#94a3b8');
+        const arrow = sortDir === 'asc' ? '↑' : '↓';
+        $(`#sort-ind-${sortCol}`).text(arrow).css('color', '#3b82f6');
+    }
+
+    function formatDate(dateStr) {
+        if(!dateStr) return '';
+        const parts = dateStr.split('-');
+        if(parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        return dateStr;
+    }
+
+    function renderTable() {
+        const tbody = $('#task-tbody').empty();
+
+        const sysFilter = $('#sys-filter').val();
+        const stageFilter = $('#stage-filter').val();
+        const globalQuery = $('#search-input').val().toLowerCase().trim();
+
+        let filtered = allTasks.filter(t => {
+            if (sysFilter !== 'ALL' && t.sender_sys !== sysFilter && t.receiver_sys !== sysFilter) return false;
+            if (stageFilter !== 'ALL' && t.stage !== stageFilter) return false;
+            if (globalQuery) {
+                const giantStr = `${t.task_number} ${t.sender_sys} ${t.receiver_sys} ${t.interface_name} ${t.search_tags} ${t.user_notes} ${t.contact_person}`.toLowerCase();
+                if (!giantStr.includes(globalQuery)) return false;
+            }
+
+            if (colFilters.task) {
+                const searchStr = `${t.task_number} ${t.contact_person} ${t.owner_name}`.toLowerCase();
+                if (!searchStr.includes(colFilters.task.toLowerCase())) return false;
+            }
+            if (colFilters.sys) {
+                const searchStr = `${t.sender_sys} ${t.receiver_sys} ${t.interface_name}`.toLowerCase();
+                if (!searchStr.includes(colFilters.sys.toLowerCase())) return false;
+            }
+            if (colFilters.status) {
+                const searchStr = `${t.stage} ${t.status}`.toLowerCase();
+                if (!searchStr.includes(colFilters.status.toLowerCase())) return false;
+            }
+            if (colFilters.dates) {
+                const searchStr = `${formatDate(t.start_dev_date)} ${formatDate(t.test_deployment_date)} ${formatDate(t.deployment_date)}`.toLowerCase();
+                if (!searchStr.includes(colFilters.dates.toLowerCase())) return false;
+            }
+            if (colFilters.notes) {
+                const searchStr = `${t.user_notes} ${t.spec_url} ${t.task_url}`.toLowerCase();
+                if (!searchStr.includes(colFilters.notes.toLowerCase())) return false;
+            }
+            return true;
+        });
+
+        updateSortIndicators();
+        filtered.sort((a, b) => {
+            let valA = '', valB = '';
+            switch(sortCol) {
+                case 'task': valA = a.task_number || ''; valB = b.task_number || ''; break;
+                case 'sys': valA = (a.sender_sys||'')+(a.receiver_sys||'')+(a.interface_name||''); valB = (b.sender_sys||'')+(b.receiver_sys||'')+(b.interface_name||''); break;
+                case 'status': valA = (a.stage||'')+(a.status||''); valB = (b.stage||'')+(b.status||''); break;
+                case 'dates': valA = a.start_dev_date||''; valB = b.start_dev_date||''; break;
+                case 'notes': valA = a.user_notes||''; valB = b.user_notes||''; break;
+                case 'last_updated': valA = a.last_updated||''; valB = b.last_updated||''; break;
+            }
+            if(valA < valB) return sortDir === 'asc' ? -1 : 1;
+            if(valA > valB) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filtered.length === 0) {
+            tbody.html(`<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">${t('tt_no_data', 'Ничего не найдено')}</td></tr>`);
+            updateActionButtons();
+            return;
+        }
+
+        filtered.forEach(item => {
+            // Переводим названия систем через словарь
+            const senderTranslated = item.sender_sys ? t(item.sender_sys, item.sender_sys) : '';
+            const receiverTranslated = item.receiver_sys ? t(item.receiver_sys, item.receiver_sys) : '';
+
+            const sysText = (senderTranslated && receiverTranslated) ? `<b>${escapeHtml(senderTranslated)} ➔ ${escapeHtml(receiverTranslated)}</b>` : `<span style="color:#94a3b8">${t('lbl_not_specified', 'Не указано')}</span>`;
+            const ifaceText = item.interface_name ? `<br><span style="color:#3b82f6; font-size: 15px; font-weight: 800; display: inline-block; margin-top: 4px;">${escapeHtml(item.interface_name)}</span>` : '';
+
+            const dates = [];
+            if(item.start_dev_date) dates.push(`🛠 ${t('tt_lbl_start_short', 'Старт:')} <b>${formatDate(item.start_dev_date)}</b>`);
+            if(item.test_deployment_date) dates.push(`🧪 ${t('tt_lbl_test_short', 'Тест:')} <b>${formatDate(item.test_deployment_date)}</b>`);
+            if(item.deployment_date) dates.push(`🚀 ${t('tt_lbl_prod_short', 'Прод:')} <b style="color:#10b981">${formatDate(item.deployment_date)}</b>`);
+            const datesHtml = dates.length > 0 ? dates.join('<br>') : '<span style="color:#94a3b8">—</span>';
+
+            const links = [];
+            if(item.task_url) links.push(`<a href="${escapeHtml(item.task_url)}" target="_blank" style="color:#3b82f6; text-decoration:none;">🌐 Jira/ALM</a>`);
+            if(item.spec_url) links.push(`<a href="${escapeHtml(item.spec_url)}" target="_blank" style="color:#8b5cf6; text-decoration:none;">📄 ${t('lbl_spec_wiki', 'ТЗ / Wiki')}</a>`);
+            const linksHtml = links.length > 0 ? `<div style="margin-bottom: 5px;">${links.join(' | ')}</div>` : '';
+
+            const contactDisplay = item.contact_person ? escapeHtml(item.contact_person) : t('lbl_unassigned', 'Не назначен');
+
+            // Переводим значения из БД (ключи - русские строки из БД, значения - из словаря)
+            const stageDisplay = item.stage ? t(item.stage, item.stage) : t('lbl_new', 'Новая');
+            const statusDisplay = item.status ? t(item.status, item.status) : t('lbl_queued', 'В очереди');
+
+            tbody.append(`
+                <tr>
+                    <td style="vertical-align: middle;"><input type="checkbox" class="row-checkbox task-cb" value="${item.id}" onchange="toggleSelection()"></td>
+                    <td>
+                        <b style="font-size: 14px; cursor: pointer; color: #3b82f6;" onclick="openFormForEdit(${item.id})">${escapeHtml(item.task_number)}</b>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;" title="${t('tt_lbl_contact', 'Контактное лицо')}">👤 ${contactDisplay}</div>
+                    </td>
+                    <td>${sysText}${ifaceText}</td>
+                    <td>
+                        <div class="badge stage">${escapeHtml(stageDisplay)}</div><br>
+                        <div class="badge status">${escapeHtml(statusDisplay)}</div>
+                    </td>
+                    <td style="font-size: 12px; line-height: 1.6;">${datesHtml}</td>
+                    <td style="font-size: 12px;">
+                        ${linksHtml}
+                        <div style="color:var(--text-muted); max-height:40px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(item.user_notes)}">${escapeHtml(item.user_notes || '')}</div>
+                    </td>
+                </tr>
+            `);
+        });
+
+        $('#cb-select-all').prop('checked', false);
+        updateActionButtons();
+    }
+
+    window.filterTable = function() { renderTable(); }
+
+    window.toggleAllCheckboxes = function() {
+        const isChecked = $('#cb-select-all').is(':checked');
+        $('.task-cb').prop('checked', isChecked);
+        updateActionButtons();
+    }
+
+    window.toggleSelection = function() {
+        const total = $('.task-cb').length;
+        const checked = $('.task-cb:checked').length;
+        $('#cb-select-all').prop('checked', total === checked && total > 0);
+        updateActionButtons();
+    }
+
+    function updateActionButtons() {
+        const checkedCount = $('.task-cb:checked').length;
+        const exactOne = (checkedCount === 1);
+        const atLeastOne = (checkedCount > 0);
+
+        $('#btn-edit').prop('disabled', !exactOne);
+        $('#btn-clone').prop('disabled', !exactOne);
+        $('#btn-copy-flows').prop('disabled', !exactOne);
+        $('#btn-copy-spec').prop('disabled', !exactOne);
+        $('#btn-int-flows').prop('disabled', !exactOne);
+        $('#btn-spec-gen').prop('disabled', !exactOne);
+
+        $('#btn-bulk').prop('disabled', !atLeastOne);
+        $('#btn-delete').prop('disabled', !atLeastOne);
+    }
+
+    window.deleteSelectedTasks = function() {
+        const selected = $('.task-cb:checked').map(function() { return parseInt($(this).val(), 10); }).get();
+        if (selected.length === 0) return;
+        if (!confirm(t('tt_conf_delete_multi', 'Вы уверены, что хотите удалить выбранные задачи?'))) return;
+
+        const promises = selected.map(id => {
+            return $.ajax({ url: '/api/tasks', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({id: id}) });
+        });
+
+        Promise.all(promises).then(() => {
+            showToast(t('msg_deleted', '✅ Успешно удалено!'));
+            loadTasks();
+        }).catch(err => {
+            alert(t('err_delete', 'Ошибка удаления'));
+            loadTasks();
+        });
+    }
+
+    window.cloneTask = function() {
+        const selectedId = $('.task-cb:checked').val();
+        if (!selectedId) return;
+        if(!confirm(t('tt_conf_clone', 'Создать копию задачи?'))) return;
+
+        let task = allTasks.find(t => t.id == selectedId);
+        if(!task) return;
+        let newTask = {...task};
+        delete newTask.id;
+        newTask.task_number = newTask.task_number + " " + t('lbl_copy', '(Копия)');
+
+        $.ajax({ url: '/api/tasks', type: 'POST', contentType: 'application/json', data: JSON.stringify(newTask) })
+            .done(() => { showToast(t('msg_cloned', '✅ Копия создана!')); loadTasks(); })
+            .fail((xhr) => alert(t('err_clone', 'Ошибка клонирования: ') + xhr.responseText));
+    }
+
+    window.openCopyModal = function(actionType) {
+        const srcId = $('.task-cb:checked').val();
+        if (!srcId) return;
+
+        const srcTask = allTasks.find(t => t.id == srcId);
+        if (!srcTask) return;
+
+        $('#copy-source-id').val(srcId);
+        $('#copy-action-type').val(actionType);
+
+        const sysText = (srcTask.sender_sys && srcTask.receiver_sys) ? `${t(srcTask.sender_sys, srcTask.sender_sys)} ➔ ${t(srcTask.receiver_sys, srcTask.receiver_sys)}` : '';
+        $('#copy-source-name').html(`${escapeHtml(srcTask.task_number)} <span style="font-size:11px; color:#3b82f6;">${sysText}</span>`);
+
+        $('#copy-modal-title').text(actionType === 'flows' ? t('tt_copy_title_flows', '🔄 Копирование потоков') : t('tt_copy_title_spec', '📄 Копирование ТЗ'));
+
+        const sel = $('#copy-target-id').empty();
+        sel.append(new Option(t('tt_copy_target_def', '-- Выберите задачу-получатель --'), ''));
+
+        allTasks.forEach(item => {
+            if (item.id != srcId) {
+                const lbl = `${item.task_number} ${item.interface_name ? ' ('+item.interface_name+')' : ''}`;
+                sel.append(new Option(lbl, item.id));
+            }
+        });
+
+        $('#copy-no-confirm').prop('checked', localStorage.getItem('tt_skip_copy_confirm') === 'true');
+
+        $('#modal-copy').css('display', 'flex').hide().fadeIn(200);
+    }
+
+    window.executeCopy = function() {
+        const srcId = $('#copy-source-id').val();
+        const targetId = $('#copy-target-id').val();
+        const actionType = $('#copy-action-type').val();
+
+        if (!targetId) {
+            alert(t('tt_err_select_target', 'Пожалуйста, выберите задачу-цель из списка!'));
+            return;
+        }
+
+        const skipConfirm = $('#copy-no-confirm').is(':checked');
+        localStorage.setItem('tt_skip_copy_confirm', skipConfirm);
+
+        if (!skipConfirm) {
+            const actionName = actionType === 'flows' ? t('lbl_flows', 'ПОТОКИ') : t('lbl_spec', 'ТЗ');
+            const targetName = $('#copy-target-id option:selected').text();
+            if (!confirm(t('tt_conf_copy_data', 'Вы подтверждаете копирование данных в выбранную задачу?') + `\n\n${targetName}`)) {
+                return;
+            }
+        }
+
+        const url = actionType === 'flows' ? `/api/tasks/copy-flows/${targetId}/from/${srcId}` : `/api/tasks/copy-spec/${targetId}/from/${srcId}`;
+
+        $.ajax({ url: url, type: 'POST' })
+            .done(() => {
+                showToast(t('msg_copied', '✅ Успешно скопировано!'));
+                $('#modal-copy').fadeOut(150);
+            })
+            .fail((xhr) => alert(t('err_copy', 'Ошибка: ') + (xhr.responseJSON?.error || xhr.responseText)));
+    }
+
+    window.goToIntegrationFlows = function() {
+        const targetId = $('.task-cb:checked').val();
+        if (targetId) window.location.href = 'service-org.html?id=' + targetId;
+    }
+
+    window.goToSpecGenerator = function() {
+        const targetId = $('.task-cb:checked').val();
+        if (targetId) window.location.href = 'spec_generator.html?task_id=' + targetId;
+    }
+
+    window.openFormForNew = function() {
+        $('#t_id').val('');
+        $('#t_version').val('1');
+        $('#t_num, #t_url, #t_sender, #t_receiver, #t_iface, #t_conn, #t_fmt_in, #t_fmt_out, #t_contact, #t_start_dev, #t_plan_dev, #t_test, #t_rel, #t_prod, #t_spec_url, #t_notes, #t_tags').val('');
+
+        populateFormStages();
+        $('#form-title').text(t('tt_form_new', 'Создание новой задачи'));
+
+        $('#main-toolbar').hide();
+        $('#view-table').hide();
+        $('#view-form').fadeIn(200);
+    }
+
+    window.openFormForEdit = function(id = null) {
+        const selectedId = id || $('.task-cb:checked').val();
+        const task = allTasks.find(t => t.id == selectedId);
+        if (!task) return;
+
+        $('#t_id').val(task.id);
+        $('#t_version').val(task.version || 1);
+        $('#t_num').val(task.task_number);
+        $('#t_url').val(task.task_url);
+        $('#t_sender').val(task.sender_sys);
+        $('#t_receiver').val(task.receiver_sys);
+        $('#t_iface').val(task.interface_name);
+        $('#t_conn').val(task.connection_type);
+        $('#t_fmt_in').val(task.input_format);
+        $('#t_fmt_out').val(task.output_format);
+        $('#t_contact').val(task.contact_person);
+        $('#t_stage').val(task.stage);
+        updateStatuses();
+        $('#t_status').val(task.status);
+        $('#t_start_dev').val(task.start_dev_date);
+        $('#t_plan_dev').val(task.planned_dev_date);
+        $('#t_test').val(task.test_deployment_date);
+        $('#t_rel').val(task.release_date);
+        $('#t_prod').val(task.deployment_date);
+        $('#t_spec_url').val(task.spec_url);
+        $('#t_notes').val(task.user_notes);
+        $('#t_tags').val(task.search_tags);
+
+        $('#form-title').text(t('tt_form_edit', 'Редактирование: ') + task.task_number);
+
+        $('#main-toolbar').hide();
+        $('#view-table').hide();
+        $('#view-form').fadeIn(200);
+    }
+
+    window.closeForm = function() {
+        $('#view-form').hide();
+        $('#main-toolbar').fadeIn(200);
+        $('#view-table').fadeIn(200);
+        $('.task-cb').prop('checked', false);
+        $('#cb-select-all').prop('checked', false);
+        updateActionButtons();
+    }
+
     window.saveTask = function() {
-        const idStr = $('#t_id').val();
-        const user = $('#t_user').val().trim();
-        const num = $('#t_num').val().trim();
+        const idVal = $('#t_id').val();
 
-        if(!user || !num) return alert('Ошибка: Поля "Разработчик" и "Номер задачи" обязательны!');
-
-        // 1. Сохраняем имя разработчика в память браузера
-        localStorage.setItem('last_dev_user', user);
-
-        // 2. Сбор данных
         const payload = {
-            id: idStr ? parseInt(idStr) : null,
-            user: user,
-            task_number: num,
-            stage: $('#t_stage').val(),
-            status: $('#t_status').val(),
-
-            // Ссылки и контакты
-            task_url: $('#t_link').val(),
-            contact_person: $('#t_contact').val(),
-            spec_url: $('#t_wiki').val(),
-
-            // Даты
-            deployment_date: $('#t_date').val(),        // Текстовое поле
-            planned_dev_date: $('#t_plan_dev').val(),   // Date Input (YYYY-MM-DD)
-
-            // Rich Text
-            additional_comment: cmEditor.getValue()
+            id: idVal ? parseInt(idVal, 10) : null,
+            version: parseInt($('#t_version').val() || 1, 10),
+            task_number: $('#t_num').val().trim(),
+            task_url: $('#t_url').val().trim(),
+            sender_sys: $('#t_sender').val().trim(),
+            receiver_sys: $('#t_receiver').val().trim(),
+            interface_name: $('#t_iface').val().trim(),
+            connection_type: $('#t_conn').val() || null,
+            input_format: $('#t_fmt_in').val() || null,
+            output_format: $('#t_fmt_out').val() || null,
+            contact_person: $('#t_contact').val().trim(),
+            stage: $('#t_stage').val() || null,
+            status: $('#t_status').val() || null,
+            start_dev_date: $('#t_start_dev').val() || null,
+            planned_dev_date: $('#t_plan_dev').val() || null,
+            test_deployment_date: $('#t_test').val() || null,
+            release_date: $('#t_rel').val() || null,
+            deployment_date: $('#t_prod').val() || null,
+            spec_url: $('#t_spec_url').val().trim(),
+            user_notes: $('#t_notes').val(),
+            search_tags: $('#t_tags').val().trim()
         };
 
-        // 3. Отправка
+        if (!payload.task_number) {
+            alert(t('tt_err_empty_task', 'Название/Номер задачи обязательны!'));
+            return;
+        }
+
         $.ajax({
             url: '/api/tasks',
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(payload),
-            success: function(res) {
-                $('#msg_box').text('Задача сохранена!').fadeIn().delay(1500).fadeOut();
-                clearForm();
-                loadTasksFromDB(); // Рефреш таблицы
+            success: function() {
+                showToast(t('msg_saved', '✅ Успешно сохранено!'));
+                closeForm();
+                loadTasks();
             },
             error: function(xhr) {
-                alert('Ошибка сохранения: ' + xhr.responseText);
+                let msg = xhr.responseText || "Unknown error";
+                try {
+                    let parsed = JSON.parse(xhr.responseText);
+                    msg = parsed.error || msg;
+                    if (parsed.message) msg += "\n" + parsed.message;
+                } catch(e) {}
+                alert('❌ ' + msg);
             }
         });
-    };
+    }
 
-    // Удаление
-    window.deleteT = function(id) {
-        if(!confirm('Удалить эту задачу безвозвратно?')) return;
-        $.ajax({
-            url: '/api/tasks',
-            type: 'DELETE',
-            contentType: 'application/json',
-            data: JSON.stringify({ id: id }),
-            success: function() {
-                loadTasksFromDB();
-            },
-            error: (x) => alert("Ошибка удаления")
-        });
-    };
+    window.openBulkModal = function() {
+        $('#bulk-status, #bulk-start, #bulk-end, #bulk-test, #bulk-rel, #bulk-prod').val('');
+        $('#modal-bulk').css('display', 'flex').hide().fadeIn(200);
+    }
 
-    // Клонирование (Копировать задачу)
-    window.cloneDeep = function(id) {
-        const origin = tasks.find(x => x.id === id);
-        if(!origin) return;
-        if(!confirm('Создать копию задачи?')) return;
+    window.applyBulkUpdate = async function() {
+        const selectedIds = $('.task-cb:checked').map(function() { return parseInt($(this).val(), 10); }).get();
+        if (selectedIds.length === 0) return;
 
-        const copy = { ...origin }; // Shallow copy
-        copy.id = null; // New ID
-        copy.task_number = origin.task_number + "_COPY";
-        copy.status = "Новая"; // Сброс статуса
+        const newStatus = $('#bulk-status').val();
+        const startDev = $('#bulk-start').val();
+        const endDev = $('#bulk-end').val();
+        const testDate = $('#bulk-test').val();
+        const relDate = $('#bulk-rel').val();
+        const prodDate = $('#bulk-prod').val();
 
-        $.ajax({
-            url: '/api/tasks',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(copy),
-            success: function() {
-                alert("Копия создана!");
-                loadTasksFromDB();
-            }
-        });
-    };
-
-    // Экспорт в Excel
-    window.exportExcel = function() {
-        window.location.href = '/api/tasks/export';
-    };
-
-    // === 5. РЕДАКТИРОВАНИЕ (Заполнение формы) ===
-
-    window.editT = function(id) {
-        const t = tasks.find(x => x.id === id);
-        if(!t) return;
-
-        // ID & Core
-        $('#t_id').val(t.id);
-        $('#t_user').val(t.user);
-        $('#t_num').val(t.task_number);
-
-        // Status Selects
-        $('#t_stage').val(t.stage);
-        updateStatuses(); // rebuild options
-        $('#t_status').val(t.status);
-
-        // Fields
-        $('#t_link').val(t.task_url);
-        $('#t_contact').val(t.contact_person);
-        $('#t_wiki').val(t.spec_url);
-
-        // Dates
-        $('#t_date').val(t.deployment_date);
-        // Загрузка плановой даты (Server must return 'planned_dev_date')
-        if(t.planned_dev_date) {
-            $('#t_plan_dev').val(t.planned_dev_date); // Format YYYY-MM-DD expected by input date
-        } else {
-            $('#t_plan_dev').val('');
-        }
-
-        // Code
-        cmEditor.setValue(t.additional_comment || '');
-
-        // UI UX
-        window.scrollTo(0,0);
-    };
-
-    // === 6. РЕНДЕРИНГ ТАБЛИЦЫ ===
-
-    window.renderTable = function() {
-        const tbody = $('#tbody').empty();
-        const search = $('#search_inp').val().toLowerCase().trim();
-
-        // Фильтрация
-        const filtered = tasks.filter(t => {
-            if(!search) return true;
-            return (t.task_number||'').toLowerCase().includes(search) ||
-                (t.user||'').toLowerCase().includes(search) ||
-                (t.status||'').toLowerCase().includes(search);
-        });
-
-        if(filtered.length === 0) {
-            tbody.html('<tr><td colspan="7" style="text-align:center; padding:15px; color:#999;">Ничего не найдено</td></tr>');
+        if (!newStatus && !startDev && !endDev && !testDate && !relDate && !prodDate) {
+            alert(t('tt_err_empty_bulk', "Вы не выбрали ни одного значения для изменения."));
             return;
         }
 
-        filtered.forEach(t => {
-            // Раскраска статуса
-            let colorClass = 'b-gray';
-            const s = (t.status || '').toLowerCase();
-            if (s.includes('работ') || s.includes('взято')) colorClass = 'b-blue';
-            if (s.includes('готово') || s.includes('внедрен') || s.includes('завершено')) colorClass = 'b-green';
-            if (s.includes('test') || s.includes('uat')) colorClass = 'b-test';
-            if (s.includes('cancel') || s.includes('hold') || s.includes('block') || s.includes('отмен')) colorClass = 'b-red';
+        const btn = $('#btn-apply-bulk');
+        const origText = btn.text();
+        btn.prop('disabled', true).text(t('lbl_updating', '⏳ Обновление...'));
 
-            // Формирование блока дат
-            // Показываем Dev и Dep даты
-            let datesHtml = '';
-            if(t.planned_dev_date) {
-                datesHtml += `<div title="Плановое окончание разработки" style="color:#1e40af; font-weight:600;">🛠 ${escapeHtml(t.planned_dev_date)}</div>`;
+        for (let id of selectedIds) {
+            let task = allTasks.find(t => t.id == id);
+            if (task) {
+                if (newStatus) {
+                    task.status = newStatus;
+                    for (let stage in STAGES_DICT) {
+                        if (STAGES_DICT[stage].includes(newStatus)) {
+                            task.stage = stage;
+                            break;
+                        }
+                    }
+                }
+                if (startDev) task.start_dev_date = startDev;
+                if (endDev) task.planned_dev_date = endDev;
+                if (testDate) task.test_deployment_date = testDate;
+                if (relDate) task.release_date = relDate;
+                if (prodDate) task.deployment_date = prodDate;
+
+                task.id = parseInt(task.id, 10);
+                task.version = parseInt(task.version || 1, 10);
+
+                try {
+                    await $.ajax({
+                        url: '/api/tasks', type: 'POST', contentType: 'application/json', data: JSON.stringify(task)
+                    });
+                } catch (e) {}
             }
-            if(t.deployment_date) {
-                datesHtml += `<div title="Дата установки" style="color:#166534;">🚀 ${escapeHtml(t.deployment_date)}</div>`;
-            }
-            if(!datesHtml) datesHtml = '<span style="color:#ccc;">—</span>';
+        }
 
-            // Инфо блок
-            let infoHtml = '';
-            if(t.contact_person) infoHtml += `<div>👤 ${escapeHtml(t.contact_person)}</div>`;
-            if(t.spec_url) infoHtml += `<div>📄 <a href="${t.spec_url}" target="_blank">ТЗ / Wiki</a></div>`;
+        $('#modal-bulk').fadeOut(150);
+        btn.prop('disabled', false).text(origText);
+        showToast(t('msg_updated', '✅ Обновлено'));
+        loadTasks();
+    }
 
-            // Ссылка на трекер
-            const taskLink = t.task_url ? `<a href="${t.task_url}" target="_blank" style="font-weight:bold; color:#2563eb; text-decoration:none;">${escapeHtml(t.task_number)}</a>` : `<b>${escapeHtml(t.task_number)}</b>`;
+    window.openAlmModal = function() {
+        $('#alm-task-id').val('');
+        $('#modal-alm').css('display', 'flex').hide().fadeIn(200);
+    }
 
-            const tr = `
-                <tr>
-                    <td style="color:#cbd5e1; font-size:11px;">${t.id}</td>
-                    <td><b style="color:#334155;">${escapeHtml(t.user)}</b></td>
-                    <td>${taskLink}</td>
-                    <td>
-                        <div style="font-size:10px; color:#64748b; margin-bottom:2px;">${escapeHtml((t.stage||'').split(':')[0])}</div>
-                        <span class="badge ${colorClass}">${escapeHtml(t.status || '???')}</span>
-                    </td>
-                    <td style="font-size:11px; white-space:nowrap;">
-                        ${datesHtml}
-                    </td>
-                    <td style="font-size:11px;">${infoHtml}</td>
-                    <td style="text-align:right;">
-                        <div class="task-actions">
-                            <button class="btn-menu">⋮</button>
-                            <div class="dropdown-content">
-                                <a href="#" onclick="editT(${t.id})">✏️ Редактировать</a>
-                                <a href="#" onclick="cloneDeep(${t.id})">📑 Клонировать</a>
-                                <div style="border-top:1px solid #f1f5f9; margin:3px 0"></div>
-                                <a href="service-org.html?id=${t.id}">🧩 Интеграционные потоки</a>
-                                <a href="spec_generator.html?task_id=${t.id}">📄 Генератор ТЗ</a>
-                                <div style="border-top:1px solid #f1f5f9; margin:3px 0"></div>
-                                <a href="#" onclick="deleteT(${t.id})" class="danger-action">🗑 Удалить</a>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            tbody.append(tr);
-        });
-    };
+    window.fetchFromAlm = function() {
+        const taskId = $('#alm-task-id').val().trim();
+        if (!taskId) return;
 
-    // Экранирование HTML (Безопасность)
+        const btn = $('#btn-fetch-alm');
+        const origText = btn.text();
+        btn.prop('disabled', true).text(t('lbl_loading', '⏳ Загрузка...'));
+
+        $.get(`/api/alm/fetch?task_id=${encodeURIComponent(taskId)}`)
+            .done(function(data) {
+                if (typeof data === 'string') data = JSON.parse(data);
+
+                $('#t_num').val(data.task_number);
+                $('#t_url').val(data.task_url);
+
+                let oldNotes = $('#t_notes').val();
+                let appendText = `[ALM] ${data.title}\n${data.description ? data.description : ''}`;
+                $('#t_notes').val(oldNotes ? oldNotes + '\n\n' + appendText : appendText);
+
+                $('#modal-alm').fadeOut(150);
+                showToast(t('msg_alm_loaded', "✅ Данные ALM загружены"));
+            })
+            .fail(function(xhr) {
+                let msg = xhr.responseText;
+                try { msg = JSON.parse(xhr.responseText).message; } catch(e){}
+                alert("ALM Error: " + msg);
+            })
+            .always(function() {
+                btn.prop('disabled', false).text(origText);
+            });
+    }
+
     function escapeHtml(text) {
         if (!text) return "";
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-
-    // === 7. SETTINGS LOGIC (GLOBAL) ===
-    function loadSettings() {
-        $.get('/api/tasks/settings', function(data) {
-            if(data.target_url) $('#set_url').val(data.target_url);
-            if(data.target_user) $('#set_user').val(data.target_user);
-        });
-    }
-
-    window.saveGlobalSettings = function() {
-        const s = {
-            target_url: $('#set_url').val(),
-            target_user: $('#set_user').val(),
-            target_password: $('#set_pass').val()
-        };
-        $.ajax({
-            url: '/api/tasks/settings', type: 'POST',
-            contentType: 'application/json', data: JSON.stringify(s),
-            success: () => alert('Настройки сохранены!')
-        });
-    };
-
-    window.syncToRemote = function() {
-        if(!confirm('Запустить синхронизацию? Это может занять время.')) return;
-        const btn = $('button[onclick="syncToRemote()"]');
-        btn.prop('disabled', true).text('⏳ Синхронизация...');
-
-        $.post('/api/tasks/send', {}, function(res) {
-            alert(`Синхронизация завершена.\nКод: ${res.statusCode}\nОтвет: ${res.body}`);
-        }).always(() => {
-            btn.prop('disabled', false).text('📤 Запустить синхронизацию');
-        });
-    };
-
 </script>
 
 </body>

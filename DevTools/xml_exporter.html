@@ -9,6 +9,7 @@
         textarea { width: 100%; flex-grow: 1; font-family: monospace; font-size: 14px; box-sizing: border-box; margin-top: 10px; }
         button { padding: 10px 15px; cursor: pointer; margin-bottom: 10px; }
     </style>
+    <script src="utils.js"></script>
 </head>
 <body>
 
@@ -65,6 +66,15 @@
 </accountListResponse>`;
         $('#xml-input').val(exampleXml);
     });
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
 
 </body>

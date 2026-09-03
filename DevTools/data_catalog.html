@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="dc_title">Data Catalog (Поиск маппингов)</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --th-bg: #f8fafc;
+            --tr-hover: #f8fafc;
+            --sys-badge-bg: #e0f2fe;
+            --sys-badge-text: #0369a1;
+            --sys-badge-border: #bae6fd;
+            --rule-badge-bg: #f3f4f6;
+            --rule-badge-border: #e2e8f0;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --th-bg: #0f172a;
+            --tr-hover: #334155;
+            --sys-badge-bg: rgba(3, 105, 161, 0.2);
+            --sys-badge-text: #38bdf8;
+            --sys-badge-border: #0284c7;
+            --rule-badge-bg: #334155;
+            --rule-badge-border: #475569;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            color: var(--text-main) !important;
+            padding: 20px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); transition: 0.3s; }
+        .header p { color: var(--text-muted); transition: 0.3s; }
+
+        .search-panel {
+            background: var(--bg-card); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 20px; flex-shrink: 0; transition: 0.3s;
+        }
+
+        .search-input-wrapper {
+            position: relative; display: flex; align-items: center;
+        }
+        .search-input-wrapper input {
+            width: 100%; padding: 12px 15px 12px 45px; font-size: 15px; border: 2px solid var(--border-color);
+            border-radius: 8px; outline: none; transition: border-color 0.2s, background 0.3s, color 0.3s;
+            background: var(--input-bg); color: var(--text-main); box-sizing: border-box;
+        }
+        .search-input-wrapper input:focus { border-color: #3b82f6; }
+        .search-icon { position: absolute; left: 15px; font-size: 18px; color: var(--text-muted); }
+
+        .progress-bar-container {
+            height: 4px; background: var(--border-color); border-radius: 2px; margin-top: 15px; overflow: hidden; display: none;
+        }
+        .progress-bar-fill {
+            height: 100%; background: #3b82f6; width: 0%; transition: width 0.1s linear;
+        }
+
+        .results-container {
+            flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02); overflow-y: auto; position: relative; transition: 0.3s;
+        }
+
+        .results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .results-table th { position: sticky; top: 0; background: var(--th-bg); padding: 12px 15px; text-align: left; color: var(--text-muted); border-bottom: 2px solid var(--border-color); font-weight: 700; z-index: 10; transition: 0.3s; }
+        .results-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); transition: 0.3s; }
+        .results-table tr:hover { background: var(--tr-hover); }
+
+        .highlight { background-color: #fef08a; padding: 0 2px; border-radius: 2px; font-weight: bold; color: #854d0e; }
+
+        .sys-badge { background: var(--sys-badge-bg); color: var(--sys-badge-text); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid var(--sys-badge-border); transition: 0.3s; }
+        .rule-badge { background: var(--rule-badge-bg); color: var(--text-muted); padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid var(--rule-badge-border); font-family: monospace; transition: 0.3s; }
+
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); font-size: 14px; }
+        .empty-state span { font-size: 40px; display: block; margin-bottom: 15px; }
+
+        .stats-row { display: flex; gap: 20px; margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+        .stats-item { background: var(--th-bg); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color); transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; border: none; font-size: 24px;" data-i18n="dc_title">Data Catalog (Lineage)</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="dc_subtitle">Глобальный поиск по всем интеграционным маппингам</p>
+        </div>
+    </div>
+    <div>
+        <button class="primary" onclick="buildGlobalIndex()" id="btn-index" style="background: #10b981; border-color: #10b981;" data-i18n="dc_btn_index">🔄 Собрать индекс из БД</button>
+    </div>
+</div>
+
+<div class="search-panel">
+    <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="catalog-search" placeholder="Введите название поля (например, clientId, account, amount)..." data-i18n="dc_search_ph" onkeyup="debounceSearch()" disabled>
+    </div>
+
+    <div class="progress-bar-container" id="progress-container">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="stats-row" id="stats-panel" style="display: none;">
+        <div class="stats-item"><span data-i18n="dc_stat_tasks">Проиндексировано задач:</span> <b id="stat-tasks" style="color: var(--text-main);">0</b></div>
+        <div class="stats-item"><span data-i18n="dc_stat_mappings">Найдено связей (маппингов):</span> <b id="stat-mappings" style="color: #3b82f6;">0</b></div>
+        <div class="stats-item" id="search-time"></div>
+    </div>
+</div>
+
+<div class="results-container">
+    <table class="results-table" id="results-table" style="display: none;">
+        <thead>
+        <tr>
+            <th width="120" data-i18n="dc_th_task">Задача</th>
+            <th width="200" data-i18n="dc_th_sys">Системы (Поток)</th>
+            <th width="25%" data-i18n="dc_th_src">Source Field (Отправитель)</th>
+            <th width="25%" data-i18n="dc_th_tgt">Target Field (Получатель)</th>
+            <th data-i18n="dc_th_rule">Правило & Комментарий</th>
+        </tr>
+        </thead>
+        <tbody id="results-body">
+        <!-- Результаты поиска -->
+        </tbody>
+    </table>
+
+    <div class="empty-state" id="empty-state">
+        <span>🗂️</span>
+        <p data-i18n="dc_empty_idx">Индекс не собран.</p>
+        <p data-i18n="dc_empty_idx_desc">Нажмите <b>«Собрать индекс из БД»</b> в правом верхнем углу, чтобы загрузить данные из всех задач.</p>
+    </div>
+</div>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let globalMappingsIndex = [];
+    let searchTimeout = null;
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cachedIndex = localStorage.getItem('datacatalog_index');
+        if (cachedIndex) {
+            try {
+                globalMappingsIndex = JSON.parse(cachedIndex);
+                if (globalMappingsIndex.length > 0) showReadyState();
+            } catch(e) {}
+        }
+    });
+
+    // === 1. СБОРЩИК ИНДЕКСА ИЗ БД ===
+    async function buildGlobalIndex() {
+        const btn = $('#btn-index');
+        const progCont = $('#progress-container');
+        const progFill = $('#progress-fill');
+        const searchInp = $('#catalog-search');
+
+        btn.prop('disabled', true).text(t('dc_idx_building', '⏳ Сбор данных...'));
+        searchInp.prop('disabled', true);
+        progCont.show();
+        progFill.css('width', '0%');
+
+        globalMappingsIndex = [];
+
+        try {
+            const tasks = await $.get('/api/tasks');
+            const totalTasks = tasks.length;
+
+            if (totalTasks === 0) return alert(t('dc_err_no_tasks', "В базе нет задач для индексации."));
+
+            for (let i = 0; i < totalTasks; i++) {
+                const taskObj = tasks[i];
+
+                try {
+                    const flows = await $.get(`/api/flows?task_id=${taskObj.id}`);
+                    for (let f of flows) {
+                        const details = await $.get(`/api/flow-details?task_id=${taskObj.id}&flow_order=${f.order_num}`);
+                        if (details && details.file_path) {
+                            try {
+                                const mappings = JSON.parse(details.file_path);
+                                mappings.forEach(m => {
+                                    globalMappingsIndex.push({
+                                        task_id: taskObj.id,
+                                        task_number: taskObj.task_number,
+                                        sender: f.sender,
+                                        receiver: f.receiver,
+                                        s: m.s || '',
+                                        t: m.t || '',
+                                        type: m.type || 'Direct',
+                                        comm: m.comm || ''
+                                    });
+                                });
+                            } catch(e) {}
+                        }
+                    }
+                } catch(e) {}
+
+                const percent = Math.round(((i + 1) / totalTasks) * 100);
+                progFill.css('width', `${percent}%`);
+            }
+
+            localStorage.setItem('datacatalog_index', JSON.stringify(globalMappingsIndex));
+
+            setTimeout(() => {
+                progCont.fadeOut();
+                showReadyState(totalTasks);
+                if (typeof showNotification === 'function') showNotification(t('dc_msg_idx_ok', 'Индекс успешно обновлен!'));
+            }, 500);
+
+        } catch(err) {
+            alert("Ошибка при сборе индекса: " + err.statusText);
+            progCont.hide();
+        } finally {
+            btn.prop('disabled', false).text(t('dc_btn_index', '🔄 Собрать индекс из БД'));
+        }
+    }
+
+    function showReadyState(taskCount = 0) {
+        $('#catalog-search').prop('disabled', false).attr('placeholder', t('dc_search_ph', 'Введите название поля для поиска...'));
+        $('#empty-state').html(`<span>🔍</span><p>${t('dc_search_ready', 'Индекс готов. Начните вводить название поля в строку поиска.')}</p>`);
+        $('#stats-panel').show();
+        $('#stat-mappings').text(globalMappingsIndex.length);
+        if(taskCount > 0) $('#stat-tasks').text(taskCount);
+
+        if ($('#catalog-search').val().trim() !== '') executeSearch();
+    }
+
+    // === 2. ПОИСКОВЫЙ ДВИЖОК ===
+    function debounceSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(executeSearch, 300);
+    }
+
+    function executeSearch() {
+        const query = $('#catalog-search').val().trim().toLowerCase();
+        const tbody = $('#results-body').empty();
+        const table = $('#results-table');
+        const emptyState = $('#empty-state');
+
+        if (!query) {
+            table.hide();
+            emptyState.html(`<span>🔍</span><p>${t('dc_msg_enter_query', 'Введите запрос для поиска.')}</p>`).show();
+            $('#search-time').text('');
+            return;
+        }
+
+        const startTime = performance.now();
+
+        const results = globalMappingsIndex.filter(m => {
+            return m.s.toLowerCase().includes(query) ||
+                m.t.toLowerCase().includes(query) ||
+                m.comm.toLowerCase().includes(query) ||
+                m.task_number.toLowerCase().includes(query);
+        });
+
+        const endTime = performance.now();
+
+        if (results.length === 0) {
+            table.hide();
+            emptyState.html(`<span>😔</span><p>${t('dc_msg_not_found', 'По запросу ничего не найдено.')}</p>`).show();
+        } else {
+            emptyState.hide();
+            table.show();
+
+            const highlight = (text) => {
+                if (!text) return '';
+                const regex = new RegExp(`(${query})`, 'gi');
+                return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
+            };
+
+            results.forEach(r => {
+                const taskLink = `<a href="task_tracker.html" style="color: #3b82f6; font-weight: bold; text-decoration: none;">${highlight(r.task_number)}</a>`;
+
+                const tr = `
+                    <tr>
+                        <td>${taskLink}</td>
+                        <td>
+                            <span class="sys-badge">${escapeHtml(r.sender)}</span> ➔ <span class="sys-badge">${escapeHtml(r.receiver)}</span>
+                        </td>
+                        <td style="font-family: monospace; font-size: 12px; color: #3b82f6; word-break: break-all;">
+                            ${highlight(r.s)}
+                        </td>
+                        <td style="font-family: monospace; font-size: 12px; color: #10b981; word-break: break-all;">
+                            ${highlight(r.t)}
+                        </td>
+                        <td>
+                            <span class="rule-badge">${escapeHtml(r.type)}</span>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${highlight(r.comm)}</div>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(tr);
+            });
+        }
+
+        $('#search-time').text(`${t('dc_lbl_search_time', 'Время поиска: ')} ${(endTime - startTime).toFixed(1)} мс`);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

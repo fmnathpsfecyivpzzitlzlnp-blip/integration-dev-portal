@@ -1,27 +1,51 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <title>Выполнение HTTP вызовов</title>
+    <title data-i18n="calls_page_title">Выполнение HTTP вызовов</title>
     <meta charset="UTF-8">
 
-    <!-- jQuery -->
     <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
 
-    <!-- Общие стили -->
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* Локальные стили */
+        /* CSS ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ */
+        :root {
+            --bg-main: #f1f5f9;
+            --bg-panel: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+            --input-bg: #ffffff;
+            --log-bg: #1e293b;
+            --log-text: #f8f8f2;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --log-bg: #000000;
+            --log-text: #22c55e;
+        }
+
         body {
             display: flex;
             flex-direction: column;
             height: 100vh;
             margin: 0;
             overflow: hidden;
+            background: var(--bg-main);
+            color: var(--text-main);
+            transition: background 0.3s, color 0.3s;
         }
 
         .main-action-btn {
-            background: #007bff;
+            background: #3b82f6;
             color: white;
             border: none;
             padding: 12px 24px;
@@ -32,31 +56,34 @@
             transition: background 0.2s;
             width: 100%;
         }
-        .main-action-btn:hover { background: #0056b3; }
-        .main-action-btn:disabled { background: #6c757d; cursor: not-allowed; }
+        .main-action-btn:hover { background: #2563eb; }
+        .main-action-btn:disabled { background: #94a3b8; cursor: not-allowed; }
 
         #dataRules-section {
             margin-top: 20px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 15px;
-            background: #f9fbfd;
+            background: var(--bg-panel);
+            transition: background 0.3s, border-color 0.3s;
         }
 
-        /* Стили полей ввода кода */
         textarea {
             width: 100%;
             min-height: 120px;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 13px;
             padding: 10px;
-            border: 1px solid #ccc;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             resize: vertical;
             box-sizing: border-box;
-            background-color: #fff;
-            color: #333;
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            outline: none;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
         }
+        textarea:focus { border-color: #3b82f6; }
 
         .form-row {
             display: flex;
@@ -68,15 +95,20 @@
             min-width: 160px;
             font-weight: 600;
             font-size: 13px;
-            color: #333;
+            color: var(--text-muted);
         }
         .form-row input, .form-row select {
             flex: 1;
             padding: 8px;
-            border: 1px solid #ccc;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-main);
             border-radius: 4px;
             font-size: 13px;
+            outline: none;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
         }
+        .form-row input:focus, .form-row select:focus { border-color: #3b82f6; }
 
         #calls-page-container {
             display: flex;
@@ -100,70 +132,158 @@
         }
 
         .form-section {
-            background: white;
+            background: var(--bg-panel);
             padding: 20px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: background 0.3s, border-color 0.3s;
         }
         .form-section h2 {
             margin-top: 0;
             font-size: 16px;
-            color: #2c3e50;
-            border-bottom: 1px solid #eee;
+            color: var(--text-main);
+            border-bottom: 2px solid var(--border-color);
             padding-bottom: 10px;
             margin-bottom: 15px;
         }
 
         #log-output {
-            background: #2d2d2d;
-            color: #f8f8f2;
-            border: 1px solid #444;
+            background: var(--log-bg);
+            color: var(--log-text);
+            border: 1px solid var(--border-color);
             padding: 15px;
-            min-height: 300px;
+            min-height: 400px;
             font-family: 'Consolas', monospace;
-            white-space: pre-wrap;
             border-radius: 6px;
-            margin-top: 20px;
+            margin-top: 10px;
             font-size: 13px;
-            overflow-y: auto;
-            max-height: 600px;
+            width: 100%;
+            box-sizing: border-box;
+            resize: vertical;
         }
 
-        .error-border { border-color: #e74c3c !important; background-color: #fff5f5; }
+        .tabs-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .api-tab {
+            background: var(--bg-panel);
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            user-select: none;
+            transition: 0.2s;
+            max-width: 250px;
+        }
+        .api-tab.active {
+            background: var(--bg-panel);
+            color: #0284c7;
+            border-color: #38bdf8;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .api-tab:hover:not(.active) { filter: brightness(0.95); }
+        .api-tab .tab-name {
+            padding: 2px 4px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+            min-width: 40px;
+            color: var(--text-main);
+        }
+        .api-tab .tab-name[contenteditable="true"]:focus {
+            background: var(--input-bg);
+            border-color: #60a5fa;
+            outline: none;
+            cursor: text;
+            text-overflow: clip;
+        }
+        .tab-close {
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0 4px;
+            border-radius: 4px;
+        }
+        .tab-close:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+        .add-tab-btn {
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            color: var(--text-muted);
+            font-weight: bold;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .add-tab-btn:hover { background: var(--border-color); color: var(--text-main); }
+
+        .log-controls {
+            display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--text-muted);
+        }
+        .log-controls label { display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 600; }
+        .log-controls input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(4px); }
+        .modal-content { background:var(--bg-panel); color:var(--text-main); padding:25px; border-radius:8px; width:650px; max-width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
     </style>
 </head>
 <body id="calls-page">
 
-<!-- Скроллируемая область -->
 <div class="main-content scroll-y">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
-        <h2 style="margin: 0; border: none;">Генератор Вызовов</h2>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+            <h2 style="margin: 0; border: none; color: var(--text-main);" data-i18n="calls_title">Генератор Вызовов</h2>
+        </div>
+        <div style="display:flex; gap:10px; align-items: center;">
+            <div style="background: var(--bg-panel); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; gap: 8px; align-items: center; margin-right: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);" data-i18n="env_filter_lbl">Окружение:</span>
+                <select id="env-active-select" style="padding: 4px; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; outline: none; font-weight: bold; background: var(--input-bg); color: var(--text-main);">
+                    <option value="all" data-i18n="env_all">🌍 Все вкладки</option>
+                    <option value="DEV" data-i18n="env_dev">🔵 DEV Среда</option>
+                    <option value="TEST" data-i18n="env_test">🟡 TEST Среда</option>
+                    <option value="PROD" data-i18n="env_prod">🟢 PROD Среда</option>
+                </select>
+                <button class="btn-icon" onclick="$('#modal-env-config').fadeIn(200);" title="Настроить переменные" style="background:none; border:none; cursor:pointer;" data-i18n="btn_env_settings">⚙️</button>
+            </div>
+            <button onclick="$('#modal-curl').css('display','flex').hide().fadeIn(200);" class="primary" style="background:#0284c7; border:none;" data-i18n="btn_import_curl">📥 Импорт cURL</button>
+            <button onclick="exportCurl()" class="primary" style="background:#0f766e; border:none;" data-i18n="btn_export_curl">📤 Скопировать cURL</button>
+            <button id="clear-state-btn" class="danger" data-i18n="btn_clear_form">🧹 Очистить форму</button>
+        </div>
     </div>
 
+    <div id="tabs-container" class="tabs-wrapper"></div>
+
     <div id="calls-page-container">
-
-        <!-- Верхняя панель управления пресетами -->
-        <div class="form-section" style="padding: 15px;">
-            <div class="form-row" style="margin-bottom: 0;">
-                <label for="config-select">Быстрые шаблоны:</label>
-                <select id="config-select">
-                    <option value="custom">-- Текущая конфигурация --</option>
-                    <option value="rest">REST Example (JSON POST)</option>
-                    <option value="soap">SOAP Example (XML)</option>
-                </select>
-                <button id="clear-state-btn" class="secondary" style="margin-left: 15px;">🧹 Очистить форму</button>
-            </div>
-        </div>
-
         <div id="calls-page-row">
-            <!-- Левая колонка: Основные настройки -->
             <div class="calls-page-column">
                 <div class="form-section">
-                    <h2>Настройки соединения</h2>
-                    <div class="form-row"><label for="url">URL Сервиса:</label><input type="text" id="url" placeholder="http://localhost:8080/api/test"></div>
-                    <div class="form-row"><label for="method">HTTP Метод:</label>
+                    <h2 data-i18n="conn_title">Настройки соединения</h2>
+                    <div class="form-row">
+                        <label for="url" data-i18n="lbl_url">URL Сервиса:</label>
+                        <div style="display: flex; flex: 1; gap: 5px;">
+                            <input type="text" id="url" placeholder="{{base_url}}/RESTAdapter/TCP/si_so_FileAttachmentInfoGet">
+                            <button type="button" id="parse-url-btn" class="secondary" style="padding: 0 15px; flex-shrink: 0;" data-i18n="btn_parse_url">⚡ Парсить</button>
+                        </div>
+                    </div>
+                    <div class="form-row"><label for="method" data-i18n="lbl_method">HTTP Метод:</label>
                         <select id="method">
                             <option value="POST">POST</option>
                             <option value="GET">GET</option>
@@ -172,336 +292,568 @@
                             <option value="DELETE">DELETE</option>
                         </select>
                     </div>
-                    <div class="form-row"><label for="numRequests">Кол-во итераций:</label><input type="number" id="numRequests" value="1" min="1" max="100"></div>
-                    <hr style="margin: 15px 0; border:0; border-top:1px solid #eee;">
-                    <div class="form-row"><label for="csName" title="Группа истории">Scenario Name (CS):</label><input type="text" id="csName" placeholder="Группировка в истории"></div>
-                    <div class="form-row"><label for="bsName">System Name (BS):</label><input type="text" id="bsName" placeholder="Например: BS_CRM"></div>
-                    <div class="form-row"><label for="interfaceName">Interface:</label><input type="text" id="interfaceName" placeholder="Например: CreateClient"></div>
+                    <div class="form-row">
+                        <label for="numRequests" data-i18n="lbl_iterations">Кол-во итераций:</label>
+                        <input type="number" id="numRequests" value="1" min="1" max="100">
+                    </div>
+                    <div class="form-row">
+                        <label for="delaySeconds" data-i18n="lbl_delay">Задержка (сек):</label>
+                        <input type="number" id="delaySeconds" value="0" min="0" max="60">
+                    </div>
+                    <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
+                    <div class="form-row"><label for="csName" data-i18n="lbl_cs_name">Scenario Name (CS):</label><input type="text" id="csName" placeholder="group_name" data-i18n="ph_cs_name"></div>
+                    <div class="form-row"><label for="bsName" data-i18n="lbl_bs_name">System Name (BS):</label><input type="text" id="bsName" placeholder="BS_CRM" data-i18n="ph_bs_name"></div>
+                    <div class="form-row"><label for="interfaceName" data-i18n="lbl_iface_name">Interface:</label><input type="text" id="interfaceName" placeholder="CreateClient" data-i18n="ph_iface_name"></div>
                 </div>
 
                 <div class="form-section">
                     <div style="display:flex; justify-content:space-between;">
-                        <h2>🔐 Basic Auth</h2>
-                        <span style="font-size:11px; color:#999; align-self:center;">Хранится в БД (SQLite)</span>
+                        <h2 data-i18n="auth_title">🔐 Basic Auth</h2>
+                        <span style="font-size:11px; color:var(--text-muted); align-self:center; font-weight:bold;" data-i18n="auth_db_hint">Хранится в БД (SQLite)</span>
                     </div>
 
-                    <div class="form-row" style="background:#f8f9fa; padding:10px; border-radius:4px; border:1px solid #eee;">
-                        <label for="credentials-select">Выбрать сохраненные:</label>
-                        <select id="credentials-select"><option value="">-- Новые --</option></select>
-                    </div>
+                    <form onsubmit="return false;">
+                        <div class="form-row" style="background:rgba(0,0,0,0.02); padding:10px; border-radius:4px; border:1px solid var(--border-color);">
+                            <label for="credentials-select" data-i18n="lbl_auth_saved">Выбрать сохраненные:</label>
+                            <select id="credentials-select"><option value="" data-i18n="opt_auth_new">-- Новые --</option></select>
+                        </div>
 
-                    <div style="margin: 15px 0; padding:0 5px;">
-                        <div class="form-row"><label for="credential-name">Имя для БД:</label><input type="text" id="credential-name" placeholder="TEST_ENV_USER"></div>
-                        <div class="form-row"><label for="login">Логин:</label><input type="text" id="login"></div>
-                        <div class="form-row"><label for="password">Пароль:</label><input type="password" id="password"></div>
-                    </div>
+                        <div style="margin: 15px 0; padding:0 5px;">
+                            <div class="form-row"><label for="credential-name" data-i18n="lbl_auth_dbname">Имя для БД:</label><input type="text" id="credential-name" autocomplete="off"></div>
+                            <div class="form-row"><label for="login" data-i18n="lbl_auth_login">Логин:</label><input type="text" id="login" autocomplete="off"></div>
+                            <div class="form-row"><label for="password" data-i18n="lbl_auth_pass">Пароль:</label><input type="password" id="password" autocomplete="new-password"></div>
+                        </div>
 
-                    <div style="display:flex; justify-content: flex-end; gap:10px;">
-                        <button id="delete-credential-btn" class="danger" disabled>Удалить из БД</button>
-                        <button id="save-credential-btn" class="success">Сохранить в БД</button>
-                    </div>
+                        <div style="display:flex; justify-content: flex-end; gap:10px;">
+                            <button id="delete-credential-btn" class="danger" disabled type="button" data-i18n="btn_auth_del">Удалить из БД</button>
+                            <button id="save-credential-btn" class="success" type="button" data-i18n="btn_auth_save">Сохранить в БД</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            <!-- Правая колонка: Тело и Заголовки -->
             <div class="calls-page-column">
                 <div class="form-section">
-                    <h2>Headers (JSON формат)</h2>
-                    <textarea id="headers" placeholder='{ "Content-Type": "application/json" }'>{"Content-Type": "application/json"}</textarea>
+                    <h2 data-i18n="headers_title">Headers (JSON формат)</h2>
+                    <textarea id="headers" placeholder='{"Content-Type": "application/json"}'>{"Content-Type": "application/json"}</textarea>
                 </div>
 
                 <div class="form-section" style="flex-grow:1; display:flex; flex-direction:column;">
-                    <h2>Template Body</h2>
-                    <div style="font-size:12px; color:#666; margin-bottom:10px;">
-                        Используйте плейсхолдеры ##key## для генерации данных.
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border-color); padding-bottom:10px; margin-bottom:10px;">
+                        <h2 style="margin:0; border:none;" data-i18n="template_title">Template Body</h2>
+                        <button class="secondary" onclick="openPreviewModal()" style="padding:5px 12px; font-size:12px; font-weight:bold; background:#e0f2fe; color:#0284c7; border-color:#bae6fd; cursor:pointer;" data-i18n="btn_preview">👁 Предпросмотр Payload</button>
                     </div>
-                    <textarea id="template" style="flex-grow:1;" placeholder='{
-  "id": "##req_id##",
-  "name": "##user_name##",
-  "timestamp": "##now##"
-}'></textarea>
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px; font-weight:600;" data-i18n="template_hint">
+                        Используйте плейсхолдеры ##key## для подстановки сгенерированных данных.
+                    </div>
+                    <textarea id="template" style="flex-grow:1;" placeholder='{"id": "##req_id##"}'></textarea>
                 </div>
             </div>
         </div>
 
-        <!-- Секция правил генерации -->
         <div class="form-section" id="dataRules-section">
-            <h2>⚙️ Правила генерации данных (Data Generator)</h2>
-            <p style="font-size:12px; color:#666;">Опишите, как заполнять плейсхолдеры в цикле. Формат JSON.</p>
-            <textarea id="dataRules" placeholder='{
-  "req_id": { "type": "increment", "start": 1, "step": 1 },
-  "user_name": { "type": "random", "values": ["Ivan", "Maria", "Oleg"] },
-  "uid": { "type": "uuid" },
-  "rnd_val": { "type": "random_number", "min": 10, "max": 99 },
-  "now": { "type": "current_timestamp" }
-}'></textarea>
+            <h2 data-i18n="rules_title">⚙️ Правила генерации данных (Data Generator)</h2>
+            <p style="font-size:12px; color:var(--text-muted); font-weight:600;" data-i18n="rules_hint">Формат JSON. Скрипт подставит эти данные в Template Body перед каждой отправкой.</p>
+            <textarea id="dataRules" placeholder='{"req_id": {"type": "uuid"}}'>{}</textarea>
         </div>
     </div>
 
-    <div style="position: sticky; bottom: 20px; background: rgba(255,255,255,0.9); padding: 10px 0; border-top:1px solid #ddd;">
-        <button id="execute-btn" class="main-action-btn">🚀 Выполнить запрос(ы) на Сервере</button>
+    <div style="position: sticky; bottom: 20px; background: var(--bg-main); padding: 15px 0; border-top:1px solid var(--border-color); z-index: 10;">
+        <button id="execute-btn" class="main-action-btn" data-i18n="btn_execute">🚀 Выполнить запрос(ы) на Сервере</button>
     </div>
 
-    <h3 style="margin-top: 20px;">📜 Логи выполнения:</h3>
-    <pre id="log-output">Ожидание запуска...</pre>
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <h3 style="margin: 0; color: var(--text-main);" data-i18n="logs_title">📜 Логи выполнения:</h3>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: bold;" data-i18n="logs_hint">(Отображение меняется мгновенно без перезагрузки)</span>
+        </div>
+        <div class="log-controls">
+            <label title="Показать/скрыть заголовки запроса в логе">
+                <input type="checkbox" id="log-req-headers"> <span data-i18n="chk_req_headers">📤 Заголовки запроса</span>
+            </label>
+            <label title="Показать/скрыть заголовки ответа в логе">
+                <input type="checkbox" id="log-res-headers"> <span data-i18n="chk_res_headers">📥 Заголовки ответа</span>
+            </label>
+            <button id="copy-body-btn" class="primary" style="padding: 6px 12px; font-weight: bold; background: #10b981; border: none; color: white;" data-i18n="btn_copy_json">📥 Копировать JSON Ответ</button>
+            <button id="copy-log-btn" class="secondary" style="padding: 6px 12px; font-weight: bold; border-color: #3b82f6; color: #3b82f6;" data-i18n="btn_copy_log">📋 Скопировать лог</button>
+            <button onclick="window.clearLogs()" class="secondary" style="padding: 6px 12px; color: #dc2626; font-weight: bold;" data-i18n="btn_clear_log">🗑 Очистить окно</button>
+        </div>
+    </div>
+
+    <textarea id="log-output" readonly onclick="this.select()"></textarea>
+
+    <!-- МОДАЛКА: ИМПОРТ cURL -->
+    <div id="modal-curl" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0; border-bottom:2px solid var(--border-color); padding-bottom:10px;" data-i18n="modal_curl_title">📥 Импорт запроса cURL</h3>
+            <p style="font-size:13px; color:var(--text-muted);" data-i18n="modal_curl_desc">Вставьте команду curl из Swagger или Postman. Система автоматически разберет URL, метод, заголовки и тело запроса.</p>
+            <textarea id="curl-input-text" style="width:100%; height:200px; font-family:'Consolas', monospace; font-size:12px; border:1px solid var(--border-color); border-radius:4px; padding:10px; margin-bottom:20px; background:var(--input-bg); color:var(--text-main); resize:vertical; outline:none;"></textarea>
+            <div style="text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                <button class="secondary" onclick="$('#modal-curl').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+                <button class="primary" onclick="applyCurlImport()" data-i18n="btn_import">Импортировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: НАСТРОЙКА ENVIRONMENTS -->
+    <div id="modal-env-config" class="modal">
+        <div class="modal-content" style="width:700px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border-color); padding-bottom:10px; margin-bottom:15px;">
+                <h3 style="margin:0;" data-i18n="modal_env_title">⚙️ Настройка переменных (Environments)</h3>
+                <span onclick="$('#modal-env-config').fadeOut(150)" style="cursor:pointer; font-size:24px; color:var(--text-muted); line-height:1;">&times;</span>
+            </div>
+
+            <p style="font-size:13px; color:var(--text-muted);" data-i18n="modal_env_desc">Задайте переменные в формате JSON. Если указать ключ env_marker, фильтр скроет чужие вкладки.</p>
+
+            <div style="display:flex; gap:15px;">
+                <div style="width: 150px; display:flex; flex-direction:column; gap:5px;">
+                    <button class="env-tab-btn secondary" data-env="DEV" style="background:#eff6ff; border-color:#bfdbfe; color:#1e40af; text-align:left; font-weight:bold;">🔵 DEV Среда</button>
+                    <button class="env-tab-btn secondary" data-env="TEST" style="text-align:left; font-weight:bold;">🟡 TEST Среда</button>
+                    <button class="env-tab-btn secondary" data-env="PROD" style="text-align:left; font-weight:bold;">🟢 PROD Среда</button>
+                </div>
+                <div style="flex:1;">
+                    <textarea id="env-json-editor" style="width:100%; height:250px; font-family:'Consolas', monospace; font-size:13px; border:1px solid var(--border-color); border-radius:4px; padding:10px; background:var(--log-bg); color:var(--log-text); resize:none; outline:none;"></textarea>
+                    <div id="env-error-msg" style="color:#ef4444; font-size:12px; margin-top:5px; font-weight:bold; display:none;">Error</div>
+                </div>
+            </div>
+
+            <div style="text-align:right; margin-top:20px;">
+                <button class="primary" onclick="saveEnvironmentConfig()" style="background:#10b981; border-color:#10b981;" data-i18n="btn_save_env">💾 Сохранить в БД</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: ПРЕДПРОСМОТР -->
+    <div id="modal-preview" class="modal">
+        <div class="modal-content" style="width:800px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border-color); padding-bottom:10px; margin-bottom:15px;">
+                <h3 style="margin:0;" data-i18n="modal_prev_title">👁 Live Preview (Предпросмотр генерации)</h3>
+                <span onclick="$('#modal-preview').fadeOut(150)" style="cursor:pointer; font-size:24px; color:var(--text-muted); line-height:1;">&times;</span>
+            </div>
+
+            <div style="display:flex; gap:15px; align-items:center; margin-bottom:15px; background:var(--bg-main); padding:15px; border-radius:6px; border:1px solid var(--border-color);">
+                <label style="margin:0; font-weight:bold; color:var(--text-muted);" data-i18n="lbl_iter_num">Итерация №:</label>
+                <input type="range" id="preview-iter-slider" min="1" max="100" value="1" style="flex:1; cursor:pointer;" oninput="$('#preview-iter-val').text(this.value); generatePreview();">
+                <span id="preview-iter-val" style="font-weight:bold; color:#2563eb; width:40px; text-align:center; font-size: 16px;">1</span>
+            </div>
+
+            <textarea id="preview-output" readonly style="width:100%; height:350px; font-family:'Consolas', monospace; font-size:13px; border:1px solid var(--border-color); border-radius:4px; padding:15px; background:var(--log-bg); color:#a5b4fc; resize:none; box-sizing: border-box; outline:none;"></textarea>
+
+            <div style="text-align:right; margin-top:20px;">
+                <button class="secondary" onclick="$('#modal-preview').fadeOut(150)" data-i18n="btn_close">Закрыть</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-    $(function() {
-
-        // Список полей, которые мы "помним" в LocalStorage между перезагрузками страницы (UI State)
-        // Сами креды и важные данные храним в базе, но UI поля удобно восстановить при F5.
-        const fieldsToSave = [
-            '#url', '#method', '#numRequests', '#csName', '#bsName', '#interfaceName',
-            '#headers', '#template', '#dataRules'
-        ];
-
-        function loadUIState() {
-            fieldsToSave.forEach(selector => {
-                const val = localStorage.getItem('calls_ui_' + selector);
-                if (val !== null) $(selector).val(val);
-            });
-
-            // Креды в inputs не восстанавливаем из LocalStorage для безопасности,
-            // юзер должен выбрать из Select (из БД) или ввести заново.
-
-            // Фикс для dataRules, если там пусто
-            if(!$('#dataRules').val() || $('#dataRules').val() === 'null') $('#dataRules').val('{}');
-        }
-
-        function saveUIState() {
-            fieldsToSave.forEach(selector => {
-                localStorage.setItem('calls_ui_' + selector, $(selector).val());
-            });
-        }
-
-        // Авто-сохранение при вводе
-        $(fieldsToSave.join(', ')).on('change input', saveUIState);
-
-        $('#clear-state-btn').on('click', function() {
-            if (confirm('Очистить всю форму? (Сохраненные в БД креды не удалятся)')) {
-                fieldsToSave.forEach(s => localStorage.removeItem('calls_ui_' + s));
-                $('input, textarea, select').val('');
-                $('#headers').val('{}');
-                $('#dataRules').val('{}');
-                $('#method').val('POST');
-                loadCredentials(); // Перезагрузить список из базы
+    // === JS-ЛОКАЛИЗАТОР ДЛЯ ALERTS/CONFIRMS ===
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
             }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+    });
+
+    window.rawLogs = "";
+    window.clearLogs = function() { window.rawLogs = ""; $('#log-output').val(''); };
+
+    function appendLog(text) { window.rawLogs += text; renderLogs(); }
+
+    function renderLogs() {
+        let out = window.rawLogs;
+        if (!$('#log-req-headers').is(':checked')) out = out.replace(/(?:^|\n)[\s\-\*=]*?(?:Request Headers|Заголовки запроса)[\s\-\*=]*?:?\n[\s\S]*?(?=\n[\s\-\*=]*?(?:Request Body|Тело запроса|Response|Ответ|$))/gi, '');
+        if (!$('#log-res-headers').is(':checked')) out = out.replace(/(?:^|\n)[\s\-\*=]*?(?:Response Headers|Заголовки ответа)[\s\-\*=]*?:?\n[\s\S]*?(?=\n[\s\-\*=]*?(?:Response Body|Тело ответа|Error|Ошибка|$))/gi, '');
+        $('#log-output').val(out).scrollTop($('#log-output')[0].scrollHeight);
+    }
+
+    $(function() {
+        // === ЛОГИКА ENVIRONMENTS ===
+        let environmentData = { DEV: {}, TEST: {}, PROD: {} };
+        let currentEditingEnv = 'DEV';
+
+        $.get('/api/tasks/settings', function(data) {
+            if (data && data.api_environments_config) {
+                environmentData = JSON.parse(data.api_environments_config);
+            }
+            $('#env-active-select').val(localStorage.getItem('active_env_selection') || 'all');
+            initTabs();
         });
 
-        // === PRESETS (Статические примеры для удобства) ===
-        const presets = {
-            rest: {
-                url: 'https://httpbin.org/post',
-                method: 'POST',
-                headers: JSON.stringify({"Content-Type":"application/json", "Accept":"application/json"}, null, 4),
-                template: JSON.stringify({
-                    user: { id: "##userId##", name: "##userName##" },
-                    txId: "##guid##"
-                }, null, 4),
-                dataRules: JSON.stringify({
-                    userId: { type: "increment", start: 1000, step: 1 },
-                    userName: { type: "random", values: ["Alice","Bob","Eve"] },
-                    guid: { type: "uuid" }
-                }, null, 4)
-            },
-            soap: {
-                url: 'http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso',
-                method: 'POST',
-                headers: JSON.stringify({"Content-Type":"text/xml; charset=utf-8"}, null, 4),
-                template: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://www.oorsprong.org/websamples.countryinfo">
-   <soapenv:Header/>
-   <soapenv:Body>
-      <web:CountryName>
-         <web:sCountryISOCode>##code##</web:sCountryISOCode>
-      </web:CountryName>
-   </soapenv:Body>
-</soapenv:Envelope>`,
-                dataRules: JSON.stringify({
-                    code: { type: "random", values: ["US", "DE", "IN", "CN", "RU"] }
-                }, null, 4)
+        $('#env-active-select').on('change', function() {
+            localStorage.setItem('active_env_selection', $(this).val());
+            renderTabs();
+        });
+
+        $('.env-tab-btn').on('click', function() {
+            $('.env-tab-btn').css({background: 'transparent', borderColor: 'var(--border-color)', color: 'var(--text-muted)'});
+            $(this).css({background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e40af'});
+            currentEditingEnv = $(this).data('env');
+            let data = environmentData[currentEditingEnv] || {};
+            $('#env-json-editor').val(Object.keys(data).length ? JSON.stringify(data, null, 4) : '{\n\n}');
+            $('#env-error-msg').hide();
+        });
+
+        window.saveEnvironmentConfig = function() {
+            try {
+                const text = $('#env-json-editor').val().trim();
+                environmentData[currentEditingEnv] = text ? JSON.parse(text) : {};
+
+                $.ajax({
+                    url: '/api/tasks/settings', type: 'POST', contentType: 'application/json',
+                    data: JSON.stringify({ api_environments_config: JSON.stringify(environmentData) }),
+                    success: function() {
+                        $('#env-error-msg').hide();
+                        $('#modal-env-config').fadeOut(150);
+                        if(typeof showNotification === 'function') showNotification(t("msg_env_saved", "Окружения сохранены в БД!"));
+                        renderTabs();
+                    }
+                });
+            } catch(e) {
+                $('#env-error-msg').text(t("err_json_syntax", "Ошибка синтаксиса JSON: ") + e.message).show();
             }
         };
 
-        $('#config-select').on('change', function() {
-            const val = $(this).val();
-            if (val !== 'custom' && presets[val]) {
-                const p = presets[val];
-                $('#url').val(p.url);
-                $('#method').val(p.method);
-                $('#headers').val(p.headers);
-                $('#template').val(p.template);
-                $('#dataRules').val(p.dataRules);
-                saveUIState();
-            }
-        });
+        function applyVariables(text) {
+            if (!text) return text;
+            const activeEnv = $('#env-active-select').val();
+            if (activeEnv === 'all') return text;
+            const vars = environmentData[activeEnv] || {};
+            return text.replace(/\{\{\s*([\w_]+)\s*\}\}/g, function(match, varName) {
+                return vars.hasOwnProperty(varName) ? vars[varName] : match;
+            });
+        }
 
-        // === LOGIC: CREDENTIALS (API /api/credentials) ===
+        // === ЛОГИКА ВКЛАДОК ===
+        const fieldsToSave = ['#url', '#method', '#numRequests', '#delaySeconds', '#csName', '#bsName', '#interfaceName', '#headers', '#template', '#dataRules', '#credentials-select'];
+        const checkboxFields = ['#log-req-headers', '#log-res-headers'];
+        let tabsData = JSON.parse(localStorage.getItem('api_calls_tabs')) || [];
+        let activeTabId = localStorage.getItem('api_calls_active_tab') || null;
+
+        function generateUid() { return 'tab_' + Math.random().toString(36).substr(2, 9); }
+
+        function initTabs() {
+            if (tabsData.length === 0) {
+                let oldState = {};
+                fieldsToSave.forEach(s => { let v = localStorage.getItem('calls_ui_' + s); if (v !== null) oldState[s] = v; });
+                checkboxFields.forEach(s => oldState[s] = false);
+                tabsData.push({ id: generateUid(), name: 'Основной тест', state: oldState });
+            }
+            if (!activeTabId || !tabsData.find(t => t.id === activeTabId)) activeTabId = tabsData[0].id;
+            renderTabs();
+            loadTabState(activeTabId);
+        }
+
+        window.renderTabs = function() {
+            const $cont = $('#tabs-container').empty();
+            const activeEnvKey = $('#env-active-select').val() || 'all';
+            let visibleTabs = [];
+
+            tabsData.forEach(tab => {
+                const url = (tab.state && tab.state['#url']) ? tab.state['#url'].toLowerCase() : '';
+                let isVisible = true;
+                if (activeEnvKey !== 'all') {
+                    for (let envName in environmentData) {
+                        if (envName === activeEnvKey) continue;
+                        let foreignFilter = environmentData[envName]?.env_marker;
+                        if (foreignFilter) {
+                            const markers = foreignFilter.split(',').map(m => m.trim().toLowerCase());
+                            if (markers.some(m => url.includes(m))) { isVisible = false; break; }
+                        }
+                    }
+                }
+                if (isVisible) visibleTabs.push(tab);
+            });
+
+            if (visibleTabs.length === 0 && tabsData.length > 0) visibleTabs.push(tabsData[0]);
+            if (!visibleTabs.find(t => t.id === activeTabId)) { activeTabId = visibleTabs[0].id; loadTabState(activeTabId); }
+
+            visibleTabs.forEach(tab => {
+                const isActive = tab.id === activeTabId ? 'active' : '';
+                const isEdit = isActive ? 'true' : 'false';
+                $cont.append(`
+                    <div class="api-tab ${isActive}" data-id="${tab.id}">
+                        <span class="tab-name" contenteditable="${isEdit}" spellcheck="false" title="Кликните для переименования">${escapeHtml(tab.name)}</span>
+                        <span class="tab-close" title="Закрыть вкладку">&times;</span>
+                    </div>
+                `);
+            });
+            $cont.append('<button class="add-tab-btn" onclick="addNewTab()" title="Добавить копию">+</button>');
+
+            $('.api-tab').on('click', function(e) {
+                if ($(e.target).hasClass('tab-close')) return;
+                if ($(e.target).hasClass('tab-name') && $(this).hasClass('active')) return;
+                window.getSelection().removeAllRanges();
+                switchTab($(this).data('id'));
+            });
+
+            $('.tab-close').on('click', function(e) { e.stopPropagation(); closeTab($(this).parent().data('id')); });
+
+            $('.tab-name').on('blur', function() {
+                let newName = $(this).text().trim() || 'Новый тест';
+                let tId = $(this).parent().data('id');
+                let tab = tabsData.find(t => t.id === tId);
+                if (tab) tab.name = newName;
+                $(this).text(newName);
+                saveTabsMeta();
+            }).on('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); $(this).blur(); } }).on('paste', function(e) {
+                e.preventDefault(); let text = (e.originalEvent || e).clipboardData.getData('text/plain'); document.execCommand('insertText', false, text);
+            });
+        };
+
+        window.addNewTab = function() {
+            saveCurrentTabState();
+            let currentTab = tabsData.find(t => t.id === activeTabId);
+            let clonedState = currentTab && currentTab.state ? JSON.parse(JSON.stringify(currentTab.state)) : {};
+            let newId = generateUid();
+            tabsData.push({ id: newId, name: 'Копия теста', state: clonedState });
+            switchTab(newId);
+        };
+
+        function closeTab(id) {
+            if (tabsData.length === 1) return alert(t('err_last_tab', 'Нельзя закрыть последнюю вкладку!'));
+            let idx = tabsData.findIndex(t => t.id === id);
+            if (idx > -1) {
+                tabsData.splice(idx, 1);
+                if (activeTabId === id) { activeTabId = tabsData[Math.max(0, idx - 1)].id; loadTabState(activeTabId); }
+                renderTabs(); saveTabsMeta();
+            }
+        }
+
+        function switchTab(id) {
+            if (activeTabId === id) return;
+            saveCurrentTabState(); activeTabId = id; loadTabState(id); renderTabs(); saveTabsMeta();
+        }
+
+        function loadTabState(id) {
+            let tab = tabsData.find(t => t.id === id);
+            if (!tab) return;
+            $('#url, #csName, #bsName, #interfaceName, #credential-name, #login, #password').val('');
+            $('#credentials-select').val('');
+            $('#template').val('{\n\n}'); $('#headers').val('{"Content-Type": "application/json"}'); $('#method').val('POST');
+            $('#numRequests').val('1'); $('#delaySeconds').val('0'); $('#dataRules').val('{}');
+            $('#log-req-headers').prop('checked', false); $('#log-res-headers').prop('checked', false);
+            window.rawLogs = "Ожидание запуска...\n"; renderLogs();
+
+            if (tab.state) {
+                fieldsToSave.forEach(selector => { if (tab.state[selector] !== undefined) $(selector).val(tab.state[selector]); });
+                checkboxFields.forEach(selector => { if (tab.state[selector] !== undefined) $(selector).prop('checked', tab.state[selector]); });
+            }
+            $('#credentials-select').trigger('change'); renderLogs();
+        }
+
+        function saveCurrentTabState() {
+            let tab = tabsData.find(t => t.id === activeTabId);
+            if (tab) {
+                if (!tab.state) tab.state = {};
+                fieldsToSave.forEach(selector => { tab.state[selector] = $(selector).val(); });
+                checkboxFields.forEach(selector => { tab.state[selector] = $(selector).is(':checked'); });
+                saveTabsMeta();
+            }
+        }
+
+        function saveTabsMeta() { localStorage.setItem('api_calls_tabs', JSON.stringify(tabsData)); localStorage.setItem('api_calls_active_tab', activeTabId); }
+
+        const allSelectors = fieldsToSave.concat(checkboxFields).join(', ');
+        $(allSelectors).on('change input', saveCurrentTabState);
+        $('#log-req-headers, #log-res-headers').on('change', renderLogs);
+
+        $('#parse-url-btn').on('click', function() {
+            const urlString = $('#url').val().trim();
+            if (!urlString) return alert(t('err_enter_url', 'Сначала введите URL сервиса!'));
+            try {
+                const urlObj = new URL(urlString);
+                const segments = urlObj.pathname.split('/').filter(s => s.trim().length > 0);
+                if (segments.length >= 2) {
+                    $('#bsName').val(segments[segments.length - 2]); $('#interfaceName').val(segments[segments.length - 1]);
+                    $('#bsName, #interfaceName').trigger('change').css({ 'background-color': 'rgba(16,185,129,0.2)', 'transition': 'background-color 0.2s' });
+                    setTimeout(() => $('#bsName, #interfaceName').css('background-color', ''), 500);
+                } else { alert(t('err_url_parse', 'Не удалось распознать структуру URL.')); }
+            } catch (e) { alert(t('err_url_invalid', 'Некорректный формат URL!')); }
+        });
 
         function loadCredentials() {
             $.get('/api/credentials/all', function(items) {
-                const select = $('#credentials-select');
-                select.empty().append('<option value="">-- Новые / Не выбрано --</option>');
-
-                // Server.groovy возвращает массив [{id: 1, name: "PROD"}, ...]
-                items.forEach(item => {
-                    select.append(`<option value="${item.id}">${escapeHtml(item.name)}</option>`);
-                });
-            }).fail(() => console.log("Не удалось загрузить credentials"));
+                const select = $('#credentials-select').empty().append(`<option value="">${t("opt_auth_new", "-- Новые / Не выбрано --")}</option>`);
+                if (Array.isArray(items)) items.forEach(item => select.append(`<option value="${item.id}">${escapeHtml(item.name)}</option>`));
+                let tab = tabsData.find(t => t.id === activeTabId);
+                if(tab && tab.state && tab.state['#credentials-select']) select.val(tab.state['#credentials-select']);
+            });
         }
 
-        // Выбор кредов из списка
         $('#credentials-select').on('change', function() {
             const id = $(this).val();
-            const hasVal = !!id;
-            $('#delete-credential-btn').prop('disabled', !hasVal);
-
-            if (hasVal) {
+            $('#delete-credential-btn').prop('disabled', !id);
+            if (id) {
                 $.get(`/api/credentials/get?id=${id}`, function(data) {
-                    if(data) {
-                        $('#credential-name').val(data.name);
-                        $('#login').val(data.login);
-                        $('#password').val(data.password);
-                    }
+                    if(data) { $('#credential-name').val(data.name); $('#login').val(data.login); $('#password').val(data.password); }
                 });
-            } else {
-                // Если выбрали "-- Новые --", чистим поля
-                $('#credential-name, #login, #password').val('');
-            }
+            } else { $('#credential-name, #login, #password').val(''); }
         });
 
-        // Сохранение кредов (Create / Update)
         $('#save-credential-btn').on('click', function() {
-            const currentId = $('#credentials-select').val();
             const name = $('#credential-name').val().trim();
-            const login = $('#login').val();
-            const password = $('#password').val();
-
-            if (!name) return alert('Введите имя для сохранения в базе (например "TEST_USER")');
-
-            const payload = {
-                id: currentId ? parseInt(currentId) : null,
-                name: name,
-                login: login,
-                password: password
-            };
-
+            if (!name) return alert(t('err_cred_name', 'Введите имя для сохранения в базе'));
             $.ajax({
-                url: '/api/credentials/save',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(payload),
-                success: function(res) {
-                    alert('Учетные данные сохранены в БД!');
-                    loadCredentials(); // Обновляем список
-                    // Можно очистить поля паролей из соображений безопасности, но для UX оставим пока.
-                },
-                error: function(x) { alert('Ошибка: ' + x.responseText); }
+                url: '/api/credentials/save', type: 'POST', contentType: 'application/json',
+                data: JSON.stringify({ id: $('#credentials-select').val() ? parseInt($('#credentials-select').val()) : null, name: name, login: $('#login').val(), password: $('#password').val() }),
+                success: function() { alert(t('msg_saved', 'Сохранено!')); loadCredentials(); }
             });
         });
 
-        // Удаление
         $('#delete-credential-btn').on('click', function() {
             const id = $('#credentials-select').val();
-            if (!id || !confirm('Удалить эту запись из БД?')) return;
-
-            $.ajax({
-                url: '/api/credentials/delete',
-                type: 'DELETE',
-                contentType: 'application/json',
-                data: JSON.stringify({id: parseInt(id)}),
-                success: function() {
-                    alert('Удалено!');
-                    loadCredentials();
-                    $('#credential-name, #login, #password').val('');
-                    $('#delete-credential-btn').prop('disabled', true);
-                }
-            });
+            if (!id || !confirm(t('confirm_del_cred', 'Удалить эту запись?'))) return;
+            $.ajax({ url: '/api/credentials/delete', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({id: parseInt(id)}), success: function() { loadCredentials(); $('#credential-name, #login, #password').val(''); $('#delete-credential-btn').prop('disabled', true); } });
         });
 
-        // === EXECUTION LOGIC (API /api/execute-calls) ===
+        function getRulesFromUI() { try { return JSON.parse($('#dataRules').val() || '{}'); } catch (e) { alert(t('err_json_rules', '❌ Неверный формат JSON в Правилах генерации!')); throw e; } }
 
-        $('#execute-btn').on('click', function() {
-            const btn = $(this);
-            const logArea = $('#log-output');
+        $('#copy-log-btn').on('click', function() {
+            const logEl = document.getElementById('log-output');
+            const selectedText = logEl.value.substring(logEl.selectionStart, logEl.selectionEnd);
+            const textToCopy = selectedText.length > 0 ? selectedText : logEl.value;
+            if (!textToCopy) return alert(t('err_log_empty', 'Лог пуст!'));
+            navigator.clipboard.writeText(textToCopy).then(() => { const btn = $(this); btn.text('✅ Скопировано!'); setTimeout(() => btn.text(t("btn_copy_log", '📋 Скопировать лог')), 2000); });
+        });
 
-            // 1. Валидация
-            $('input, textarea').removeClass('error-border');
-            const url = $('#url').val().trim();
-
-            let headersObj = {};
-            let rulesObj = {};
-
-            try {
-                const hRaw = $('#headers').val().trim() || '{}';
-                headersObj = JSON.parse(hRaw);
-            } catch(e) {
-                $('#headers').addClass('error-border');
-                alert("Ошибка JSON в заголовках!");
-                return;
+        $('#copy-body-btn').on('click', function() {
+            const logText = $('#log-output').val();
+            if (!logText.trim()) return alert(t('err_log_empty', 'Лог пуст!'));
+            const jsonMatches = logText.match(/(\{|\[)[\s\S]*(\}|\])/g);
+            let targetText = '';
+            if (jsonMatches && jsonMatches.length > 0) {
+                for (let i = jsonMatches.length - 1; i >= 0; i--) { try { JSON.parse(jsonMatches[i]); targetText = jsonMatches[i]; break; } catch(e) {} }
             }
+            if (!targetText) { const bodyMatch = logText.match(/(?:Response Body|Тело ответа)[\s\S]*?\n([\s\S]+)$/i); if (bodyMatch && bodyMatch[1]) targetText = bodyMatch[1].trim(); else targetText = logText; }
+            navigator.clipboard.writeText(targetText).then(() => { const btn = $(this); btn.text('✅ JSON Скопирован!'); setTimeout(() => btn.text(t('btn_copy_json', '📥 Копировать JSON Ответ')), 2000); });
+        });
 
-            try {
-                const rRaw = $('#dataRules').val().trim() || '{}';
-                rulesObj = JSON.parse(rRaw);
-            } catch(e) {
-                $('#dataRules').addClass('error-border');
-                alert("Ошибка JSON в правилах генерации!");
-                return;
-            }
+        $('#execute-btn').off('click').on('click', async function() {
+            const rawUrl = $('#url').val();
+            if (!rawUrl) return alert(t('err_enter_url', 'Введите URL сервиса'));
 
-            if (!url) {
-                $('#url').addClass('error-border');
-                alert("Укажите URL сервиса!");
-                return;
-            }
+            const rawHeaders = $('#headers').val() || '{}';
+            const rawBody = $('#template').val() || '';
 
-            // 2. Сбор данных
             const config = {
-                url: url,
-                method: $('#method').val(),
-                numberOfRequests: parseInt($('#numRequests').val()) || 1,
-                csName: $('#csName').val().trim(),
-                bsName: $('#bsName').val().trim(),
-                interfaceName: $('#interfaceName').val().trim(),
-                login: $('#login').val(),
-                password: $('#password').val(),
-                headers: headersObj,
-                template: $('#template').val(),
-                dataRules: rulesObj
+                url: applyVariables(rawUrl), method: $('#method').val(), csName: $('#csName').val().trim(), bsName: $('#bsName').val().trim(), interfaceName: $('#interfaceName').val().trim(),
+                headers: JSON.parse(applyVariables(rawHeaders)), template: applyVariables(rawBody), dataRules: getRulesFromUI(),
+                logReqHeaders: $('#log-req-headers').is(':checked'), logResHeaders: $('#log-res-headers').is(':checked'),
+                logRequestHeaders: $('#log-req-headers').is(':checked'), logResponseHeaders: $('#log-res-headers').is(':checked')
             };
 
-            // 3. UI Process
-            logArea.text('Отправка задачи на сервер...\n');
-            btn.prop('disabled', true).text('Выполняется...');
+            const credId = $('#credentials-select').val();
+            if (credId) config.credentialId = parseInt(credId);
 
-            // 4. AJAX Call
-            $.ajax({
-                url: '/api/execute-calls',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(config),
-                success: function(res) {
-                    logArea.text(res); // Server returns plain text logs
-                },
-                error: function(xhr) {
-                    logArea.text('ОШИБКА СЕРВЕРА:\n' + (xhr.responseText || xhr.statusText));
-                },
-                complete: function() {
-                    btn.prop('disabled', false).text('🚀 Выполнить запрос(ы) на Сервере');
-                }
-            });
+            const numRequests = parseInt($('#numRequests').val()) || 1;
+            const delaySec = parseInt($('#delaySeconds').val()) || 0;
+
+            const btn = $(this); btn.prop('disabled', true).text('Выполнение...'); window.clearLogs();
+            appendLog(`Начинаю выполнение ${numRequests} запросов к ${config.url}...\n`);
+
+            for (let i = 1; i <= numRequests; i++) {
+                appendLog(`\n[${new Date().toLocaleTimeString()}] 🚀 Отправка запроса ${i} из ${numRequests}...\n`);
+                config.iteration = i;
+                try {
+                    const res = await $.ajax({ url: '/api/execute-calls', type: 'POST', contentType: 'application/json', data: JSON.stringify(config), dataType: 'text' });
+                    appendLog((typeof res === 'object' ? JSON.stringify(res, null, 2) : res) + "\n");
+                } catch(e) { appendLog(`\n❌ Ошибка сети: ${e.responseText || e.statusText}\n`); break; }
+                if (i < numRequests && delaySec > 0) { appendLog(`\n[${new Date().toLocaleTimeString()}] ⏳ Пауза ${delaySec} сек. перед следующим вызовом...\n`); await new Promise(resolve => setTimeout(resolve, delaySec * 1000)); }
+            }
+            appendLog(`\n[${new Date().toLocaleTimeString()}] ✅ Работа завершена!\n`); btn.prop('disabled', false).text(t('btn_execute', '🚀 Выполнить запрос(ы) на Сервере'));
         });
 
-        function escapeHtml(text) {
-            if(!text) return '';
-            return $('<div>').text(text).html();
-        }
-
-        // Start
-        loadUIState();
         loadCredentials();
     });
+
+    function escapeHtml(text) { return String(text||'').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+    window.applyCurlImport = function() {
+        const curlStr = $('#curl-input-text').val().trim();
+        if (!curlStr) return alert(t('err_no_curl', 'Пожалуйста, вставьте команду cURL'));
+        const cleanStr = curlStr.replace(/\\\n/g, ' ').replace(/\\\r\n/g, ' ');
+        const urlMatch = cleanStr.match(/['"]?(https?:\/\/[^\s'"]+)['"]?/);
+        if (urlMatch) { $('#url').val(urlMatch[1]); setTimeout(() => $('#parse-url-btn').click(), 100); }
+        const methodMatch = cleanStr.match(/-X\s+([A-Z]+)/i);
+        let method = methodMatch ? methodMatch[1].toUpperCase() : 'GET';
+        let headers = {};
+        const headerRegex = /-H\s+['"]?([^'"]+)['"]?/gi; let match;
+        while ((match = headerRegex.exec(cleanStr)) !== null) {
+            const h = match[1]; const splitIdx = h.indexOf(':');
+            if (splitIdx > 0) headers[h.substring(0, splitIdx).trim()] = h.substring(splitIdx + 1).trim();
+        }
+        if (Object.keys(headers).length > 0) $('#headers').val(JSON.stringify(headers, null, 4));
+        const dataMatch = cleanStr.match(/(?:-d|--data|--data-raw)\s+(['"])([\s\S]*?)\1/i);
+        if (dataMatch) {
+            let bodyData = dataMatch[2];
+            try { bodyData = JSON.stringify(JSON.parse(bodyData), null, 4); } catch(e) {}
+            $('#template').val(bodyData); if (!methodMatch) method = 'POST';
+        }
+        $('#method').val(method);
+        $('#modal-curl').fadeOut(150); $('#curl-input-text').val(''); $('#url, #method, #headers, #template').trigger('change');
+        if(typeof showNotification === 'function') showNotification(t('msg_curl_success', "cURL успешно импортирован!")); else alert(t('msg_curl_success', "cURL успешно импортирован!"));
+    };
+
+    window.exportCurl = function() {
+        const url = $('#url').val(); if (!url) return alert(t('err_enter_url', 'Сначала введите URL сервиса!'));
+        const method = $('#method').val(); const body = $('#template').val(); let headersObj = {};
+        try { const hVal = $('#headers').val(); if(hVal) headersObj = JSON.parse(hVal); } catch(e){ return alert(t('err_json_head', 'Ошибка экспорта: Невалидный JSON в заголовках')); }
+        let curl = `curl -X ${method} "${url}"`;
+        for (let k in headersObj) curl += ` \\\n  -H "${k}: ${headersObj[k]}"`;
+        if (body.trim() && method !== 'GET') { const safeBody = body.replace(/"/g, '\\"').replace(/\n/g, ''); curl += ` \\\n  -d "${safeBody}"`; }
+        navigator.clipboard.writeText(curl).then(() => alert(t('msg_copied', 'Скопировано!'))).catch(() => alert(t('err_copy', 'Не удалось скопировать.')));
+    };
+
+    $('#clear-state-btn').on('click', function() {
+        if(confirm(t('confirm_clear', 'Очистить форму вызова?'))) { $('#url, #csName, #bsName, #interfaceName').val(''); $('#template').val('{\n\n}'); $('#headers').val('{"Content-Type": "application/json"}'); $('#method').val('POST'); $('#url').trigger('change'); }
+    });
+
+    window.openPreviewModal = function() {
+        try { JSON.parse($('#dataRules').val() || '{}'); } catch(e) { return alert(t('err_json_rules', "Сначала исправьте ошибки в окне 'Правила генерации данных'!")); }
+        const maxIter = parseInt($('#numRequests').val()) || 100;
+        $('#preview-iter-slider').attr('max', maxIter > 1 ? maxIter : 100).val(1); $('#preview-iter-val').text(1);
+        $('#modal-preview').css('display', 'flex').hide().fadeIn(200); generatePreview();
+    };
+
+    window.generatePreview = function() {
+        let templateStr = $('#template').val();
+        const activeEnv = $('#env-active-select').val();
+        if (activeEnv !== 'none' && activeEnv !== 'all') {
+            const environmentData = JSON.parse(localStorage.getItem('postman_envs')) || {};
+            const vars = environmentData[activeEnv] || {};
+            templateStr = templateStr.replace(/\{\{\s*([\w_]+)\s*\}\}/g, function(match, varName) { return vars.hasOwnProperty(varName) ? vars[varName] : match; });
+        }
+        let rules = {}; try { rules = JSON.parse($('#dataRules').val() || '{}'); } catch(e) {}
+        const iter = parseInt($('#preview-iter-slider').val()) || 1;
+        let result = templateStr;
+
+        for (let key in rules) {
+            const rule = rules[key]; let value = '';
+            switch (rule.type) {
+                case 'increment': value = (rule.start !== undefined ? rule.start : 1) + (iter - 1) * (rule.step !== undefined ? rule.step : 1); break;
+                case 'random': if (rule.values && rule.values.length > 0) value = rule.values[Math.floor(Math.random() * rule.values.length)]; break;
+                case 'uuid': value = crypto.randomUUID ? crypto.randomUUID() : 'xxxx-xxxx-xxxx-xxxx'.replace(/[x]/g, () => (Math.random() * 16 | 0).toString(16)); break;
+                case 'random_number': value = Math.floor(Math.random() * ((rule.max !== undefined ? rule.max : 10000) - (rule.min !== undefined ? rule.min : 0) + 1)) + (rule.min !== undefined ? rule.min : 0); break;
+                case 'current_timestamp': value = new Date().toISOString(); break;
+                case 'from_list': if (rule.values && rule.values.length > 0) value = rule.values[(iter - 1) % rule.values.length]; break;
+                default: value = `[Неизвестное правило: ${rule.type}]`;
+            }
+            result = result.replace(new RegExp(`##${key}##`, 'g'), value);
+        }
+        try { result = JSON.stringify(JSON.parse(result), null, 4); } catch(e) { }
+        $('#preview-output').val(result);
+    };
 </script>
 </body>
 </html>

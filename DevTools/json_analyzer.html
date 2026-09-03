@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="ja_page_title">Анализатор полей (100% Offline / Ultra Fast)</title>
+
+    <!-- Только локальные библиотеки -->
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-sec-bg: #e2e8f0;
+            --btn-sec-hover: #cbd5e1;
+            --item-hover: #eff6ff;
+            --item-hover-text: #1d4ed8;
+            --item-border: #3b82f6;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-sec-bg: #334155;
+            --btn-sec-hover: #475569;
+            --item-hover: rgba(59, 130, 246, 0.2);
+            --item-hover-text: #60a5fa;
+            --item-border: #38bdf8;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        /* Растягиваем на всю страницу */
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); transition: 0.3s; }
+        .header p { color: var(--text-muted); transition: 0.3s; }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; min-height: 0; }
+
+        /* Колонки */
+        .col { display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: background 0.3s, border-color 0.3s; }
+        .left-col { flex: 1; min-width: 0; }
+        .right-col { flex: 1.2; min-width: 0; }
+
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; transition: background 0.3s, border-color 0.3s, color 0.3s; }
+
+        /* CodeMirror на всю высоту */
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 14px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; }
+
+        /* Поиск по спискам */
+        .search-bar { padding: 15px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); transition: background 0.3s, border-color 0.3s; }
+        .search-bar input { width: 100%; padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; outline: none; transition: 0.3s; box-sizing: border-box; background: var(--input-bg); color: var(--text-main); }
+        .search-bar input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+        /* Контейнер карточек справа */
+        .stats-container { flex: 1; display: flex; gap: 15px; padding: 15px; overflow: hidden; background: var(--bg-main); transition: 0.3s; }
+
+        /* Сами карточки */
+        .stat-card { flex: 1; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: 0.3s; min-width: 0; }
+        .stat-header { padding: 10px 15px; background: var(--bg-header); border-bottom: 1px solid var(--border-color); font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; transition: 0.3s; }
+        .stat-count { background: var(--bg-card); padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); font-size: 12px; transition: 0.3s; }
+
+        .copy-btn { background: var(--btn-sec-bg); border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: var(--text-main); cursor: pointer; transition: 0.2s; }
+        .copy-btn:hover { background: var(--btn-sec-hover); }
+
+        /* Списки полей внутри карточек */
+        .stat-list { flex: 1; overflow-y: auto; margin: 0; padding: 10px; list-style: none; font-family: 'Consolas', monospace; font-size: 13px; color: var(--text-main); transition: 0.3s; }
+
+        /* Интерактивные элементы списка */
+        .clickable-field { padding: 6px 10px; border-bottom: 1px dashed var(--border-color); cursor: pointer; border-radius: 4px; transition: 0.2s; border-left: 3px solid transparent; word-break: break-all; }
+        .clickable-field:hover { background: var(--item-hover); border-left-color: var(--item-border); color: var(--item-hover-text); }
+        .clickable-field:last-child { border-bottom: none; }
+
+        /* Бейдж счетчика массива */
+        .array-count { background: var(--btn-sec-bg); color: var(--text-main); padding: 2px 5px; border-radius: 4px; font-size: 11px; font-weight: 800; margin: 0 2px; transition: 0.3s; }
+
+        /* Цвета */
+        .req-card { border-top: 4px solid #16a34a; }
+        .req-card .stat-header { color: #16a34a; }
+        .opt-card { border-top: 4px solid #ca8a04; }
+        .opt-card .stat-header { color: #ca8a04; }
+
+        /* Блок ошибок */
+        .error-box { display: none; padding: 12px 15px; background: rgba(220, 38, 38, 0.1); color: #ef4444; font-family: 'Consolas', monospace; font-size: 13px; border-bottom: 1px solid rgba(220, 38, 38, 0.3); word-break: break-all; }
+
+        /* Подсветка при переходе */
+        .jump-highlight { background-color: rgba(234, 179, 8, 0.3) !important; transition: background-color 0.5s; }
+
+        /* Скроллбары */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px;" data-i18n="ja_title">📊 Анализатор полей</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="ja_subtitle">Оптимизировано для больших JSON массивов.</p>
+        </div>
+    </div>
+    <div>
+        <button class="primary" onclick="clearEditor()" style="background: #ef4444; border-color: #ef4444;" data-i18n="ja_btn_clear">🗑 Очистить</button>
+    </div>
+</div>
+
+<div class="workspace">
+    <!-- Левая колонка: Ввод JSON/Schema -->
+    <div class="col left-col">
+        <div class="panel-head">
+            <span data-i18n="ja_lbl_in">Входные данные (JSON Schema или Payload)</span>
+        </div>
+        <div id="error-box" class="error-box"></div>
+        <textarea id="editor-input"></textarea>
+    </div>
+
+    <!-- Правая колонка: Результаты -->
+    <div class="col right-col">
+        <div class="search-bar">
+            <input type="text" id="field-search" placeholder="🔍 Быстрый поиск по найденным полям..." data-i18n="ja_ph_search" oninput="filterLists()">
+        </div>
+        <div class="stats-container">
+            <!-- Обязательные -->
+            <div class="stat-card req-card">
+                <div class="stat-header">
+                    <div>
+                        <span data-i18n="ja_lbl_req">Обязательные</span> <span class="stat-count" id="req-count">0</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyJSONList('req')" title="Скопировать как массив JSON (без счетчиков)" data-i18n="ja_btn_copy">📋 В JSON</button>
+                </div>
+                <ul class="stat-list" id="req-list">
+                    <li><i style="color:var(--text-muted)" data-i18n="ja_msg_empty">Вставьте JSON для анализа...</i></li>
+                </ul>
+            </div>
+
+            <!-- Необязательные -->
+            <div class="stat-card opt-card">
+                <div class="stat-header">
+                    <div>
+                        <span data-i18n="ja_lbl_opt">Необязательные</span> <span class="stat-count" id="opt-count">0</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyJSONList('opt')" title="Скопировать как массив JSON (без счетчиков)" data-i18n="ja_btn_copy">📋 В JSON</button>
+                </div>
+                <ul class="stat-list" id="opt-list">
+                    <li><i style="color:var(--text-muted)" data-i18n="ja_msg_empty">Вставьте JSON для анализа...</i></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Всплывающее уведомление -->
+<div id="toast" style="position:fixed;bottom:20px;right:20px;padding:10px 20px;background:#10b981;color:#fff;border-radius:4px;display:none;z-index:9999; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">Уведомление</div>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let editorInput;
+    let currentReqFields = [];
+    let currentOptFields = [];
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
+        // Инициализация CodeMirror
+        editorInput = CodeMirror.fromTextArea(document.getElementById('editor-input'), {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: cmTheme
+        });
+
+        window.addEventListener('themeChanged', function(e) {
+            editorInput.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+        });
+
+        const defaultSchema = [
+            { "date": "15/07/2026", "time": "16:45", "currency": "CAD", "impact": "HIGH" },
+            { "date": "15/07/2026", "time": "17:00", "currency": "USD", "impact": "HIGH" }
+        ];
+        editorInput.setValue(JSON.stringify(defaultSchema, null, 2));
+
+        analyzeFields(editorInput.getValue());
+
+        let timeout;
+        editorInput.on('change', function() {
+            clearTimeout(timeout);
+            // Увеличили задержку до 600мс для гигантских JSON, чтобы не вешать браузер при печати
+            timeout = setTimeout(() => {
+                analyzeFields(editorInput.getValue());
+                filterLists();
+            }, 600);
+        });
+    });
+
+    function clearEditor() {
+        editorInput.setValue('');
+        $('#field-search').val('');
+        analyzeFields('');
+    }
+
+    function showToast(msg) {
+        const toast = $('#toast');
+        toast.text(msg).fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 2000);
+    }
+
+    // --- ПЕРЕХОД К СТРОКЕ ПРИ КЛИКЕ (ЭКСТРЕМАЛЬНО УСКОРЕНО) ---
+    window.jumpToField = function(path) {
+        if (!editorInput || !path) return;
+
+        // Удаляем числа из скобок [2500] -> пустая строка, чтобы найти чистый ключ
+        let cleanPath = path.replace(/\[\d*\]/g, '');
+        const parts = cleanPath.split('.').filter(p => p);
+
+        // Если кликнули на сам корень-массив
+        if (parts.length < 1) {
+            editorInput.setCursor({line: 0, ch: 0});
+            editorInput.scrollIntoView({line: 0, ch: 0}, 100);
+            return;
+        }
+
+        let searchKey = parts[parts.length - 1];
+        const searchStr = `"${searchKey}"`;
+        const text = editorInput.getValue();
+
+        // Быстрый бинарный поиск индекса подстроки (в 100 раз быстрее split('\n'))
+        const index = text.indexOf(searchStr);
+
+        if (index !== -1) {
+            // Считаем переносы строк только до найденного индекса
+            let foundLine = 0;
+            for (let i = 0; i < index; i++) {
+                if (text[i] === '\n') foundLine++;
+            }
+
+            editorInput.setCursor({line: foundLine, ch: 0});
+            editorInput.scrollIntoView({line: foundLine, ch: 0}, 100);
+
+            const handle = editorInput.addLineClass(foundLine, 'background', 'jump-highlight');
+            setTimeout(() => editorInput.removeLineClass(handle, 'background', 'jump-highlight'), 1500);
+        } else {
+            showToast(t('ja_msg_not_found', 'Поле не найдено в редакторе'));
+        }
+    }
+
+    // --- КОПИРОВАНИЕ В JSON ---
+    window.copyJSONList = function(type) {
+        const listToCopy = type === 'req' ? currentReqFields : currentOptFields;
+        if (!listToCopy || listToCopy.length === 0) {
+            showToast(t('ja_msg_empty_list', 'Список пуст'));
+            return;
+        }
+        // При копировании вычищаем цифры из скобок [25167] -> [] для чистого JSON-пути
+        const cleanList = listToCopy.map(f => f.replace(/\[\d+\]/g, '[]'));
+        navigator.clipboard.writeText(JSON.stringify(cleanList, null, 2)).then(() => {
+            showToast(t('ja_msg_copied', 'Чистый массив скопирован!'));
+        });
+    }
+
+    // --- ФИЛЬТРАЦИЯ СПИСКОВ НА ЛЕТУ ---
+    window.filterLists = function() {
+        const term = $('#field-search').val().toLowerCase();
+
+        const filteredReq = currentReqFields.filter(f => f.toLowerCase().includes(term));
+        const filteredOpt = currentOptFields.filter(f => f.toLowerCase().includes(term));
+
+        renderListHTML('#req-list', filteredReq, '#16a34a');
+        renderListHTML('#opt-list', filteredOpt, '#ca8a04');
+    }
+
+    function renderListHTML(selector, array, dotColor) {
+        $(selector).html(
+            array.length > 0
+                ? array.map(f => {
+                    // Превращаем [25000] в красивый бейдж с количеством элементов
+                    let displayPath = f.replace(/\[(\d+)\]/g, `<span class="array-count" title="${t('ja_hint_arr_count', 'Элементов в массиве')}">[$1]</span>`);
+                    return `<li class="clickable-field" onclick="jumpToField('${f}')" title="${t('ja_hint_find', 'Найти в редакторе')}"><span style="color:${dotColor}; font-weight:bold;">•</span> ${displayPath}</li>`;
+                }).join('')
+                : `<li><i style="color:var(--text-muted)">${t('ja_msg_no_res', 'Ничего не найдено')}</i></li>`
+        );
+    }
+
+    // --- АНАЛИЗ ПОЛЕЙ ---
+    window.analyzeFields = function(text) {
+        if (!text.trim()) {
+            $('#error-box').hide();
+            currentReqFields = [];
+            currentOptFields = [];
+            $('#req-count, #opt-count').text('0');
+            $('#req-list, #opt-list').html(`<li><i style="color:var(--text-muted)">${t('ja_msg_empty', 'Вставьте JSON...')}</i></li>`);
+            return;
+        }
+
+        try {
+            const obj = JSON.parse(text);
+            $('#error-box').hide();
+
+            currentReqFields = [];
+            currentOptFields = [];
+
+            function traverse(data, prefix = '') {
+                if (!data || typeof data !== 'object') return;
+
+                if (data.type === 'object' && data.properties) {
+                    // Обработка JSON Schema
+                    const reqs = data.required || [];
+                    for (let key in data.properties) {
+                        let fullPath = prefix ? `${prefix}.${key}` : key;
+                        if (reqs.includes(key)) {
+                            currentReqFields.push(fullPath);
+                        } else {
+                            currentOptFields.push(fullPath);
+                        }
+                        traverse(data.properties[key], fullPath);
+                    }
+                }
+                else if (data.type === 'array' && data.items) {
+                    traverse(data.items, prefix ? `${prefix}[]` : '[]');
+                }
+                else if (!data.type && !data.properties) {
+                    // Обработка обычного JSON Payload
+                    if (Array.isArray(data)) {
+                        // Записываем количество элементов в путь
+                        let arrPrefix = prefix ? `${prefix}[${data.length}]` : `[${data.length}]`;
+
+                        // Если массив пустой, просто добавляем его как путь
+                        if (data.length === 0) {
+                            currentReqFields.push(arrPrefix);
+                        } else {
+                            traverse(data[0], arrPrefix);
+                        }
+                    } else {
+                        let keys = Object.keys(data);
+                        keys.forEach(key => {
+                            let fullPath = prefix ? `${prefix}.${key}` : key;
+                            currentReqFields.push(fullPath);
+                            traverse(data[key], fullPath);
+                        });
+                    }
+                }
+            }
+
+            traverse(obj);
+
+            $('#req-count').text(currentReqFields.length);
+            $('#opt-count').text(currentOptFields.length);
+
+            // Отрисовываем списки
+            filterLists();
+
+        } catch (e) {
+            $('#error-box').text(`❌ ${t('ja_err_json', 'Ошибка синтаксиса JSON: ')}` + e.message).show();
+        }
+    }
+</script>
+</body>
+</html>

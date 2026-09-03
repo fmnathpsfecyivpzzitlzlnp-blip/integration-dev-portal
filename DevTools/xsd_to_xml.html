@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>XSD / WSDL в XML Генератор</title>
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+
+    <style>
+        .generator-columns-container {
+            display: flex;
+            gap: 20px;
+            height: 60vh;
+            min-height: 400px;
+            margin-top: 15px;
+        }
+
+        .generator-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .generator-panel label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #333;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .CodeMirror {
+            height: 100% !important;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+
+        /* Красная подсветка строки с ошибкой */
+        .error-line-bg { background-color: #ffcdd2 !important; }
+
+        #results-panel {
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            display: none;
+            margin-top: 15px;
+        }
+        .error-panel { background: #fff5f5; border: 1px solid #ffcdd2; color: #c62828; }
+        .success-panel { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+    </style>
+</head>
+<body>
+<div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+            <h2 style="margin: 0; border: none;">Генератор XML из WSDL / XSD</h2>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
+            <button id="generateBtn" class="primary" style="padding: 8px 15px;">⚡ Сгенерировать XML</button>
+        </div>
+    </div>
+
+    <p style="color: #666; font-size: 13px; margin-top: -10px;">
+        Вставьте WSDL или XSD. Парсер найдет корневой элемент и соберет готовую XML-структуру с заполненными типами данных.
+    </p>
+
+    <div id="results-panel"></div>
+
+    <div class="generator-columns-container">
+        <div class="generator-panel">
+            <label>Исходный XSD / WSDL:</label>
+            <div class="editor-wrapper">
+                <textarea id="schema-input"></textarea>
+            </div>
+        </div>
+
+        <div class="generator-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="margin: 0;">Результат (Пример XML):</label>
+                <button id="copyBtn" class="secondary btn-small">📋 Копировать</button>
+            </div>
+            <div class="editor-wrapper">
+                <textarea id="xml-output"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(function () {
+        const resultsPanel = $('#results-panel');
+        let errorLineHandle = null;
+
+        // Инициализация редакторов
+        const editorInput = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
+            mode: "xml", lineNumbers: true, matchBrackets: true, lineWrapping: true
+        });
+
+        const editorOutput = CodeMirror.fromTextArea(document.getElementById('xml-output'), {
+            mode: "xml", lineNumbers: true, readOnly: false, lineWrapping: true, theme: "default"
+        });
+
+        // Восстановление из кэша
+        if (localStorage.getItem('xsd_to_xml_input')) {
+            editorInput.setValue(localStorage.getItem('xsd_to_xml_input'));
+        }
+
+        // Автосохранение и сброс ошибок при вводе
+        editorInput.on('change', function() {
+            localStorage.setItem('xsd_to_xml_input', editorInput.getValue());
+            if (errorLineHandle) {
+                editorInput.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+            resultsPanel.hide();
+        });
+
+        $('#clearBtn').on('click', function() {
+            if(confirm('Очистить редакторы?')) {
+                editorInput.setValue('');
+                editorOutput.setValue('');
+                localStorage.removeItem('xsd_to_xml_input');
+                resultsPanel.hide();
+            }
+        });
+
+        $('#copyBtn').on('click', function() {
+            navigator.clipboard.writeText(editorOutput.getValue());
+            const origText = $(this).text();
+            $(this).text('✅ Скопировано');
+            setTimeout(() => $(this).text(origText), 2000);
+        });
+
+        // === ЛОГИКА ГЕНЕРАЦИИ ===
+        $('#generateBtn').on('click', function() {
+            resultsPanel.removeClass('success-panel error-panel').empty().hide();
+            editorOutput.setValue('');
+
+            let xmlText = editorInput.getValue().trim();
+            if (!xmlText) return alert("Вставьте XSD или WSDL код!");
+
+            // Авто-исправление "вордовских" кавычек
+            xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+
+            // 1. Проверка синтаксиса встроенным парсером браузера
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+            const errorNode = xmlDoc.querySelector("parsererror");
+
+            if (errorNode) {
+                const errorMsg = errorNode.textContent;
+                const match = errorMsg.match(/line number (\d+)/i) || errorMsg.match(/line (\d+)/i);
+
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    errorLineHandle = editorInput.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                    editorInput.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+                }
+
+                resultsPanel.addClass('error-panel')
+                    .html(`<h3 style="margin-top:0;">❌ Ошибка синтаксиса:</h3><p style="white-space: pre-wrap;">${errorMsg}</p>`)
+                    .slideDown();
+                return;
+            }
+
+            // 2. Генерация XML из XSD
+            try {
+                const generatedXml = generateXmlFromDoc(xmlDoc);
+                editorOutput.setValue(generatedXml);
+
+                // Чтобы XML красиво отформатировался
+                setTimeout(() => {
+                    editorOutput.execCommand("selectAll");
+                    editorOutput.execCommand("indentAuto");
+                    editorOutput.setCursor(0, 0);
+                }, 50);
+
+                resultsPanel.addClass('success-panel').html('<h3 style="margin:0;">✅ XML успешно сгенерирован!</h3>').slideDown();
+            } catch (e) {
+                resultsPanel.addClass('error-panel')
+                    .html(`<h3 style="margin-top:0;">⚠️ Ошибка обработки:</h3><p>${e.message}</p>`)
+                    .slideDown();
+            }
+        });
+
+        // --- РЕКУРСИВНЫЙ ДВИЖОК ПАРСИНГА XSD ---
+        function generateXmlFromDoc(doc) {
+            let schema = Array.from(doc.querySelectorAll('*')).find(n => n.localName === 'schema');
+            if (!schema) schema = doc.documentElement; // Фолбэк
+
+            // Ищем корневые элементы (обычно это элементы прямо внутри <schema>)
+            let rootElements = Array.from(schema.children).filter(n => n.localName === 'element');
+
+            if (rootElements.length === 0) {
+                // Если не нашли на верхнем уровне, берем вообще первый попавшийся элемент с именем
+                rootElements = Array.from(doc.querySelectorAll('*')).filter(n => n.localName === 'element' && n.getAttribute('name'));
+            }
+
+            if (rootElements.length === 0) throw new Error("В документе не найдено ни одного тега <element name='...'>.");
+
+            // Берем первый корневой элемент
+            const rootEl = rootElements[0];
+            let result = '<?xml version="1.0" encoding="UTF-8"?>\n';
+
+            // Если это SOAP запрос, добавим конверт
+            if (doc.documentElement.localName === 'definitions') {
+                result += `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">\n  <soapenv:Header/>\n  <soapenv:Body>\n`;
+                result += buildNode(rootEl, doc, "    ");
+                result += `  </soapenv:Body>\n</soapenv:Envelope>`;
+            } else {
+                result += buildNode(rootEl, doc, "");
+            }
+
+            return result;
+        }
+
+        function buildNode(element, doc, indent) {
+            const name = element.getAttribute("name");
+            let type = element.getAttribute("type");
+            let result = "";
+
+            // Ищем вложенный complexType
+            let complexType = Array.from(element.children).find(n => n.localName === 'complexType');
+
+            if (complexType) {
+                result += `${indent}<${name}>\n`;
+                result += processComplexType(complexType, doc, indent + "  ");
+                result += `${indent}</${name}>\n`;
+            } else if (type) {
+                // Очищаем от пространства имен (например, xsd:string -> string)
+                const cleanType = type.includes(':') ? type.split(':')[1] : type;
+                const standardTypes = ['string', 'integer', 'int', 'boolean', 'float', 'double', 'date', 'dateTime', 'decimal', 'long', 'base64Binary'];
+
+                if (standardTypes.includes(cleanType)) {
+                    // Подставляем пример данных
+                    let dummyData = `sample_${cleanType}`;
+                    if (cleanType === 'boolean') dummyData = 'true';
+                    if (['integer', 'int', 'long'].includes(cleanType)) dummyData = '123';
+                    if (['float', 'double', 'decimal'].includes(cleanType)) dummyData = '123.45';
+                    if (cleanType === 'date') dummyData = '2026-05-24';
+                    if (cleanType === 'dateTime') dummyData = '2026-05-24T12:00:00Z';
+
+                    result += `${indent}<${name}>${dummyData}</${name}>\n`;
+                } else {
+                    // Ищем кастомный тип где-то еще в документе
+                    const customTypes = Array.from(doc.querySelectorAll('*')).filter(n => n.localName === 'complexType');
+                    const customType = customTypes.find(n => n.getAttribute("name") === cleanType);
+
+                    if (customType) {
+                        result += `${indent}<${name}>\n`;
+                        result += processComplexType(customType, doc, indent + "  ");
+                        result += `${indent}</${name}>\n`;
+                    } else {
+                        result += `${indent}<${name}>?</${name}>\n`;
+                    }
+                }
+            } else {
+                result += `${indent}<${name}>?</${name}>\n`;
+            }
+            return result;
+        }
+
+        function processComplexType(complexType, doc, indent) {
+            let result = "";
+            const wrapper = Array.from(complexType.children).find(n => n.localName === 'sequence' || n.localName === 'all' || n.localName === 'choice');
+            if (wrapper) {
+                Array.from(wrapper.children).filter(n => n.localName === 'element').forEach(child => {
+                    result += buildNode(child, doc, indent);
+                });
+            }
+            return result;
+        }
+    });
+</script>
+</body>
+</html>

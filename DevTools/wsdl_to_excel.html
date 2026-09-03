@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WSDL to Excel Structure</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+    <script src="utils.js"></script>
+    <style>
+        .editor-wrapper {
+            display: flex;
+            height: 70vh;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+        }
+        .line-numbers {
+            background: #f8f9fa;
+            color: #999;
+            padding: 10px 5px;
+            text-align: right;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 21px;
+            overflow: hidden;
+            border-right: 1px solid #ddd;
+            user-select: none;
+            min-width: 35px;
+        }
+        .line-numbers div { height: 21px; }
+        .error-line {
+            color: #c62828;
+            font-weight: bold;
+            background: #ffcdd2;
+            border-radius: 2px;
+            display: block;
+        }
+        textarea {
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 21px;
+            box-sizing: border-box;
+            border: none;
+            resize: none;
+            outline: none;
+            white-space: pre;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="main-content">
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <h2 style="margin: 0; border: none;">Экспорт структуры WSDL в Excel</h2>
+    </div>
+
+    <p>Вставьте ваш код WSDL (или XSD схемы) в поле ниже и нажмите кнопку. Система извлечет все структуры (ComplexTypes), поля, типы данных, кардинальность и документацию!</p>
+
+    <button id="exportBtn" style="padding: 10px 15px; cursor: pointer; margin-bottom: 10px; background: #007bff; color: white; border: none; border-radius: 4px;">Скачать структуру в Excel</button>
+
+    <div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; border-radius: 4px; font-family: monospace;"></div>
+
+    <div class="editor-wrapper">
+        <div class="line-numbers" id="line-numbers"></div>
+        <textarea id="xml-input" placeholder="Вставьте сюда ваш WSDL или XSD код..."></textarea>
+    </div>
+</div>
+
+<script src="libs/jquery-3.6.0.min.js"></script>
+<script>
+    $(function () {
+        const errorPanel = $('#error-panel');
+        const textarea = $('#xml-input');
+        const gutter = $('#line-numbers');
+
+        function updateLineNumbers(errorLine = -1) {
+            const linesCount = textarea.val().split('\n').length;
+            let html = '';
+            for (let i = 1; i <= linesCount; i++) {
+                if (i === errorLine) {
+                    html += `<div class="error-line">${i}</div>`;
+                } else {
+                    html += `<div>${i}</div>`;
+                }
+            }
+            gutter.html(html);
+        }
+
+        textarea.on('input', function() {
+            errorPanel.hide();
+            updateLineNumbers();
+        });
+
+        textarea.on('scroll', function() {
+            gutter.scrollTop(textarea.scrollTop());
+        });
+
+        const exampleWsdl = `<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+    <wsdl:types>
+      <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+         <xsd:complexType name="dt_ForceUpdateKpiFactValues_RQ">
+            <xsd:annotation>
+               <xsd:documentation xml:lang="RU">Запрос на обновление значений KPI</xsd:documentation>
+            </xsd:annotation>
+            <xsd:sequence>
+               <xsd:element name="ENTITY_ID" type="xsd:integer">
+                  <xsd:annotation>
+                     <xsd:documentation>Идентификатор показателя</xsd:documentation>
+                  </xsd:annotation>
+               </xsd:element>
+            </xsd:sequence>
+         </xsd:complexType>
+      </xsd:schema>
+   </wsdl:types>
+</wsdl:definitions>`;
+
+        textarea.val(exampleWsdl);
+        updateLineNumbers();
+
+        $('#exportBtn').on('click', function() {
+            errorPanel.hide();
+            updateLineNumbers();
+
+            let xmlText = textarea.val().trim();
+            xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+            textarea.val(xmlText);
+
+            if (!xmlText) {
+                errorPanel.text("Пожалуйста, вставьте WSDL-код.").show();
+                return;
+            }
+
+            // Быстрая проверка валидности XML перед отправкой
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+            const errorNode = xmlDoc.querySelector("parsererror");
+
+            if (errorNode) {
+                const errorMsg = errorNode.textContent;
+                // Пытаемся выцепить номер строки из нативной ошибки браузера
+                const match = errorMsg.match(/line number (\d+)/i);
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    updateLineNumbers(lineNum);
+                    textarea.scrollTop((lineNum - 1) * 21 - 60);
+                }
+                errorPanel.text("Ошибка синтаксиса XML: " + errorMsg).show();
+                return;
+            }
+
+            // Отправляем форму на сервер
+            var form = $('<form></form>').attr('action', '/api/wsdl-to-excel').attr('method', 'post');
+            form.append($('<input></input>').attr('type', 'hidden').attr('name', 'xml').attr('value', xmlText));
+            form.appendTo('body').submit().remove();
+        });
+    });
+</script>
+</body>
+</html>

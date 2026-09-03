@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Продвинутый анализатор текста</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .settings {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            flex-wrap: wrap;
+        }
+        .color-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        input[type="color"] {
+            border: none;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-family: monospace;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .result-container {
+            margin-top: 25px;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        #result {
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            min-height: 60px;
+            background: #fff;
+            white-space: pre-wrap; /* Сохраняет переносы строк */
+            word-wrap: break-word;
+            font-family: monospace; /* Моноширинный шрифт лучше для отладки */
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .invisible-char {
+            color: #fff;
+            font-size: 12px;
+            padding: 0 2px;
+            border-radius: 3px;
+            cursor: help;
+        }
+        .space-dot {
+            color: #b0bec5; /* Серый цвет для точек пробела */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Анализатор текста на раскладку и скрытые символы</h1>
+<p>Вставьте текст. Инструмент подсветит кириллицу, латиницу, визуализирует обычные пробелы и найдет скрытые нечитаемые символы.</p>
+
+<div class="settings">
+    <div class="color-control">
+        <input type="color" id="cyrillicColor" value="#a8f0c6"> <!-- Светло-зеленый -->
+        <label for="cyrillicColor">Кириллица</label>
+    </div>
+    <div class="color-control">
+        <input type="color" id="latinColor" value="#ffcdd2"> <!-- Светло-красный -->
+        <label for="latinColor">Латиница</label>
+    </div>
+    <div class="color-control">
+        <input type="color" id="invisibleColor" value="#9e9e9e"> <!-- Серый -->
+        <label for="invisibleColor">Скрытые символы</label>
+    </div>
+</div>
+
+<textarea id="inputText" placeholder="Введите ваш текст сюда... (например: аadsfsd fsdfsdf)"></textarea>
+
+<button onclick="analyzeText()">Проверить</button>
+
+<div class="result-container">
+    <h3>Результат:</h3>
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color-box" id="legendCyrillic" style="background-color: #a8f0c6;"></div> - кириллические символы
+        </div>
+        <div class="legend-item">
+            <div class="legend-color-box" id="legendLatin" style="background-color: #ffcdd2;"></div> - латинские символы
+        </div>
+        <div class="legend-item">
+            <div class="legend-color-box" id="legendInvisible" style="background-color: #9e9e9e;"></div> - скрытые/спец. символы
+        </div>
+    </div>
+
+    <div id="result">Здесь появится результат проверки...</div>
+</div>
+
+<script>
+    function analyzeText() {
+        const text = document.getElementById('inputText').value;
+        const resultBox = document.getElementById('result');
+
+        // Получаем цвета из настроек
+        const cyrillicColor = document.getElementById('cyrillicColor').value;
+        const latinColor = document.getElementById('latinColor').value;
+        const invisibleColor = document.getElementById('invisibleColor').value;
+
+        // Обновляем цвета в легенде
+        document.getElementById('legendCyrillic').style.backgroundColor = cyrillicColor;
+        document.getElementById('legendLatin').style.backgroundColor = latinColor;
+        document.getElementById('legendInvisible').style.backgroundColor = invisibleColor;
+
+        if (!text) {
+            resultBox.innerHTML = '<span style="color: gray;">Текст не введен.</span>';
+            return;
+        }
+
+        let analyzedHTML = '';
+
+        for (let i = 0; i < text.length; i++) {
+            let char = text[i];
+            let code = char.charCodeAt(0);
+
+            // 1. Кириллица (основная + Ёё)
+            if (/[А-Яа-яЁё]/.test(char)) {
+                analyzedHTML += `<span style="background-color: ${cyrillicColor};">${char}</span>`;
+            }
+            // 2. Латиница
+            else if (/[A-Za-z]/.test(char)) {
+                analyzedHTML += `<span style="background-color: ${latinColor};">${char}</span>`;
+            }
+            // 3. Обычный пробел (заменяем на визуальную точку)
+            else if (char === ' ') {
+                analyzedHTML += `<span class="space-dot">·</span>`;
+            }
+            // 4. Обычный перенос строки (оставляем как есть, чтобы текст не слипся)
+            else if (char === '\n' || char === '\r') {
+                analyzedHTML += char;
+            }
+                // 5. Скрытые, управляющие символы и неразрывные пробелы
+            // \u00A0 - NBSP, \u2000-\u200F - различные пробелы и маркеры, \u2028-\u202F, \uFEFF - Zero width no-break space, \t - табуляция
+            else if (/[\u00A0\u2000-\u200F\u2028-\u202F\u205F\u3000\uFEFF\t]/.test(char) || (code >= 0 && code <= 31 && code !== 10 && code !== 13)) {
+                let hexCode = code.toString(16).toUpperCase().padStart(4, '0');
+                let charLabel = 'INV'; // Индикатор по умолчанию
+
+                if (code === 160) charLabel = 'NBSP'; // Non-breaking space
+                if (code === 9) charLabel = 'TAB'; // Tab
+                if (code === 8203) charLabel = 'ZWSP'; // Zero-width space
+
+                analyzedHTML += `<span class="invisible-char" style="background-color: ${invisibleColor};" title="Код символа: U+${hexCode}">[${charLabel}]</span>`;
+            }
+            // 6. Цифры, пунктуация и прочие видимые символы (оставляем как есть)
+            else {
+                analyzedHTML += char;
+            }
+        }
+
+        resultBox.innerHTML = analyzedHTML;
+    }
+</script>
+</body>
+</html>

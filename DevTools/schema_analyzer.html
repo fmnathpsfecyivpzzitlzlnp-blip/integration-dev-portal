@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>JSON Schema Инспектор</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        body { background: #f4f7f9; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+
+        /* Левая колонка - Редактор */
+        .col-left { flex: 0.8; display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; }
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; }
+
+        /* Правая колонка - Фильтры и Результат */
+        .col-right { flex: 1.2; display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
+
+        .panel-head { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Блок фильтров */
+        .filters-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); flex-shrink: 0;}
+        .filter-row { display: flex; gap: 20px; align-items: center; margin-bottom: 10px; }
+        .filter-row:last-child { margin-bottom: 0; }
+
+        .filter-group-title { font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
+
+        .cb-label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #334155; cursor: pointer; user-select: none; }
+        .cb-label input { cursor: pointer; }
+
+        /* Таблица результатов */
+        .results-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; flex: 1; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .table-wrap { flex: 1; overflow-y: auto; }
+
+        .res-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .res-table th { position: sticky; top: 0; background: #f8fafc; padding: 10px 15px; text-align: left; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: bold; z-index: 10; }
+        .res-table td { padding: 8px 15px; border-bottom: 1px solid #f1f5f9; color: #334155; font-family: 'Consolas', monospace; }
+        .res-table tr:hover { background: #f8fafc; }
+
+        .req-badge { background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .opt-badge { background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .type-badge { background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #e2e8f0; }
+
+        .empty-state { padding: 40px; text-align: center; color: #94a3b8; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px; color: #1e293b;">🕵️‍♂️ JSON Schema Экстрактор</h2>
+            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Умный фильтр для извлечения нужных полей из больших спецификаций</p>
+        </div>
+    </div>
+</div>
+
+<div class="workspace">
+    <!-- ЛЕВАЯ КОЛОНКА: Ввод -->
+    <div class="col-left">
+        <div class="panel-head">
+            <span>Входная JSON Schema</span>
+            <button class="btn-icon" onclick="editor.setValue('')" title="Очистить">🗑</button>
+        </div>
+        <textarea id="schema-input"></textarea>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: Настройки и Результат -->
+    <div class="col-right">
+
+        <!-- ПАНЕЛЬ ФИЛЬТРОВ -->
+        <div class="filters-box">
+            <div class="filter-row">
+                <div style="flex: 1;">
+                    <span class="filter-group-title">Обязательность</span>
+                    <div style="display: flex; gap: 15px;">
+                        <label class="cb-label"><input type="checkbox" id="f-req" checked onchange="applyFilters()"> Обязательные</label>
+                        <label class="cb-label"><input type="checkbox" id="f-opt" checked onchange="applyFilters()"> Необязательные</label>
+                    </div>
+                </div>
+                <div style="flex: 1;">
+                    <span class="filter-group-title">Сортировка</span>
+                    <div style="display: flex; gap: 15px;">
+                        <label class="cb-label"><input type="radio" name="f-sort" value="orig" checked onchange="applyFilters()"> Исходная</label>
+                        <label class="cb-label"><input type="radio" name="f-sort" value="az" onchange="applyFilters()"> А-Я (По алфавиту)</label>
+                    </div>
+                </div>
+            </div>
+
+            <hr style="border:0; border-top: 1px solid #e2e8f0; margin: 10px 0;">
+
+            <div class="filter-row">
+                <div style="flex: 1;">
+                    <span class="filter-group-title">Типы данных</span>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <label class="cb-label"><input type="checkbox" class="f-type" value="string" checked onchange="applyFilters()"> String</label>
+                        <label class="cb-label"><input type="checkbox" class="f-type" value="integer" checked onchange="applyFilters()"> Integer/Number</label>
+                        <label class="cb-label"><input type="checkbox" class="f-type" value="boolean" checked onchange="applyFilters()"> Boolean</label>
+                        <label class="cb-label"><input type="checkbox" class="f-type" value="array" checked onchange="applyFilters()"> Array (Массивы)</label>
+                        <label class="cb-label"><input type="checkbox" class="f-type" value="object" checked onchange="applyFilters()"> Object</label>
+                    </div>
+                </div>
+                <button class="primary" style="background: #3b82f6; border-color: #3b82f6; padding: 8px 20px;" onclick="copyResults()">📋 Копировать список</button>
+            </div>
+        </div>
+
+        <!-- ТАБЛИЦА РЕЗУЛЬТАТОВ -->
+        <div class="results-box">
+            <div class="panel-head" style="background: #f8fafc;">
+                <span>Результат извлечения</span>
+                <span id="res-count" style="font-size: 12px; color: #64748b; font-weight: bold;">Найдено: 0</span>
+            </div>
+            <div class="table-wrap">
+                <table class="res-table" id="res-table" style="display: none;">
+                    <thead>
+                    <tr>
+                        <th width="35%">Поле (Path)</th>
+                        <th width="15%">Тип</th>
+                        <th width="15%">Статус</th>
+                        <th width="35%">Описание</th>
+                    </tr>
+                    </thead>
+                    <tbody id="res-body"></tbody>
+                </table>
+                <div id="empty-state" class="empty-state">
+                    Вставьте JSON Schema слева для начала работы
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let editor;
+    let allParsedFields = []; // Хранит плоский список всех полей
+    let filteredFields = [];  // Хранит отфильтрованный список
+
+    $(function() {
+        editor = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: "default"
+        });
+
+        editor.on('change', () => {
+            parseSchema();
+        });
+
+        // Загружаем тестовый пример
+        editor.setValue(`{
+  "type": "object",
+  "properties": {
+    "client_id": { "type": "string", "description": "ИД Клиента" },
+    "age": { "type": "integer", "description": "Возраст" },
+    "is_active": { "type": "boolean" },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "doc_type": { "type": "string" },
+          "doc_number": { "type": "string" }
+        },
+        "required": ["doc_type"]
+      }
+    }
+  },
+  "required": ["client_id", "documents"]
+}`);
+    });
+
+    // === ДВИЖОК ПАРСИНГА СХЕМЫ ===
+    function parseSchema() {
+        const txt = editor.getValue().trim();
+        allParsedFields = [];
+
+        if (!txt) {
+            $('#res-table').hide();
+            $('#empty-state').html('Вставьте JSON Schema слева для начала работы').show();
+            $('#res-count').text('Найдено: 0');
+            return;
+        }
+
+        try {
+            const schema = JSON.parse(txt);
+            extractFields(schema, 'root', true); // Корень всегда считаем обязательным для старта
+            $('#empty-state').hide();
+            $('#res-table').show();
+            applyFilters(); // Сразу применяем текущие фильтры
+        } catch (e) {
+            $('#res-table').hide();
+            $('#empty-state').html(`<span style="color:#ef4444; font-weight:bold;">❌ Ошибка парсинга: Невалидный JSON</span><br><br>${e.message}`).show();
+            $('#res-count').text('Ошибка');
+        }
+    }
+
+    // Рекурсивный обход JSON Schema
+    function extractFields(schemaNode, prefix, isParentRequired) {
+        if (!schemaNode) return;
+
+        // Если это объект с properties
+        if (schemaNode.properties) {
+            const reqKeys = schemaNode.required || [];
+
+            for (let key in schemaNode.properties) {
+                const prop = schemaNode.properties[key];
+                const fullPath = prefix === 'root' ? key : `${prefix}.${key}`;
+
+                // Поле обязательно, только если оно в required И родитель тоже обязателен!
+                const isFieldRequired = isParentRequired && reqKeys.includes(key);
+
+                // Нормализация типа (если type это массив типов)
+                let typeStr = Array.isArray(prop.type) ? prop.type[0] : (prop.type || 'unknown');
+                if (typeStr === 'number') typeStr = 'integer'; // Объединяем для фильтров
+
+                allParsedFields.push({
+                    path: fullPath,
+                    type: typeStr,
+                    required: isFieldRequired,
+                    description: prop.description || ''
+                });
+
+                // Идем вглубь
+                if (prop.type === 'object') {
+                    extractFields(prop, fullPath, isFieldRequired);
+                } else if (prop.type === 'array' && prop.items) {
+                    if (prop.items.type === 'object') {
+                        extractFields(prop.items, `${fullPath}[]`, isFieldRequired);
+                    }
+                }
+            }
+        }
+    }
+
+    // === ФИЛЬТРАЦИЯ И СОРТИРОВКА ===
+    function applyFilters() {
+        if (allParsedFields.length === 0) return;
+
+        const showReq = $('#f-req').is(':checked');
+        const showOpt = $('#f-opt').is(':checked');
+        const sortType = $('input[name="f-sort"]:checked').val();
+
+        // Собираем активные типы данных
+        const activeTypes = [];
+        $('.f-type:checked').each(function() { activeTypes.push($(this).val()); });
+
+        filteredFields = allParsedFields.filter(f => {
+            // 1. Фильтр по обязательности
+            if (f.required && !showReq) return false;
+            if (!f.required && !showOpt) return false;
+
+            // 2. Фильтр по типам
+            if (!activeTypes.includes(f.type)) return false;
+
+            return true;
+        });
+
+        // 3. Сортировка
+        if (sortType === 'az') {
+            filteredFields.sort((a, b) => a.path.localeCompare(b.path));
+        }
+
+        renderTable();
+    }
+
+    // === ОТРИСОВКА ===
+    function renderTable() {
+        const tbody = $('#res-body').empty();
+        $('#res-count').text(`Найдено: ${filteredFields.length} из ${allParsedFields.length}`);
+
+        if (filteredFields.length === 0) {
+            tbody.html('<tr><td colspan="4" style="text-align:center; padding: 20px; color:#94a3b8;">По вашим фильтрам ничего не найдено</td></tr>');
+            return;
+        }
+
+        filteredFields.forEach(f => {
+            const reqBadge = f.required ? '<span class="req-badge">Обязательное</span>' : '<span class="opt-badge">Опционально</span>';
+            const typeBadge = `<span class="type-badge">${escapeHtml(f.type)}</span>`;
+
+            tbody.append(`
+                <tr>
+                    <td style="color: #1e40af; font-weight: bold;">${escapeHtml(f.path)}</td>
+                    <td>${typeBadge}</td>
+                    <td>${reqBadge}</td>
+                    <td style="font-family: 'Segoe UI', sans-serif; font-size: 12px;">${escapeHtml(f.description)}</td>
+                </tr>
+            `);
+        });
+    }
+
+    // === ЭКСПОРТ (КОПИРОВАНИЕ В БУФЕР) ===
+    function copyResults() {
+        if (filteredFields.length === 0) return alert('Нечего копировать!');
+
+        // Формируем красивый текст (TSV - отлично вставляется в Excel и Jira)
+        let text = "Path\tType\tRequired\tDescription\n";
+        filteredFields.forEach(f => {
+            const reqTxt = f.required ? 'Да' : 'Нет';
+            text += `${f.path}\t${f.type}\t${reqTxt}\t${f.description || ''}\n`;
+        });
+
+        navigator.clipboard.writeText(text).then(() => {
+            if(typeof showNotification === 'function') showNotification('Список скопирован в буфер обмена (TSV формат)');
+            else alert('Скопировано!');
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>

@@ -1,51 +1,207 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <title>Конвертер JSON в XML</title>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Конвертер JSON в XML</title>
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+    <script src="utils.js"></script>
+
+    <style>
+        /* Обертка для редактора, чтобы он занимал нужную высоту */
+        .editor-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 65vh;
+            min-height: 400px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* Сам редактор на 100% высоты обертки */
+        .CodeMirror {
+            height: 100% !important;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+
+        /* Класс для красной подсветки строки с ошибкой */
+        .error-line-bg {
+            background-color: #ffcdd2 !important;
+        }
+
+        .generator-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .generator-panel label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: inline-block;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
 <div class="main-content generator-page-container">
-  <h2 style="flex-shrink: 0;">Конвертер JSON в XML</h2>
-  <div class="generator-controls">
-    <button id="btn-convert" style="padding: 10px 15px;">Конвертировать</button>
-  </div>
-  <div id="error-panel" style="display:none; padding:10px; background:#ffebee; color:#c62828; border:1px solid #c62828; margin-bottom:10px;"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; border: none;">Конвертер JSON в XML</h2>
+        <div class="generator-controls" style="display: flex; gap: 10px;">
+            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
+            <button id="btn-convert" class="primary" style="padding: 8px 15px;">🚀 Конвертировать</button>
+        </div>
+    </div>
 
-  <div class="generator-columns-container">
-    <div class="generator-panel">
-      <label for="input-area">Входной JSON:</label>
-      <textarea id="input-area" placeholder="Вставьте сюда ваш JSON..."></textarea>
+    <div id="error-panel" style="display:none; padding:15px; background:#ffebee; color:#c62828; border:1px solid #c62828; border-radius: 4px; margin-bottom:15px; font-family: monospace; white-space: pre-wrap;"></div>
+
+    <div class="generator-columns-container" style="display: flex; gap: 20px;">
+        <div class="generator-panel">
+            <label for="input-area">Входной JSON:</label>
+            <div class="editor-wrapper">
+                <textarea id="input-area"></textarea>
+            </div>
+        </div>
+        <div class="generator-panel">
+            <label for="output-area">Результат в XML:</label>
+            <div class="editor-wrapper">
+                <textarea id="output-area"></textarea>
+            </div>
+        </div>
     </div>
-    <div class="generator-panel">
-      <label for="output-area">Результат в XML:</label>
-      <textarea id="output-area" readonly></textarea>
-    </div>
-  </div>
 </div>
-<script src="libs/jquery-3.6.0.min.js"></script>
-<script>
-  $(function () {
-    $('#btn-convert').on('click', function() {
-      const inputText = $('#input-area').val();
-      if (!inputText.trim()) return;
 
-      $.ajax({
-        url: '/api/convert',
-        type: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({ text: inputText, from: 'json', to: 'xml' }),
-        success: (convertedText) => {
-          $('#output-area').val(convertedText);
-        },
-        error: (xhr) => {
-          const msg = xhr.responseJSON ? xhr.responseJSON.message : xhr.responseText;
-          $('#error-panel').text('Ошибка конвертации: ' + msg).show();
+<script>
+    $(function () {
+        const errorPanel = $('#error-panel');
+        let errorLineHandle = null;
+
+        // 1. Инициализация CodeMirror для левого поля (JSON)
+        const editorIn = CodeMirror.fromTextArea(document.getElementById('input-area'), {
+            mode: "application/json",
+            lineNumbers: true,      // Нумерация строк
+            matchBrackets: true,    // Подсветка парных скобок
+            theme: "default",
+            lineWrapping: true
+        });
+
+        // 2. Инициализация CodeMirror для правого поля (XML)
+        const editorOut = CodeMirror.fromTextArea(document.getElementById('output-area'), {
+            mode: "xml",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: "dracula",       // Темная тема для контраста результата
+            lineWrapping: true,
+            readOnly: true          // Запрет редактирования результата
+        });
+
+        // 3. Восстановление из памяти браузера
+        const savedJson = localStorage.getItem('json_to_xml_input');
+        if (savedJson) {
+            editorIn.setValue(savedJson);
+        } else {
+            const exampleJson = '{\n  "Request": {\n    "ClientInfo": {\n      "INN": "1234567890"\n    }\n  }\n}';
+            editorIn.setValue(exampleJson);
         }
-      });
+
+        // 4. Автосохранение и сброс ошибок при редактировании текста
+        editorIn.on('change', function() {
+            localStorage.setItem('json_to_xml_input', editorIn.getValue());
+
+            // Если пользователь начал исправлять ошибку - убираем красную подсветку
+            if (errorLineHandle) {
+                editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+            errorPanel.hide();
+        });
+
+        // 5. Очистка полей
+        $('#clearBtn').on('click', function() {
+            if (confirm('Очистить поле ввода?')) {
+                editorIn.setValue('');
+                editorOut.setValue('');
+                localStorage.removeItem('json_to_xml_input');
+            }
+        });
+
+        // 6. Конвертация с перехватом ошибок
+        $('#btn-convert').on('click', function() {
+            errorPanel.hide();
+            if (errorLineHandle) {
+                editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+
+            const inputText = editorIn.getValue();
+            if (!inputText.trim()) {
+                alert("Пожалуйста, вставьте JSON.");
+                return;
+            }
+
+            // ШАГ А: Строгая валидация JSON перед отправкой
+            try {
+                JSON.parse(inputText);
+            } catch (e) {
+                // Если JSON кривой, ловим строку с ошибкой
+                const match = e.message.match(/line\s+(\d+)/i);
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    // Подсвечиваем сломанную строку красным
+                    errorLineHandle = editorIn.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                    // Плавно скроллим редактор к месту ошибки
+                    editorIn.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+                }
+
+                // Выводим понятное описание ошибки в красивую панель
+                errorPanel.text("❌ Ошибка синтаксиса JSON:\n" + e.message).show();
+                return; // Прерываем выполнение, на сервер кривой JSON не летит
+            }
+
+            // ШАГ Б: Отправка правильного JSON на сервер
+            const btn = $(this);
+            const originalText = btn.text();
+            btn.text('⏳ Конвертация...').prop('disabled', true);
+            editorOut.setValue('Обработка...');
+
+            $.ajax({
+                url: '/api/convert',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ text: inputText, from: 'json', to: 'xml' }),
+                success: (convertedText) => {
+                    editorOut.setValue(convertedText);
+                },
+                error: (xhr) => {
+                    const msg = xhr.responseJSON ? xhr.responseJSON.message : xhr.responseText;
+                    errorPanel.text('⚠️ Ошибка конвертации на сервере:\n' + msg).show();
+                    editorOut.setValue('');
+                },
+                complete: () => {
+                    btn.text(originalText).prop('disabled', false);
+                }
+            });
+        });
     });
-  });
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

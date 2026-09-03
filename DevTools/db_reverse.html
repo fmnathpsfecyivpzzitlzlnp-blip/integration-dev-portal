@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="dbrev_page_title">Reverse Engineering БД</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <!-- CodeMirror для подсветки сгенерированного кода -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+    <script src="libs/clike.min.js"></script> <!-- Для Java -->
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --item-hover: #f8fafc;
+            --item-active-bg: #eff6ff;
+            --item-active-text: #1d4ed8;
+            --item-active-border: #3b82f6;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0b1120;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --item-hover: #334155;
+            --item-active-bg: rgba(59, 130, 246, 0.2);
+            --item-active-text: #60a5fa;
+            --item-active-border: #38bdf8;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); }
+        .header p { color: var(--text-muted); }
+
+        /* Панель подключения */
+        .connection-bar {
+            background: var(--bg-card); padding: 15px 20px; border-radius: 8px; border: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; gap: 15px; margin-bottom: 20px;
+            align-items: center; flex-shrink: 0; flex-wrap: wrap; transition: background 0.3s, border-color 0.3s;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 150px; }
+        .input-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+        .input-group input, .input-group select { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; font-weight: bold; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s; }
+        .input-group input:focus, .input-group select:focus { border-color: #3b82f6; }
+
+        /* Рабочая область */
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+
+        .col { display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: background 0.3s, border-color 0.3s; }
+        .col-left { width: 300px; flex-shrink: 0; }
+        .col-right { flex: 1; min-width: 0; }
+
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: background 0.3s, border-color 0.3s; }
+
+        /* Список таблиц */
+        .table-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+        .table-item { padding: 10px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-main); transition: 0.2s; }
+        .table-item:hover { background: var(--item-hover); }
+        .table-item.active { background: var(--item-active-bg); color: var(--item-active-text); font-weight: bold; border-left: 3px solid var(--item-active-border); }
+        .table-icon { color: var(--text-muted); font-size: 16px; }
+        .table-item.active .table-icon { color: var(--item-active-text); }
+
+        /* Вкладки генерации */
+        .tabs { display: flex; background: var(--bg-header); border-bottom: 1px solid var(--border-color); transition: background 0.3s, border-color 0.3s; }
+        .tab-btn { padding: 12px 20px; font-size: 13px; font-weight: bold; color: var(--text-muted); background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: 0.2s; }
+        .tab-btn:hover { color: #3b82f6; }
+        .tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; background: var(--bg-card); }
+
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); }
+
+        .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 14px; padding: 40px; text-align: center; }
+        .empty-state span { font-size: 48px; margin-bottom: 15px; opacity: 0.5; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 style="margin: 0; font-size: 22px;" data-i18n="dbrev_title">🗄️ Reverse Engineering БД</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="dbrev_subtitle">Генерация моделей данных, JSON Schema и DDL напрямую из базы</p>
+        </div>
+    </div>
+</div>
+
+<div class="connection-bar">
+    <div class="input-group" style="flex: 0.5;">
+        <label data-i18n="dbrev_db_type">Тип СУБД</label>
+        <select id="db-type">
+            <option value="postgresql">PostgreSQL</option>
+            <option value="oracle">Oracle</option>
+            <option value="mysql">MS SQL Server</option>
+        </select>
+    </div>
+    <div class="input-group" style="flex: 2;">
+        <label>JDBC URL (Connection String)</label>
+        <input type="text" id="db-url" placeholder="jdbc:postgresql://host:port/dbname" value="jdbc:postgresql://dev-db.local:5432/crm_db">
+    </div>
+    <div class="input-group" style="flex: 0.5;">
+        <label data-i18n="lbl_login">Логин</label>
+        <input type="text" id="db-user" value="admin">
+    </div>
+    <div class="input-group" style="flex: 0.5;">
+        <label data-i18n="lbl_pass">Пароль</label>
+        <input type="password" id="db-pass" value="******">
+    </div>
+    <div style="padding-top: 20px;">
+        <button class="primary" style="background: #10b981; border-color: #10b981; padding: 9px 20px;" onclick="connectDB()" data-i18n="dbrev_btn_connect">🔌 Подключиться</button>
+    </div>
+</div>
+
+<div class="workspace">
+    <!-- КОЛОНКА 1: Список таблиц -->
+    <div class="col col-left">
+        <div class="panel-head">
+            <span data-i18n="dbrev_tables">📋 Таблицы БД</span>
+            <span id="table-count" style="font-size: 11px; color: var(--text-main); background: var(--border-color); padding: 2px 8px; border-radius: 10px;">0</span>
+        </div>
+        <div id="table-empty" class="empty-state" style="padding: 20px;">
+            <span style="font-size: 32px;">🔌</span>
+            <span data-i18n="dbrev_empty_tables">Подключитесь к БД для загрузки списка таблиц</span>
+        </div>
+        <ul class="table-list" id="table-list" style="display: none;">
+            <!-- Список таблиц генерируется JS -->
+        </ul>
+    </div>
+
+    <!-- КОЛОНКА 2: Генератор -->
+    <div class="col col-right">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('json')" id="tab-json">JSON Schema</button>
+            <button class="tab-btn" onclick="switchTab('java')" id="tab-java">Java (JPA Entity)</button>
+            <button class="tab-btn" onclick="switchTab('openapi')" id="tab-openapi">OpenAPI 3.0</button>
+        </div>
+        <div id="editor-empty" class="empty-state">
+            <span>👈</span>
+            <span data-i18n="dbrev_empty_editor">Выберите таблицу из списка слева, чтобы сгенерировать код</span>
+        </div>
+        <div id="editor-container" style="display: none; flex: 1; flex-direction: column;">
+            <div style="display: flex; justify-content: flex-end; background: #282a36; padding: 5px 15px;">
+                <button class="secondary btn-small" style="font-size: 11px; padding: 3px 10px; background: transparent; color: #a5b4fc; border: 1px solid #4f46e5;" onclick="copyCode()" data-i18n="btn_copy">📋 Копировать код</button>
+            </div>
+            <textarea id="code-editor"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let editor;
+    let currentMode = 'json';
+    let currentTable = null;
+
+    let LIVE_DB_SCHEMA = {};
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: isDark ? "dracula" : "default", readOnly: true
+        });
+
+        window.addEventListener('themeChanged', function(e) {
+            editor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+        });
+    });
+
+    // 1. Реальное подключение к БД
+    function connectDB() {
+        const btn = $('.connection-bar .primary');
+        const originalText = btn.text();
+        btn.prop('disabled', true).text('⏳ ' + t('dbrev_connecting', 'Подключение...'));
+
+        const payload = {
+            type: $('#db-type').val(),
+            url: $('#db-url').val().trim(),
+            user: $('#db-user').val().trim(),
+            pass: $('#db-pass').val().trim()
+        };
+
+        if(!payload.url) {
+            btn.prop('disabled', false).text(originalText);
+            return alert(t('dbrev_err_url', 'Введите JDBC URL базы данных!'));
+        }
+
+        $.ajax({
+            url: '/api/db/schema',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(schemaData) {
+                LIVE_DB_SCHEMA = schemaData;
+
+                $('#table-empty').hide();
+                const list = $('#table-list').empty().show();
+
+                const tables = Object.keys(LIVE_DB_SCHEMA);
+                $('#table-count').text(tables.length);
+
+                tables.forEach(tableName => {
+                    list.append(`
+                        <li class="table-item" onclick="selectTable('${tableName}')" id="tbl-${tableName}">
+                            <span class="table-icon">📄</span> ${tableName}
+                        </li>
+                    `);
+                });
+
+                btn.prop('disabled', false).text('✅ ' + t('dbrev_connected', 'Подключено'));
+                if(typeof showNotification === 'function') showNotification(t('dbrev_msg_ok', 'Схема базы данных успешно загружена!'));
+            },
+            error: function(xhr) {
+                btn.prop('disabled', false).text(originalText);
+                let msg = xhr.responseText;
+                try { msg = JSON.parse(xhr.responseText).message; } catch(e){}
+                alert(t('dbrev_err_conn', 'Ошибка подключения к БД:\n\n') + msg);
+            }
+        });
+    }
+
+    // 2. Выбор таблицы
+    window.selectTable = function(tableName) {
+        $('.table-item').removeClass('active');
+        $(`#tbl-${tableName}`).addClass('active');
+
+        currentTable = LIVE_DB_SCHEMA[tableName];
+
+        $('#editor-empty').hide();
+        $('#editor-container').css('display', 'flex');
+
+        generateCode();
+    }
+
+    // 3. Переключение вкладок
+    window.switchTab = function(mode) {
+        $('.tab-btn').removeClass('active');
+        $(`#tab-${mode}`).addClass('active');
+        currentMode = mode;
+
+        if (mode === 'java') editor.setOption('mode', 'text/x-java');
+        else editor.setOption('mode', 'application/json');
+
+        if (currentTable) generateCode();
+    }
+
+    // === ДВИЖОК ГЕНЕРАЦИИ ===
+    function generateCode() {
+        if (!currentTable) return;
+
+        let code = "";
+
+        if (currentMode === 'json') code = generateJsonSchema(currentTable);
+        else if (currentMode === 'java') code = generateJavaJPA(currentTable);
+        else if (currentMode === 'openapi') code = generateOpenAPI(currentTable);
+
+        editor.setValue(code);
+    }
+
+    // Генератор: JSON Schema
+    function generateJsonSchema(table) {
+        let schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": table.name.charAt(0).toUpperCase() + table.name.slice(1),
+            "type": "object",
+            "properties": {},
+            "required": []
+        };
+
+        table.columns.forEach(col => {
+            let prop = {};
+
+            // Маппинг SQL типов в JSON типы
+            if (col.type === 'uuid' || col.type === 'varchar' || col.type === 'timestamp') prop.type = "string";
+            else if (col.type === 'integer' || col.type === 'bigint') prop.type = "integer";
+            else if (col.type === 'decimal' || col.type === 'numeric') prop.type = "number";
+            else if (col.type === 'boolean') prop.type = "boolean";
+
+            if (col.type === 'uuid') prop.format = "uuid";
+            if (col.type === 'timestamp') prop.format = "date-time";
+            if (col.length) prop.maxLength = col.length;
+
+            schema.properties[col.name] = prop;
+            if (!col.nullable) schema.required.push(col.name);
+        });
+
+        if (schema.required.length === 0) delete schema.required;
+
+        return JSON.stringify(schema, null, 4);
+    }
+
+    // Генератор: Java JPA Entity
+    function generateJavaJPA(table) {
+        const className = toCamelCase(table.name, true);
+        let code = `import javax.persistence.*;\nimport java.util.UUID;\nimport java.time.LocalDateTime;\nimport lombok.Data;\n\n`;
+
+        code += `@Data\n@Entity\n@Table(name = "${table.name}")\npublic class ${className} {\n\n`;
+
+        table.columns.forEach(col => {
+            const fieldName = toCamelCase(col.name, false);
+            let javaType = "String";
+
+            if (col.type === 'uuid') javaType = "UUID";
+            else if (col.type === 'integer') javaType = "Integer";
+            else if (col.type === 'bigint') javaType = "Long";
+            else if (col.type === 'decimal') javaType = "java.math.BigDecimal";
+            else if (col.type === 'boolean') javaType = "Boolean";
+            else if (col.type === 'timestamp') javaType = "LocalDateTime";
+
+            if (col.pk) code += `    @Id\n`;
+
+            let columnMeta = [];
+            columnMeta.push(`name = "${col.name}"`);
+            if (!col.nullable && !col.pk) columnMeta.push(`nullable = false`);
+            if (col.length) columnMeta.push(`length = ${col.length}`);
+
+            code += `    @Column(${columnMeta.join(', ')})\n`;
+            code += `    private ${javaType} ${fieldName};\n\n`;
+        });
+
+        code += `}\n`;
+        return code;
+    }
+
+    // Генератор: OpenAPI 3.0 Model
+    function generateOpenAPI(table) {
+        const schemaName = toCamelCase(table.name, true);
+        let openapi = {
+            "components": {
+                "schemas": {
+                    [schemaName]: JSON.parse(generateJsonSchema(table)) // Переиспользуем логику
+                }
+            }
+        };
+        // Очищаем лишнее для OpenAPI
+        delete openapi.components.schemas[schemaName].$schema;
+        delete openapi.components.schemas[schemaName].title;
+
+        return JSON.stringify(openapi, null, 4);
+    }
+
+    // Вспомогательная утилита: snake_case -> camelCase
+    function toCamelCase(str, pascalCase = false) {
+        let camel = str.replace(/_([a-z])/g, function (g) { return g[1].toUpperCase(); });
+        if (pascalCase) return camel.charAt(0).toUpperCase() + camel.slice(1);
+        return camel;
+    }
+
+    window.copyCode = function() {
+        navigator.clipboard.writeText(editor.getValue()).then(() => {
+            if(typeof showNotification === 'function') showNotification(t('msg_copied', 'Код скопирован!'));
+        });
+    }
+</script>
+</body>
+</html>

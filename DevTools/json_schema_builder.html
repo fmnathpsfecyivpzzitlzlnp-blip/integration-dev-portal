@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="jsb_page_title">JSON Schema Builder (100% Offline)</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+
+    <!-- CodeMirror Local Libs -->
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --table-hover: #f1f5f9;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0b1120;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --table-hover: #334155;
+        }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            margin: 0; padding: 20px;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            height: 100vh; display: flex; flex-direction: column;
+            box-sizing: border-box; overflow: hidden;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+
+        .col {
+            flex: 1; display: flex; flex-direction: column;
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            overflow: hidden; min-width: 0;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .left-col { width: 45%; flex: none; }
+
+        .panel-head {
+            background: var(--bg-header); padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color); font-weight: 600;
+            color: var(--text-main); display: flex; justify-content: space-between;
+            align-items: center; flex-shrink: 0;
+            transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        .tree-view { flex: 1; overflow-y: auto; padding: 10px; font-family: 'Consolas', monospace; font-size: 13px; }
+        .properties-box {
+            border-top: 1px solid var(--border-color); padding: 15px;
+            background: var(--bg-main); max-height: 320px; overflow-y: auto; flex-shrink: 0;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); }
+
+        /* Стили дерева */
+        .tree-node { margin-left: 15px; padding: 2px 0; }
+        .node-row { display: inline-flex; align-items: center; padding: 3px 6px; border-radius: 4px; cursor: pointer; color: var(--text-main); }
+        .node-row:hover { background: var(--table-hover); }
+        .node-row.active { background: #3b82f6; color: white; }
+        .node-row.active .node-type { background: rgba(255,255,255,0.2); color: white; border-color: transparent; }
+        .node-type {
+            font-size: 10px; background: rgba(59, 130, 246, 0.1); color: #3b82f6;
+            padding: 1px 5px; border-radius: 4px; margin-left: 6px; font-weight: bold;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        body.dark-theme .node-type { color: #60a5fa; }
+
+        .node-badge { font-size: 9px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 1px 4px; border-radius: 3px; margin-left: 4px; }
+
+        /* Модалка */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-card); color: var(--text-main); padding: 25px; border-radius: 8px; width: 600px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); }
+
+        input[type="text"], select, textarea {
+            padding: 6px; border: 1px solid var(--border-color); border-radius: 4px;
+            font-size: 13px; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus { border-color: #3b82f6; }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+        .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .btn.danger:hover { background: #ef4444; color: white; }
+        .btn-small { padding: 4px 10px; font-size: 12px; }
+
+        #toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <h2 style="margin: 0; font-size: 20px; color: var(--text-main);" data-i18n="jsb_title">🌐 JSON Schema Builder (Safe Merge)</h2>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button class="btn primary" onclick="openGlobalImport()" style="background: #8b5cf6; border-color: #8b5cf6;" data-i18n="jsb_btn_import">📥 Импорт JSON / Schema</button>
+        <button class="btn primary" onclick="copyResult()" data-i18n="jsb_btn_copy">📋 Копировать Schema</button>
+    </div>
+</div>
+
+<div class="workspace">
+    <!-- ЛЕВАЯ КОЛОНКА: Дерево и Свойства -->
+    <div class="col left-col">
+        <div class="panel-head">
+            <span data-i18n="jsb_tree_title">Структура документа</span>
+            <input type="text" id="tree-search" placeholder="🔍 Поиск по дереву..." style="width: 150px;" oninput="filterTree(this.value)">
+        </div>
+        <div id="tree-container" class="tree-view"></div>
+        <div id="properties-container" class="properties-box">
+            <i style="color: var(--text-muted);" data-i18n="jsb_select_node">Выберите узел в дереве для редактирования свойств...</i>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: Редактор CodeMirror -->
+    <div class="col">
+        <div class="panel-head">
+            <span data-i18n="jsb_schema_title">Сгенерированная JSON Schema</span>
+        </div>
+        <textarea id="editor-json"></textarea>
+    </div>
+</div>
+
+<!-- МОДАЛКА ИМПОРТА JSON -->
+<div id="import-modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-title" style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Импорт JSON / Schema</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;" data-i18n="jsb_modal_desc">Вставьте JSON объект или готовую JSON Schema. Система автоматически распознает формат.</p>
+        <textarea id="import-json-text" style="width: 100%; height: 250px; font-family: monospace; font-size: 13px; padding: 10px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 4px; resize: vertical;"></textarea>
+        <div style="text-align: right; margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn secondary" onclick="$('#import-modal').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+            <button class="btn primary" onclick="executeImport()" style="background: #3b82f6; border-color: #3b82f6;" data-i18n="btn_import">Импортировать</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    let editorJson;
+    let schemaData = {
+        id: 'root',
+        name: 'Root',
+        type: 'object',
+        primitiveType: 'string',
+        isRequired: true,
+        description: '',
+        title: 'Root',
+        additionalProperties: false,
+        extraProps: {},
+        children: []
+    };
+    let selectedNodeId = null;
+    let importTargetNode = null;
+    let searchTerm = '';
+
+    const KNOWN_KEYS = ['type', 'properties', 'items', 'required', 'description', 'title', 'additionalProperties'];
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        $('#tree-search').attr('placeholder', t('jsb_search_ph', '🔍 Поиск по дереву...'));
+
+        editorJson = CodeMirror.fromTextArea(document.getElementById('editor-json'), {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: isDark ? "dracula" : "default",
+            readOnly: true
+        });
+
+        window.addEventListener('themeChanged', function(e) {
+            editorJson.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+        });
+
+        selectNodeRecursive(schemaData);
+        renderAll();
+    });
+
+    function showToast(msg) {
+        const toast = $('#toast');
+        toast.text(msg).fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 2000);
+    }
+
+    function findNodeById(node, id) {
+        if (node.id === id) return node;
+        for (let child of node.children) {
+            let found = findNodeById(child, id);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function generateId() {
+        return 'n_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function inferType(val) {
+        if (val === null) return 'string';
+        if (Array.isArray(val)) return 'array';
+        if (typeof val === 'object') return 'object';
+        if (typeof val === 'boolean') return 'boolean';
+        if (typeof val === 'number') return Number.isInteger(val) ? 'integer' : 'number';
+        return 'string';
+    }
+
+    // Парсер для ОБЫЧНОГО JSON payload
+    function parseJsonToSchema(obj, name = 'Root') {
+        let type = inferType(obj);
+        let node = {
+            id: generateId(),
+            name: name,
+            type: type,
+            primitiveType: 'string',
+            isRequired: true,
+            description: '',
+            title: '',
+            additionalProperties: false,
+            extraProps: {},
+            children: []
+        };
+
+        if (type === 'object') {
+            for (let key in obj) {
+                node.children.push(parseJsonToSchema(obj[key], key));
+            }
+        } else if (type === 'array') {
+            if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
+                let mergedObj = {};
+                obj.forEach(item => {
+                    if (typeof item === 'object' && item !== null) {
+                        Object.keys(item).forEach(k => { mergedObj[k] = item[k]; });
+                    }
+                });
+                for (let key in mergedObj) {
+                    node.children.push(parseJsonToSchema(mergedObj[key], key));
+                }
+            } else if (obj.length > 0) {
+                node.primitiveType = inferType(obj[0]);
+            }
+        }
+        return node;
+    }
+
+    // НОВЫЙ Парсер для ГОТОВОЙ JSON Schema (С ЗАЩИТОЙ EXTRA PROPS)
+    function importJsonSchemaToTree(schemaObj, name = 'Root', isReq = true) {
+        let extraProps = {};
+        for (let k in schemaObj) {
+            if (!KNOWN_KEYS.includes(k) && k !== '$schema') {
+                extraProps[k] = schemaObj[k];
+            }
+        }
+
+        let type = schemaObj.type || '';
+        if (!type) {
+            if (schemaObj.properties) type = 'object';
+            else if (schemaObj.items) type = 'array';
+        }
+
+        let node = {
+            id: generateId(),
+            name: name,
+            type: type,
+            primitiveType: 'string',
+            isRequired: isReq,
+            description: schemaObj.description || '',
+            title: schemaObj.title || '',
+            additionalProperties: schemaObj.additionalProperties !== undefined ? schemaObj.additionalProperties : false,
+            extraProps: extraProps,
+            children: []
+        };
+
+        if (type === 'object' && schemaObj.properties) {
+            let reqList = schemaObj.required || [];
+            for (let key in schemaObj.properties) {
+                let isChildReq = reqList.includes(key);
+                node.children.push(importJsonSchemaToTree(schemaObj.properties[key], key, isChildReq));
+            }
+        } else if (type === 'array' && schemaObj.items) {
+            if (schemaObj.items.type === 'object' && schemaObj.items.properties) {
+                let reqList = schemaObj.items.required || [];
+                for (let key in schemaObj.items.properties) {
+                    let isChildReq = reqList.includes(key);
+                    node.children.push(importJsonSchemaToTree(schemaObj.items.properties[key], key, isChildReq));
+                }
+            } else {
+                node.primitiveType = schemaObj.items.type || 'string';
+            }
+        }
+        return node;
+    }
+
+    function buildSchemaJson(node) {
+        let schema = { ...node.extraProps };
+
+        if (node.type) schema.type = node.type;
+        if (node.title) schema.title = node.title;
+        if (node.description) schema.description = node.description;
+
+        if (node.type === 'object') {
+            schema.properties = {};
+            let required = [];
+            node.children.forEach(child => {
+                schema.properties[child.name] = buildSchemaJson(child);
+                if (child.isRequired) required.push(child.name);
+            });
+            if (required.length > 0) schema.required = required;
+            if (node.additionalProperties !== undefined) schema.additionalProperties = node.additionalProperties;
+        } else if (node.type === 'array') {
+            if (node.children.length > 0) {
+                schema.items = {
+                    type: 'object',
+                    properties: {}
+                };
+                let req = [];
+                node.children.forEach(child => {
+                    schema.items.properties[child.name] = buildSchemaJson(child);
+                    if (child.isRequired) req.push(child.name);
+                });
+                if (req.length > 0) schema.items.required = req;
+                schema.items.additionalProperties = false;
+            } else {
+                schema.items = { type: node.primitiveType || 'string' };
+            }
+        }
+        return schema;
+    }
+
+    function updateEditor() {
+        let rootSchema = buildSchemaJson(schemaData);
+        let fullSchema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            ...rootSchema
+        };
+        if(!fullSchema.title) fullSchema.title = "GeneratedSchema";
+        editorJson.setValue(JSON.stringify(fullSchema, null, 2));
+    }
+
+    function renderTree(node, filter = '') {
+        let matches = filter === '' || node.name.toLowerCase().includes(filter.toLowerCase());
+
+        let html = `<div class="tree-node">`;
+        let activeClass = node.id === selectedNodeId ? 'active' : '';
+        let typeDisplay = node.type ? (node.type === 'array' && node.children.length === 0 ? `array<${node.primitiveType}>` : node.type) : 'mixed';
+
+        html += `<div class="node-row ${activeClass}" onclick="selectNode('${node.id}')">`;
+        html += `<span>📁 <b>${node.name}</b></span>`;
+        html += `<span class="node-type">${typeDisplay}</span>`;
+        if (!node.isRequired) html += `<span class="node-badge">opt</span>`;
+        if (Object.keys(node.extraProps || {}).length > 0) html += `<span class="node-badge" style="background:#fef08a; color:#854d0e;">+props</span>`;
+        html += `</div>`;
+
+        if (node.children && node.children.length > 0) {
+            html += `<div style="margin-left: 15px; border-left: 1px dashed var(--border-color); padding-left: 5px;">`;
+            node.children.forEach(child => {
+                html += renderTree(child, filter);
+            });
+            html += `</div>`;
+        }
+        html += `</div>`;
+        return html;
+    }
+
+    function renderAll() {
+        $('#tree-container').html(renderTree(schemaData, searchTerm));
+        renderProperties();
+        updateEditor();
+    }
+
+    function selectNode(id) {
+        selectedNodeId = id;
+        renderAll();
+    }
+
+    function selectNodeRecursive(node) {
+        selectedNodeId = node.id;
+    }
+
+    function filterTree(val) {
+        searchTerm = val;
+        $('#tree-container').html(renderTree(schemaData, searchTerm));
+    }
+
+    window.updateExtraProps = function(valStr) {
+        let node = findNodeById(schemaData, selectedNodeId);
+        if (node) {
+            try {
+                let parsed = JSON.parse(valStr);
+                node.extraProps = parsed;
+                renderAll();
+            } catch(e) {
+                alert(t('jsb_err_invalid_extra', "Ошибка: Невалидный JSON в дополнительных свойствах!"));
+            }
+        }
+    }
+
+    function renderProperties() {
+        let node = findNodeById(schemaData, selectedNodeId);
+        if (!node) {
+            $('#properties-container').html(`<i>${t('jsb_node_not_found', 'Узел не найден')}</i>`);
+            return;
+        }
+
+        let isRoot = node.id === schemaData.id;
+        let extraPropsStr = JSON.stringify(node.extraProps || {}, null, 2);
+
+        let html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+                <b style="font-size:15px; color:var(--text-main);">${t('jsb_props_title', 'Свойства:')} ${node.name}</b>
+                ${!isRoot ? `<button class="btn danger btn-small" onclick="deleteNode('${node.id}')">${t('btn_delete', 'Удалить')}</button>` : ''}
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                <div>
+                    <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_key', 'Имя ключа')}</label><br>
+                    <input type="text" id="prop-name" value="${node.name}" ${isRoot ? 'disabled' : ''} oninput="updateProp('name', this.value)" style="width:100%;">
+                </div>
+                <div>
+                    <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_type', 'Тип')}</label><br>
+                    <select id="prop-type" onchange="updateProp('type', this.value)" style="width:100%;">
+                        <option value="object" ${node.type==='object'?'selected':''}>object</option>
+                        <option value="array" ${node.type==='array'?'selected':''}>array</option>
+                        <option value="string" ${node.type==='string'?'selected':''}>string</option>
+                        <option value="number" ${node.type==='number'?'selected':''}>number</option>
+                        <option value="integer" ${node.type==='integer'?'selected':''}>integer</option>
+                        <option value="boolean" ${node.type==='boolean'?'selected':''}>boolean</option>
+                        <option value="" ${node.type===''?'selected':''}>${t('jsb_opt_notype', '- Без типа (anyOf/$ref) -')}</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_title', 'Заголовок (Title)')}</label><br>
+                    <input type="text" id="prop-title" value="${node.title || ''}" oninput="updateProp('title', this.value)" style="width:100%;">
+                </div>
+                <div>
+                    <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_desc', 'Описание')}</label><br>
+                    <input type="text" id="prop-desc" value="${node.description || ''}" oninput="updateProp('description', this.value)" style="width:100%;">
+                </div>
+                ${(node.type === 'array' && node.children.length === 0) ? `
+                <div style="grid-column: 1 / -1;">
+                    <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_arr_type', 'Тип элементов массива')}</label><br>
+                    <select id="prop-primitive" onchange="updateProp('primitiveType', this.value)" style="width:100%;">
+                        <option value="string" ${node.primitiveType==='string'?'selected':''}>string</option>
+                        <option value="number" ${node.primitiveType==='number'?'selected':''}>number</option>
+                        <option value="integer" ${node.primitiveType==='integer'?'selected':''}>integer</option>
+                        <option value="boolean" ${node.primitiveType==='boolean'?'selected':''}>boolean</option>
+                    </select>
+                </div>
+                ` : ''}
+
+                <div style="grid-column: 1 / -1; display:flex; gap: 15px; align-items:center; margin-top:5px;">
+                    <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-main);">
+                        <input type="checkbox" ${node.isRequired ? 'checked' : ''} ${isRoot ? 'disabled' : ''} onchange="updateProp('isRequired', this.checked)">
+                        ${t('jsb_lbl_req', 'Обязательное (Required)')}
+                    </label>
+                    ${node.type === 'object' ? `
+                    <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-main);">
+                        <input type="checkbox" ${node.additionalProperties ? 'checked' : ''} onchange="updateProp('additionalProperties', this.checked)">
+                        ${t('jsb_lbl_add_props', 'Доп. свойства (AdditionalProperties)')}
+                    </label>
+                    ` : ''}
+                </div>
+
+                <div style="grid-column: 1 / -1; margin-top: 10px;">
+                    <label style="font-size:11px; color:var(--text-muted); font-weight:bold;">${t('jsb_lbl_extra_props', '⚙️ Доп. свойства JSON (anyOf, enum, pattern, $ref...)')}</label><br>
+                    <textarea id="prop-extra" onblur="updateExtraProps(this.value)" style="width:100%; height: 60px; font-family: 'Consolas', monospace; font-size: 11px; background: var(--bg-card); color:var(--text-main);">${extraPropsStr}</textarea>
+                </div>
+            </div>
+            <div style="margin-top: 15px; display:flex; gap: 8px;">
+                ${(node.type === 'object' || node.type === 'array') ? `
+                    <button class="btn primary btn-small" onclick="addChildNode('${node.id}')">${t('jsb_btn_add_field', '+ Добавить поле')}</button>
+                    <button class="btn secondary btn-small" onclick="openBranchImport('${node.id}')">${t('jsb_btn_import_here', '📥 Импорт JSON сюда')}</button>
+                ` : ''}
+            </div>
+        `;
+        $('#properties-container').html(html);
+    }
+
+    function updateProp(field, val) {
+        let node = findNodeById(schemaData, selectedNodeId);
+        if (node) {
+            node[field] = val;
+            renderAll();
+        }
+    }
+
+    function addChildNode(parentId) {
+        let parent = findNodeById(schemaData, parentId);
+        if (parent) {
+            parent.children.push({
+                id: generateId(),
+                name: 'newField',
+                type: 'string',
+                primitiveType: 'string',
+                isRequired: false,
+                description: '',
+                title: '',
+                additionalProperties: false,
+                extraProps: {},
+                children: []
+            });
+            renderAll();
+        }
+    }
+
+    function deleteNode(id) {
+        function removeRec(node, targetId) {
+            node.children = node.children.filter(c => c.id !== targetId);
+            node.children.forEach(c => removeRec(c, targetId));
+        }
+        removeRec(schemaData, id);
+        selectedNodeId = schemaData.id;
+        renderAll();
+    }
+
+    function openGlobalImport() {
+        importTargetNode = null;
+        $('#modal-title').text(t('jsb_modal_title_global', 'Импорт JSON / Schema (Заменить всю структуру)'));
+        $('#import-json-text').val('{\n  "id": 1,\n  "title": "Пример",\n  "isActive": true\n}');
+        $('#import-modal').fadeIn(150);
+    }
+
+    function openBranchImport(nodeId) {
+        importTargetNode = nodeId;
+        let node = findNodeById(schemaData, nodeId);
+        $('#modal-title').text(t('jsb_modal_title_branch', 'Импорт JSON / Schema в ветку: ') + node.name);
+        $('#import-json-text').val('{\n  "nestedKey": "value"\n}');
+        $('#import-modal').fadeIn(150);
+    }
+
+    function executeImport() {
+        try {
+            let jsonText = $('#import-json-text').val();
+            let parsedObj = JSON.parse(jsonText);
+
+            let isSchema = parsedObj.$schema !== undefined || (parsedObj.type === 'object' && parsedObj.properties !== undefined);
+
+            let newSubSchema;
+            if (isSchema) {
+                newSubSchema = importJsonSchemaToTree(parsedObj, importTargetNode === null ? 'Root' : 'ImportedSchema');
+            } else {
+                newSubSchema = parseJsonToSchema(parsedObj, importTargetNode === null ? 'Root' : 'ImportedData');
+            }
+
+            if (importTargetNode === null) {
+                schemaData = newSubSchema;
+                schemaData.name = 'Root';
+            } else {
+                let target = findNodeById(schemaData, importTargetNode);
+                if (target) {
+                    target.children.push(...newSubSchema.children);
+                    if(!target.type) target.type = 'object'; // Fallback
+                }
+            }
+            $('#import-modal').fadeOut(150);
+            renderAll();
+        } catch (e) {
+            alert(t('jsb_err_parse', 'Ошибка разбора JSON: ') + e.message);
+        }
+    }
+
+    function copyResult() {
+        let text = editorJson.getValue();
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(t('jsb_msg_copied', 'JSON Schema скопирована в буфер обмена!'));
+        });
+    }
+</script>
+</body>
+</html>

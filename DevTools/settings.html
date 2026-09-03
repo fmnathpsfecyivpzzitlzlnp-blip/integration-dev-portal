@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title data-i18n="settings_title">Настройки системы</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --danger-bg: rgba(239, 68, 68, 0.05);
+            --danger-border: rgba(239, 68, 68, 0.2);
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --danger-border: #7f1d1d;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body { margin: 0 !important; padding: 0 !important; height: 100vh !important; overflow-y: auto !important; }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+            box-sizing: border-box !important;
+        }
+
+        .settings-container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 50px; }
+
+        .top-bar { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        .top-bar h2 { margin: 0; font-size: 22px; color: var(--text-main); }
+
+        .settings-card {
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .settings-card h3 {
+            margin: 0 0 15px 0;
+            color: var(--text-main);
+            font-size: 18px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: var(--text-muted); }
+        .form-group select, .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: var(--input-bg);
+            color: var(--text-main);
+            transition: 0.3s;
+            outline: none;
+        }
+        .form-group select:focus, .form-group input:focus { border-color: #3b82f6; }
+
+        .danger-zone { border-left: 4px solid #ef4444; background: var(--danger-bg); }
+        .danger-zone h3 { color: #ef4444; border-bottom-color: var(--danger-border); }
+
+        .btn { padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; border: none; }
+        .btn.danger { background: #ef4444; color: white; }
+        .btn.danger:hover { background: #dc2626; }
+        .btn.secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        #toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="settings-container">
+    <div class="top-bar">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <h2 data-i18n="settings_title">Настройки системы</h2>
+    </div>
+
+    <!-- ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ (Интерфейс) -->
+    <div class="settings-card">
+        <h3>👤 <span data-i18n="pref_title">Настройки интерфейса</span></h3>
+
+        <div style="display: flex; gap: 20px;">
+            <div class="form-group" style="flex: 1;">
+                <label data-i18n="lang_select_lbl">Язык интерфейса по умолчанию:</label>
+                <select id="lang-select" onchange="changeLanguage()"></select>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;" data-i18n="lang_hint">Язык сохраняется в БД и применяется ко всем модулям портала.</p>
+            </div>
+
+            <div class="form-group" style="flex: 1;">
+                <label data-i18n="theme_select_lbl">Тема оформления:</label>
+                <select id="theme-select" onchange="changeTheme()">
+                    <option value="light" data-i18n="theme_light">☀️ Светлая тема</option>
+                    <option value="dark" data-i18n="theme_dark">🌙 Темная тема</option>
+                </select>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;" data-i18n="theme_hint">Выбор темы сохраняется в локальном кэше браузера.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ОЧИСТКА ЛОГОВ -->
+    <div class="settings-card danger-zone">
+        <h3>🗑 <span data-i18n="logs_title">Управление логами (История вызовов)</span></h3>
+        <p style="font-size: 13px; color: #ef4444; margin-top: 0; font-weight: bold;" data-i18n="logs_warning">Внимание: Удаленные логи невозможно восстановить!</p>
+
+        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <div class="form-group" style="flex: 1;">
+                <label data-i18n="logs_sys_lbl">Очистить по Системе (BS):</label>
+                <select id="clear_sys_select">
+                    <option value="ALL" data-i18n="logs_all_systems">-- Все системы --</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label data-i18n="logs_date_lbl">Удалить записи старше даты:</label>
+                <input type="date" id="clear_date_input">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; color: #ef4444; cursor: pointer;">
+                <input type="checkbox" id="clear_all_checkbox" onchange="toggleClearAll()" style="width: 16px; height: 16px;">
+                <span data-i18n="logs_clear_all">ПОЛНОСТЬЮ ОЧИСТИТЬ ВСЮ ИСТОРИЮ (Игнорировать фильтры)</span>
+            </label>
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid var(--danger-border); padding-top: 15px;">
+            <button class="btn danger" onclick="executeLogClear()" data-i18n="logs_btn">Удалить логи безвозвратно</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    // БЕЗОПАСНАЯ ФУНКЦИЯ ПЕРЕВОДА (без рекурсии window.t)
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        $('#theme-select').val(isDark ? 'dark' : 'light');
+
+        populateLanguageSelect();
+        loadSystems();
+    });
+
+    function populateLanguageSelect() {
+        const sel = $('#lang-select').empty();
+
+        const langNames = {
+            "ru": "Русский", "en": "English", "de": "Deutsch",
+            "zh": "中文 (Китайский)", "ja": "日本語", "ar": "العربية (Арабский)",
+            "es": "Español", "fr": "Français"
+        };
+
+        try {
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr);
+                const availableLangs = Object.keys(dict);
+
+                availableLangs.forEach(langCode => {
+                    const displayName = langNames[langCode] || langCode.toUpperCase();
+                    sel.append(new Option(displayName, langCode));
+                });
+            } else {
+                // Фолбэк, если словарь пуст
+                sel.append(new Option("Русский", "ru"));
+                sel.append(new Option("English", "en"));
+            }
+        } catch(e) {
+            sel.append(new Option("Русский", "ru"));
+        }
+
+        const currentLang = localStorage.getItem('app_lang') || 'ru';
+        sel.val(currentLang);
+    }
+
+    function changeLanguage() {
+        const lang = $('#lang-select').val();
+        localStorage.setItem('app_lang', lang);
+
+        // Опционально сохраняем в БД, если бэкенд поддерживает
+        $.ajax({
+            url: '/api/tasks/settings', type: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ default_app_lang: lang })
+        });
+
+        if (typeof applyLanguage === 'function') applyLanguage(lang);
+
+        if (window.parent && window.parent !== window) {
+            window.parent.location.reload();
+        } else {
+            showToast("Язык интерфейса обновлен!");
+        }
+    }
+
+    function changeTheme() {
+        const selected = $('#theme-select').val();
+        const isDark = selected === 'dark';
+
+        localStorage.setItem('global_dark_theme', isDark.toString());
+
+        // Опционально сохраняем в БД
+        $.ajax({
+            url: '/api/tasks/settings', type: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ default_theme_dark: isDark.toString() })
+        });
+
+        if (typeof applyTheme === 'function') applyTheme(isDark);
+
+        if (window.parent && typeof window.parent.toggleGlobalTheme === 'function') {
+            try { window.parent.document.body.classList.toggle('dark-theme', isDark); } catch(e){}
+            try {
+                const btn = window.parent.document.getElementById('theme-toggle-btn');
+                const lang = localStorage.getItem('app_lang') || 'ru';
+                const dictStr = localStorage.getItem('portal_dictionary');
+                if (btn && dictStr) {
+                    const dict = JSON.parse(dictStr)[lang];
+                    btn.innerHTML = isDark ? (dict['theme_light'] || '☀️') : (dict['theme_dark'] || '🌙');
+                }
+            } catch(e){}
+        }
+    }
+
+    function loadSystems() {
+        $.get('/api/systems', function(sys) {
+            const sel = $('#clear_sys_select');
+            if (Array.isArray(sys)) {
+                sys.forEach(s => sel.append(new Option(s.sid, s.sid)));
+            }
+        });
+    }
+
+    function toggleClearAll() {
+        const isAll = $('#clear_all_checkbox').is(':checked');
+        $('#clear_sys_select').prop('disabled', isAll);
+        $('#clear_date_input').prop('disabled', isAll);
+    }
+
+    function executeLogClear() {
+        const payload = {
+            clearAll: $('#clear_all_checkbox').is(':checked'),
+            sysName: $('#clear_sys_select').val(),
+            olderThan: $('#clear_date_input').val()
+        };
+
+        if (!payload.clearAll && payload.sysName === "ALL" && !payload.olderThan) {
+            alert(t('err_clear_logs', "Выберите систему, укажите дату или отметьте 'Полностью очистить'."));
+            return;
+        }
+
+        if (!confirm(t('confirm_clear_logs', "Вы уверены, что хотите безвозвратно удалить логи?"))) return;
+
+        $.ajax({
+            url: '/api/history/clear',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(res) {
+                alert(res.message || "Очистка завершена.");
+                $('#clear_all_checkbox').prop('checked', false);
+                toggleClearAll();
+            },
+            error: function(xhr) {
+                alert("Ошибка сервера.");
+            }
+        });
+    }
+
+    function showToast(msg) {
+        const toast = $('#toast');
+        toast.text(msg).fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 2000);
+    }
+</script>
+</body>
+</html>

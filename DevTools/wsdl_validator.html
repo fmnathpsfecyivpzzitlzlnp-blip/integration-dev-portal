@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>XML / WSDL Validator</title>
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="libs/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+
+    <style>
+        .editor-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 65vh;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fff;
+            margin-top: 15px;
+        }
+
+        .CodeMirror {
+            height: 100% !important;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+        }
+
+        .error-line-bg { background-color: #ffcdd2 !important; }
+
+        #results-panel {
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            display: none;
+            margin-top: 15px;
+        }
+        .success-panel { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .warning-panel { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
+        .error-panel { background: #fff5f5; border: 1px solid #ffcdd2; color: #c62828; }
+
+        .check-list { margin-top: 10px; padding-left: 20px; }
+        .check-list li { margin-bottom: 5px; font-weight: bold; }
+        .check-ok { color: #155724; }
+        .check-fail { color: #c62828; }
+    </style>
+</head>
+<body>
+<div class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+            <h2 style="margin: 0; border: none;">XML / WSDL Validator</h2>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
+            <button id="validateBtn" class="primary" style="padding: 8px 15px;">⚡ Проверить WSDL</button>
+        </div>
+    </div>
+
+    <div id="results-panel"></div>
+
+    <div class="editor-wrapper">
+        <textarea id="xml-input" placeholder="Вставьте сюда ваш код XML или WSDL..."></textarea>
+    </div>
+</div>
+
+<script>
+    $(function () {
+        const resultsPanel = $('#results-panel');
+        let errorLineHandle = null;
+
+        // Инициализация редактора
+        const editor = CodeMirror.fromTextArea(document.getElementById('xml-input'), {
+            mode: "xml",
+            lineNumbers: true,
+            matchBrackets: true,
+            lineWrapping: true
+        });
+
+        // Восстановление из кэша
+        if (localStorage.getItem('validator_wsdl')) {
+            editor.setValue(localStorage.getItem('validator_wsdl'));
+        }
+
+        // Автосохранение и очистка ошибок
+        editor.on('change', function() {
+            localStorage.setItem('validator_wsdl', editor.getValue());
+            if (errorLineHandle) {
+                editor.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+                errorLineHandle = null;
+            }
+            resultsPanel.hide();
+        });
+
+        $('#clearBtn').on('click', function() {
+            if(confirm('Очистить редактор?')) {
+                editor.setValue('');
+                localStorage.removeItem('validator_wsdl');
+                resultsPanel.hide();
+            }
+        });
+
+        // ЛОГИКА ПРОВЕРКИ
+        $('#validateBtn').on('click', function() {
+            resultsPanel.removeClass('success-panel warning-panel error-panel').empty().hide();
+
+            let xmlText = editor.getValue().trim();
+            if (!xmlText) return alert("Пожалуйста, вставьте XML/WSDL код.");
+
+            // Авто-исправление "кривых" кавычек
+            xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+            if (xmlText !== editor.getValue().trim()) {
+                editor.setValue(xmlText);
+            }
+
+            // ШАГ 1: Базовая валидация синтаксиса XML
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+            const errorNode = xmlDoc.querySelector("parsererror");
+
+            if (errorNode) {
+                const errorMsg = errorNode.textContent;
+
+                // Ищем номер строки в ошибке (Chrome пишет "line number XX")
+                const match = errorMsg.match(/line number (\d+)/i) || errorMsg.match(/line (\d+)/i);
+                if (match) {
+                    const lineNum = parseInt(match[1], 10);
+                    errorLineHandle = editor.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                    editor.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+                }
+
+                resultsPanel.addClass('error-panel')
+                    .html(`<h3 style="margin-top:0;">❌ Критическая ошибка синтаксиса XML:</h3><p style="white-space: pre-wrap;">${errorMsg}</p>`)
+                    .slideDown();
+                return;
+            }
+
+            // ШАГ 2: Семантическая проверка WSDL
+            const rootName = xmlDoc.documentElement.localName;
+
+            // Если это не WSDL, а просто XML или XSD
+            if (rootName !== 'definitions' && !xmlText.includes('wsdl:definitions')) {
+                resultsPanel.addClass('warning-panel')
+                    .html(`<h3 style="margin-top:0;">✅ XML синтаксис корректен!</h3><p>Но это не похоже на WSDL-файл (отсутствует корневой тег &lt;wsdl:definitions&gt;).</p>`)
+                    .slideDown();
+                return;
+            }
+
+            // Проверяем наличие ключевых блоков WSDL
+            const hasTypes = xmlDoc.querySelector("types") || xmlText.includes(':types');
+            const hasMessage = xmlDoc.querySelector("message") || xmlText.includes(':message');
+            const hasPortType = xmlDoc.querySelector("portType") || xmlText.includes(':portType');
+            const hasBinding = xmlDoc.querySelector("binding") || xmlText.includes(':binding');
+            const hasService = xmlDoc.querySelector("service") || xmlText.includes(':service');
+
+            const allValid = hasTypes && hasMessage && hasPortType && hasBinding && hasService;
+
+            let html = `<h3 style="margin-top:0;">✅ XML синтаксис корректен!</h3>`;
+            html += `<p>Анализ структуры WSDL-документа:</p><ul class="check-list">`;
+
+            html += `<li class="${hasTypes ? 'check-ok' : 'check-fail'}">${hasTypes ? '✔' : '✖'} Блок &lt;wsdl:types&gt; (Структуры данных)</li>`;
+            html += `<li class="${hasMessage ? 'check-ok' : 'check-fail'}">${hasMessage ? '✔' : '✖'} Блок &lt;wsdl:message&gt; (Сообщения)</li>`;
+            html += `<li class="${hasPortType ? 'check-ok' : 'check-fail'}">${hasPortType ? '✔' : '✖'} Блок &lt;wsdl:portType&gt; (Операции)</li>`;
+            html += `<li class="${hasBinding ? 'check-ok' : 'check-fail'}">${hasBinding ? '✔' : '✖'} Блок &lt;wsdl:binding&gt; (Привязки SOAP)</li>`;
+            html += `<li class="${hasService ? 'check-ok' : 'check-fail'}">${hasService ? '✔' : '✖'} Блок &lt;wsdl:service&gt; (Эндпоинты)</li>`;
+            html += `</ul>`;
+
+            if (allValid) {
+                html += `<div style="margin-top:15px; font-weight:bold; color:#155724;">🎉 Это полностью валидный WSDL документ!</div>`;
+                resultsPanel.addClass('success-panel');
+            } else {
+                html += `<div style="margin-top:15px; font-weight:bold; color:#c62828;">⚠️ Документ содержит не все необходимые для WSDL блоки.</div>`;
+                resultsPanel.addClass('warning-panel');
+            }
+
+            resultsPanel.html(html).slideDown();
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="me_page_title">Mermaid Editor (DB Sync)</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #eef1f5;
+            --bg-sidebar: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border-color: #cccccc;
+            --border-light: #dddddd;
+            --header-bg: #1e293b;
+            --section-bg: #dfe6e9;
+            --input-bg: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #dddddd;
+            --btn-bg: #eeeeee;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-sidebar: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --border-light: #475569;
+            --header-bg: #0b1120;
+            --section-bg: #0f172a;
+            --input-bg: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --btn-bg: #334155;
+        }
+
+        /* ============================
+           1. БАЗОВЫЕ СТИЛИ (БРОНЕЖИЛЕТ)
+           ============================ */
+        html { margin: 0 !important; padding: 0 !important; height: 100% !important; }
+        body {
+            margin: 0 !important; padding: 0 !important;
+            display: flex !important; flex-direction: column !important; height: 100vh !important;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            background: var(--bg-main) !important;
+            color: var(--text-main) !important;
+            overflow: hidden !important;
+            transition: background 0.3s, color 0.3s;
+        }
+        button, select, input { font-family: inherit; outline: none; }
+
+        /* ============================
+           2. ВЕРХНЯЯ ПАНЕЛЬ С ВКЛАДКАМИ
+           ============================ */
+        .app-header { background: var(--header-bg); display: flex; flex-direction: column; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex-shrink: 0; transition: background 0.3s; }
+        .app-toolbar { display: flex; justify-content: space-between; padding: 12px 20px; color: white; align-items: center; }
+        .tabs-wrapper { display: flex; gap: 8px; padding: 0 20px 10px 20px; overflow-x: auto; align-items: center; flex-wrap: nowrap;}
+
+        .api-tab {
+            background: #334155; color: #cbd5e1; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+            border: 1px solid #475569; user-select: none; transition: 0.2s; max-width: 250px; flex-shrink: 0;
+        }
+        .api-tab.active { background: #ffffff; color: #0284c7; border-color: #bae6fd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        body.dark-theme .api-tab.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; }
+        .api-tab:hover:not(.active) { background: #475569; color: #f8fafc; }
+        .api-tab .tab-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; min-width: 40px; padding: 2px 4px; border-radius: 4px; border: 1px solid transparent; }
+        .api-tab .tab-name[contenteditable="true"]:focus { background: var(--input-bg); border-color: #60a5fa; cursor: text; text-overflow: clip; color: var(--text-main); }
+        .tab-close { color: #94a3b8; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; border-radius: 4px; }
+        .tab-close:hover { color: #ef4444; background: #fee2e2; }
+        .add-tab-btn { background: #334155; border: 1px dashed #64748b; color: #cbd5e1; font-weight: bold; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; flex-shrink: 0; }
+        .add-tab-btn:hover { background: #475569; color: #fff; }
+
+        .tab-search { padding: 6px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 13px; margin-left: auto; width: 300px; transition: border 0.2s; }
+        .tab-search:focus { border-color: #3b82f6; }
+
+        .header-buttons { display: flex; gap: 10px; align-items: center; }
+        .head-btn {
+            background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4);
+            padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .head-btn:hover { background: rgba(255,255,255,0.3); }
+        .db-status { font-size: 11px; color: #10b981; font-weight: bold; opacity: 0; transition: opacity 0.3s; }
+
+        /* ============================
+           3. РАБОЧАЯ ЗОНА (САЙДБАР И ГРАФИК)
+           ============================ */
+        .main-body { display: flex; flex: 1; overflow: hidden; }
+
+        #sidebar {
+            width: 500px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.05); z-index: 20; flex-shrink: 0; transition: background 0.3s, border-color 0.3s;
+        }
+
+        .settings-box { background: var(--section-bg); padding: 10px 15px; border-bottom: 1px solid var(--border-color); display: flex; gap: 10px; align-items: center; transition: background 0.3s, border-color 0.3s; }
+        .settings-box select { padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); flex: 1; cursor: pointer; background: var(--input-bg); color: var(--text-main); }
+        .settings-box label { font-size: 13px; display: flex; gap: 6px; align-items: center; user-select: none; cursor: pointer; color: var(--text-main);}
+
+        .section-label {
+            background: var(--section-bg); padding: 8px 15px; font-weight: bold; color: var(--text-main);
+            border-bottom: 1px solid var(--border-light); border-top: 1px solid var(--border-light);
+            font-size: 12px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .scroll-area { overflow-y: auto; padding: 10px; background: var(--bg-sidebar); flex: 1; transition: background 0.3s; }
+
+        .participant-item { display: flex; gap: 5px; margin-bottom: 6px; }
+        .participant-item input { padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; transition: border 0.2s, background 0.3s, color 0.3s; background: var(--input-bg); color: var(--text-main); }
+        .participant-item input:focus { border-color: #3498db; }
+        .participant-item input.alias { width: 90px; font-weight: bold; text-align: center; background: rgba(52, 152, 219, 0.1); color: #2980b9; }
+
+        .btn-ctrl { width: 26px; height: 26px; border: none; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .btn-add-sys { background: #3498db; color: white; width: auto; padding: 0 10px; }
+        .btn-add-sys:hover { background: #2980b9; }
+        .btn-del-sys { background: #e74c3c; color: white; }
+        .btn-del-sys:hover { background: #c0392b; }
+
+        .action-bar { padding: 10px; display: flex; gap: 10px; background: var(--section-bg); border-bottom: 1px solid var(--border-light); transition: background 0.3s; }
+        .btn-big { flex: 1; padding: 10px; border: none; border-radius: 4px; color: white; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.2s; }
+        .btn-big:active { transform: translateY(1px); box-shadow: none; }
+        .btn-msg { background: #27ae60; } .btn-msg:hover { background: #219150; }
+        .btn-loop { background: #e67e22; } .btn-loop:hover { background: #d35400; }
+
+        .step-container { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+        .step-num { width: 26px; height: 26px; background: #34495e; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; margin-top: 8px; flex-shrink: 0; box-shadow: 1px 1px 3px rgba(0,0,0,0.2); }
+        .step-num.icon { background: #f39c12; border-radius: 4px; }
+        .step-card { flex: 1; background: var(--card-bg); border: 1px solid var(--card-border); border-left: 5px solid var(--border-color); border-radius: 4px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.2s; }
+        .step-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); transform: translateX(2px); }
+        .step-card.msg { border-left-color: #3498db; }
+        .step-card.loop { border-left-color: #f39c12; background: rgba(243, 156, 18, 0.05); }
+        .step-card.end { border-left-color: #95a5a6; background: rgba(149, 165, 166, 0.05); border-left-style: dashed; }
+        .step-card.error { background: rgba(231, 76, 60, 0.1); border-color: #e74c3c; }
+        .row { display: flex; gap: 5px; margin-bottom: 6px; align-items: center; }
+        .step-card select, .step-card input { padding: 5px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); border-radius: 3px; font-size: 12px; width: 100%; box-sizing: border-box; }
+        .act-select { font-weight: bold; color: #8e44ad; border: 1px solid rgba(142, 68, 173, 0.3) !important; background: rgba(142, 68, 173, 0.05) !important; cursor: pointer; }
+        .card-controls { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+        .c-btn { width: 24px; height: 24px; border: 1px solid var(--border-color); background: var(--btn-bg); border-radius: 3px; cursor: pointer; color: var(--text-muted); transition: 0.2s;}
+        .c-btn:hover { filter: brightness(0.9); }
+        .c-btn.del { background: #e74c3c; border-color: #e74c3c; color: white; }
+        .c-btn.del:hover { background: #c0392b; }
+        .footer-note { padding: 10px; background: var(--section-bg); font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border-color); transition: 0.3s; }
+
+        #preview-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-main); position: relative; transition: background 0.3s; }
+        #error-bar { height: 0; background: #e74c3c; color: white; font-size: 13px; text-align: center; line-height: 40px; overflow: hidden; transition: 0.3s; font-weight: bold; }
+        #graph-container { flex: 1; overflow: auto; padding: 20px; text-align: center; }
+
+        /* ============================
+           4. МОДАЛЬНЫЕ ОКНА
+           ============================ */
+        .modal {
+            position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
+            z-index:9999; display:none; justify-content:center; align-items:center; backdrop-filter: blur(2px);
+        }
+        .modal-content {
+            background: var(--bg-sidebar); width:800px; max-width:90%; padding:25px; border-radius:8px; border: 1px solid var(--border-color);
+            box-shadow:0 10px 30px rgba(0,0,0,0.3); position:relative; max-height: 90vh; overflow-y:auto; display: flex; flex-direction: column;
+            color: var(--text-main);
+        }
+        .modal-content h2 { margin-top:0; color:var(--text-main); border-bottom:2px solid #3498db; padding-bottom:10px; }
+        .close-btn { position:absolute; top:20px; right:20px; cursor:pointer; font-size:24px; color:var(--text-muted); line-height: 1;}
+        .close-btn:hover { color: #e74c3c; }
+        .help-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:15px; margin-bottom: 20px; color: var(--text-main); }
+        .help-table td, .help-table th { border:1px solid var(--border-light); padding:8px; text-align: left; }
+        .help-table th { background: var(--section-bg); font-weight: bold; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ЗАЩИТА ОТ БОМБ MERMAID */
+        div[id^="dmermaid"].error-icon, svg[id^="dmermaid"].error-icon, .error-icon { display: none !important; }
+        body > svg[id^="dmermaid"] { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <div class="app-toolbar">
+        <div style="font-size: 20px; font-weight: bold;" data-i18n="me_header_title">Mermaid Editor (DB Sync)</div>
+        <div class="header-buttons">
+            <span id="db-status" class="db-status" data-i18n="me_db_saved">💾 Сохранено в БД</span>
+            <button class="head-btn" onclick="toggleView('modal-code')" style="background: #27ae60; border-color: #2ecc71;" data-i18n="me_btn_code">📋 Исходный код / Импорт</button>
+            <button class="head-btn" onclick="toggleView('modal-help')" data-i18n="me_btn_help">? Справка</button>
+            <button onclick="window.location.href='index.html'" class="head-btn" style="background: transparent;" data-i18n="btn_home">🏠 Домой</button>
+        </div>
+    </div>
+    <div style="padding: 0 20px 10px 20px; display:flex;">
+        <input type="text" id="tab-search" class="tab-search" placeholder="🔍 Поиск схем (название, алиас, текст вызова)..." data-i18n="me_search_ph" onkeyup="filterTabs()">
+    </div>
+    <div class="tabs-wrapper" id="tabs-container">
+        <!-- Вкладки рендерятся через JS -->
+    </div>
+</div>
+
+<div class="main-body">
+    <!-- ЛЕВАЯ ПАНЕЛЬ -->
+    <div id="sidebar">
+        <div class="settings-box">
+            <select id="themeSelect" onchange="redraw()">
+                <option value="default" data-i18n="me_theme_default">Тема: Default</option>
+                <option value="forest" data-i18n="me_theme_forest">Тема: Forest</option>
+                <option value="dark" data-i18n="me_theme_dark">Тема: Dark</option>
+                <option value="neutral" data-i18n="me_theme_neutral">Тема: Neutral</option>
+                <option value="base" data-i18n="me_theme_base">Тема: Base</option>
+            </select>
+            <label><input type="checkbox" id="chkNum" checked onchange="redraw()"> <span data-i18n="me_chk_numbers">Нумерация</span></label>
+        </div>
+        <div class="settings-box" style="display: flex; gap: 5px; background: rgba(2, 132, 199, 0.1); border-bottom: 2px solid rgba(2, 132, 199, 0.2);">
+            <input type="text" id="massRenameInput" placeholder="Базовое имя для замены (напр. ClientGet)" data-i18n="me_ph_rename" style="flex: 1; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-main);">
+            <button class="head-btn" style="background:#0284c7; color:white; border:none;" onclick="massRenameInterfaces()" data-i18n="me_btn_rename">♻️ Заменить в текущей схеме</button>
+        </div>
+
+        <div class="section-label">
+            <span data-i18n="me_lbl_systems">1. Системы (Participants)</span>
+            <button class="btn-ctrl btn-add-sys" onclick="addSys()" title="Добавить">+</button>
+        </div>
+        <div class="scroll-area" style="flex: 0 0 160px; border-bottom: 2px solid var(--border-color);">
+            <div id="list-sys"></div>
+        </div>
+
+        <div class="section-label" data-i18n="me_lbl_scenario">2. Сценарий</div>
+        <div class="action-bar">
+            <button class="btn-big btn-msg" onclick="addMsg()" data-i18n="me_btn_msg">➜ Сообщение</button>
+            <button class="btn-big btn-loop" onclick="addLoop()" data-i18n="me_btn_loop">↺ Группа / Цикл</button>
+            <button class="btn-big" style="background:#e74c3c;" onclick="addElse()" data-i18n="me_btn_else">➗ Else</button>
+            <button class="btn-big" style="background:#9b59b6;" onclick="addNote()" data-i18n="me_btn_note">📝 Заметка</button>
+        </div>
+        <div class="scroll-area" id="list-steps"></div>
+
+        <div class="footer-note">
+            <label title="Включает защиту от сбоев и скрывает иконки ошибок">
+                <input type="checkbox" id="autofix" checked onchange="redraw()"> <b data-i18n="me_lbl_autofix">Auto-Fix & Anti-Bomb</b>
+            </label>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ -->
+    <div id="preview-wrap">
+        <div id="error-bar"></div>
+        <div id="graph-container"></div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО КОДА -->
+<div class="modal" id="modal-code">
+    <div class="modal-content">
+        <span class="close-btn" onclick="toggleView('modal-code')">×</span>
+        <h2 data-i18n="me_modal_code_title">Исходный код Mermaid</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top:0;" data-i18n="me_modal_code_desc">Вы можете скопировать этот код, либо вставить чужой код и нажать «Применить изменения».</p>
+        <textarea id="code-text" style="flex:1; min-height: 400px; width: 100%; background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; font-size: 13px; padding: 15px; border-radius: 6px; outline: none; border: 1px solid #444; box-sizing: border-box; resize: none;"></textarea>
+        <div style="text-align:right; margin-top:15px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="copyMermaidCode()" class="head-btn" style="background: #3498db; font-size: 14px; padding: 8px 15px;" data-i18n="me_btn_copy_code">📋 Скопировать код</button>
+            <button onclick="applyCode(); toggleView('modal-code')" class="head-btn" style="background: #27ae60; font-size: 14px; padding: 8px 15px;" data-i18n="me_btn_apply_code">✔ Применить изменения</button>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО СПРАВКИ -->
+<div class="modal" id="modal-help">
+    <div class="modal-content" style="width: 600px;">
+        <span class="close-btn" onclick="toggleView('modal-help')">×</span>
+        <h2 data-i18n="me_help_title">Справка: Взаимодействие с базой данных</h2>
+        <p data-i18n="me_help_desc1">Теперь все ваши схемы (вкладки) <b>автоматически сохраняются в SQLite-базу сервера</b>.</p>
+        <ul>
+            <li data-i18n="me_help_li1">Переименование вкладки, изменение кода, перетаскивание полей — мгновенно отправляются в БД.</li>
+            <li data-i18n="me_help_li2">При закрытии вкладки (крестик) — она удаляется из базы.</li>
+            <li data-i18n="me_help_li3">Если открыть редактор с другого компьютера — загрузятся все ваши схемы.</li>
+        </ul>
+        <h3 style="margin-top: 20px;" data-i18n="me_help_arr_title">1. Типы стрелок</h3>
+        <table class="help-table">
+            <tr><td><b>->></b></td><td data-i18n="me_help_arr1">Синхронный (ждем ответ).</td></tr>
+            <tr><td><b>-->></b></td><td data-i18n="me_help_arr2">Ответ на вызов.</td></tr>
+            <tr><td><b>-)</b></td><td data-i18n="me_help_arr3">Асинхронный (Fire & Forget).</td></tr>
+            <tr><td><b>x-)</b></td><td data-i18n="me_help_arr4">Потеря сообщения.</td></tr>
+        </table>
+        <h3 data-i18n="me_help_act_title">2. Столбики активации</h3>
+        <table class="help-table">
+            <tr><td><b style="color:#8e44ad">(+) <span data-i18n="me_help_act1">Старт</span></b></td><td data-i18n="me_help_act1_desc">Включает столбик в системе Получателе (Target).</td></tr>
+            <tr><td><b style="color:#8e44ad">(-) <span data-i18n="me_help_act2">Стоп</span></b></td><td data-i18n="me_help_act2_desc">Заканчивает столбик в системе Отправителе (Source).</td></tr>
+        </table>
+    </div>
+</div>
+
+<!-- ПОДКЛЮЧЕНИЕ MERMAID ЧЕРЕЗ НАДЕЖНЫЙ CDN -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+    // Универсальная функция перевода
+    function t(key, defaultStr) {
+        try {
+            const lang = localStorage.getItem('app_lang') || 'ru';
+            const dictStr = localStorage.getItem('portal_dictionary');
+            if (dictStr) {
+                const dict = JSON.parse(dictStr)[lang];
+                if (dict && dict[key]) return dict[key];
+            }
+        } catch(e) {}
+        return defaultStr;
+    }
+
+    $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        if (isDark) {
+            $('#themeSelect').val('dark');
+        }
+        initTabs();
+    });
+
+    mermaid.initialize({ startOnLoad: false, theme: localStorage.getItem('global_dark_theme') === 'true' ? 'dark' : 'default', securityLevel: 'loose' });
+
+    let sysCounter = 1;
+    let systems = [];
+    let steps = [];
+
+    // === УМНЫЕ ВКЛАДКИ И СИНХРОНИЗАЦИЯ С БД ===
+    function generateUid() { return 'tab_' + Math.random().toString(36).substr(2, 9); }
+
+    let tabsData = [];
+    let activeTabId = null;
+
+    // 1. Инициализация (загрузка из БД)
+    function initTabs() {
+        $.get('/api/mermaid', function(data) {
+            tabsData = [];
+            if (data && data.length > 0) {
+                data.forEach(row => {
+                    let parsedData = { systems: [], steps: [] };
+                    try { parsedData = JSON.parse(row.data); } catch(e){}
+                    tabsData.push({
+                        db_id: row.id,
+                        id: 'tab_' + row.id,
+                        name: row.name,
+                        systems: parsedData.systems || [],
+                        steps: parsedData.steps || []
+                    });
+                });
+            } else {
+                // Если БД пуста - создаем базовую вкладку
+                tabsData.push({
+                    db_id: null,
+                    id: generateUid(),
+                    name: 'Sync REST - REST',
+                    systems: [
+                        { id:'s1', alias:'DBO', name:'BS_DBOCORP' },
+                        { id:'s2', alias:'ESB', name:'FACTOR - ESB' },
+                        { id:'s3', alias:'ATH_*', name:'BS_ATHENA' }
+                    ],
+                    steps: [
+                        { type:'msg', f:'s1', t:'s2', arr:'->>', act:'+', txt:'SOAP: Reservation' },
+                        { type:'msg', f:'s2', t:'s1', arr:'-->>', act:'-', txt:'Response' }
+                    ]
+                });
+                saveTabToDB(tabsData[0]); // Сразу сохраняем дефолтную в базу
+            }
+
+            activeTabId = tabsData[0].id;
+            renderTabs();
+            loadTabState(activeTabId);
+        });
+    }
+
+    function renderTabs() {
+        const cont = document.getElementById('tabs-container');
+        cont.innerHTML = '';
+        tabsData.forEach(tab => {
+            const isActive = tab.id === activeTabId ? 'active' : '';
+            const isEdit = isActive ? 'true' : 'false';
+            cont.innerHTML += `
+                <div class="api-tab ${isActive}" data-id="${tab.id}">
+                    <span class="tab-name" contenteditable="${isEdit}" spellcheck="false" title="${t('me_tab_rename_hint', 'Двойной клик/Фокус для переименования')}" onblur="saveTabName(this, '${tab.id}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${escapeHtml(tab.name)}</span>
+                    <span class="tab-close" title="${t('me_tab_del_hint', 'Удалить схему')}" onclick="event.stopPropagation(); closeTab('${tab.id}')">&times;</span>
+                </div>
+            `;
+        });
+        cont.innerHTML += `<button class="add-tab-btn" onclick="addNewTab()" title="${t('me_tab_add_hint', 'Добавить новую схему')}">+</button>`;
+
+        document.querySelectorAll('.api-tab').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if(e.target.classList.contains('tab-close')) return;
+                window.getSelection().removeAllRanges();
+                switchTab(this.dataset.id);
+            });
+        });
+
+        filterTabs();
+    }
+
+    // 2. Логика сохранения в БД
+    function saveTabToDB(tab) {
+        if (!tab) return;
+        const payload = {
+            id: tab.db_id || null,
+            name: tab.name,
+            data: JSON.stringify({ systems: tab.systems, steps: tab.steps })
+        };
+
+        $.ajax({
+            url: '/api/mermaid',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(res) {
+                if (res.id && !tab.db_id) {
+                    tab.db_id = res.id;
+                }
+                showDbStatus();
+            }
+        });
+    }
+
+    function showDbStatus() {
+        const indicator = document.getElementById('db-status');
+        indicator.innerText = t('me_db_saved', '💾 Сохранено в БД');
+        indicator.style.opacity = '1';
+        setTimeout(() => indicator.style.opacity = '0', 2000);
+    }
+
+    window.saveTabName = function(el, id) {
+        let newName = el.innerText.trim() || t('me_new_schema', 'Новая схема');
+        let tab = tabsData.find(t => t.id === id);
+        if (tab) {
+            tab.name = newName;
+            el.innerText = newName;
+            saveTabToDB(tab);
+        }
+    }
+
+    window.addNewTab = function() {
+        saveCurrentTabState();
+        let newId = generateUid();
+        let newTab = {
+            db_id: null,
+            id: newId,
+            name: t('me_new_schema', 'Новая схема'),
+            systems: [
+                { id:'s1', alias:'System_A', name: t('me_sys_a', 'Система А') },
+                { id:'s2', alias:'System_B', name: t('me_sys_b', 'Система Б') }
+            ],
+            steps: []
+        };
+        tabsData.push(newTab);
+        saveTabToDB(newTab);
+        switchTab(newId);
+    }
+
+    window.closeTab = function(id) {
+        if (tabsData.length === 1) return alert(t('me_err_last_tab', 'Нельзя закрыть последнюю вкладку!'));
+        if (!confirm(t('me_conf_del_tab', 'Вы уверены, что хотите удалить эту схему? (Она будет удалена из базы данных)'))) return;
+
+        let idx = tabsData.findIndex(t => t.id === id);
+        if (idx > -1) {
+            let tab = tabsData[idx];
+            if (tab.db_id) {
+                $.ajax({
+                    url: '/api/mermaid', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({id: tab.db_id})
+                });
+            }
+
+            tabsData.splice(idx, 1);
+            if (activeTabId === id) {
+                activeTabId = tabsData[Math.max(0, idx - 1)].id;
+                loadTabState(activeTabId);
+            }
+            renderTabs();
+        }
+    }
+
+    function switchTab(id) {
+        if (activeTabId === id) return;
+        saveCurrentTabState();
+        activeTabId = id;
+        loadTabState(id);
+        renderTabs();
+    }
+
+    function loadTabState(id) {
+        let tab = tabsData.find(t => t.id === id);
+        if (!tab) return;
+
+        systems = JSON.parse(JSON.stringify(tab.systems || []));
+        steps = JSON.parse(JSON.stringify(tab.steps || []));
+        sysCounter = systems.length + 1;
+
+        renderSys();
+        renderSteps();
+        redraw();
+    }
+
+    function saveCurrentTabState() {
+        let tab = tabsData.find(t => t.id === activeTabId);
+        if (tab) {
+            tab.systems = JSON.parse(JSON.stringify(systems));
+            tab.steps = JSON.parse(JSON.stringify(steps));
+            saveTabToDB(tab);
+        }
+    }
+
+    // === УМНЫЙ ПОЛНОТЕКСТОВЫЙ ПОИСК ===
+    window.filterTabs = function() {
+        const query = document.getElementById('tab-search').value.toLowerCase().trim();
+        document.querySelectorAll('.api-tab').forEach(tabEl => {
+            const tId = tabEl.dataset.id;
+            const tab = tabsData.find(t => t.id === tId);
+            if (!tab) return;
+
+            let match = false;
+            if (tab.name.toLowerCase().includes(query)) match = true;
+            if (!match && tab.systems && tab.systems.some(s => (s.alias||'').toLowerCase().includes(query) || (s.name||'').toLowerCase().includes(query))) match = true;
+            if (!match && tab.steps && tab.steps.some(s => (s.txt||'').toLowerCase().includes(query) || (s.text||'').toLowerCase().includes(query))) match = true;
+
+            tabEl.style.display = match ? 'flex' : 'none';
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    window.toggleView = function(id) {
+        let el = document.getElementById(id);
+        el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function getSys(id) { return systems.find(s => s.id === id); }
+
+    function opts(sel) {
+        return systems.map(s => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${escapeHtml(s.alias)}</option>`).join('');
+    }
+
+    window.renderSys = function() {
+        const div = document.getElementById('list-sys');
+        let html = '';
+        systems.forEach((s, i) => {
+            let safeAlias = escapeHtml(s.alias);
+            let safeName = escapeHtml(s.name);
+            html += `
+            <div class="participant-item">
+                <input class="alias" value="${safeAlias}" oninput="updSys(${i},'alias',this.value)" title="${t('me_sys_id_hint', 'Короткий ID')}">
+                <input class="name" value="${safeName}" oninput="updSys(${i},'name',this.value)">
+                <button class="btn-ctrl btn-del-sys" onclick="delSys(${i})">×</button>
+            </div>`;
+        });
+        div.innerHTML = html;
+    }
+
+    window.addSys = function() {
+        sysCounter++;
+        systems.push({ id: 's' + Date.now(), alias: 'SYS' + sysCounter, name: t('me_def_sys', 'System') });
+        renderSys(); renderSteps(); redraw();
+    }
+    window.delSys = function(i) {
+        if (!confirm(t('me_conf_del_sys', "Удалить систему? (Шаги с ней могут сломаться)"))) return;
+        systems.splice(i, 1);
+        renderSys(); renderSteps(); redraw();
+    }
+    window.updSys = function(i, k, v) {
+        systems[i][k] = v;
+        redraw();
+    }
+
+    window.renderSteps = function() {
+        const div = document.getElementById('list-steps');
+        const chkNum = document.getElementById('chkNum').checked;
+        let html = '';
+        let msgNum = 0;
+
+        steps.forEach((s, i) => {
+            let badge = `<div style="width:26px;"></div>`;
+            let safeTxt = escapeHtml(s.txt || '');
+            let safeText = escapeHtml(s.text || '');
+
+            if (s.type === 'msg') {
+                if(chkNum) { msgNum++; badge = `<div class="step-num">${msgNum}</div>`; }
+                let errClass = (!getSys(s.f) || !getSys(s.t)) ? 'error' : '';
+
+                html += `
+                <div class="step-container">${badge}
+                    <div class="step-card msg ${errClass}">
+                        <div class="row">
+                            <select onchange="updStep(${i},'f',this.value)">${opts(s.f)}</select>
+                            <select style="width:85px; font-weight:bold;" onchange="updStep(${i},'arr',this.value)">
+                                 <option value="->>" ${s.arr=='->>'?'selected':''}>->> (${t('me_opt_sync', 'Sync')})</option>
+                                 <option value="-)"  ${s.arr=='-)' ?'selected':''}>-) (${t('me_opt_async', 'Async')})</option>
+                                 <option value="-->>" ${s.arr=='-->>'?'selected':''}>-->> (${t('me_opt_ret', 'Ret')})</option>
+                                 <option value="--)" ${s.arr=='--)'?'selected':''}>--) (${t('me_opt_dot', 'Dotted')})</option>
+                            </select>
+                            <select onchange="updStep(${i},'t',this.value)">${opts(s.t)}</select>
+                        </div>
+                        <div class="row">
+                            <input style="flex:2" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)" placeholder="${t('me_ph_text', 'Текст...')}">
+                            <select class="act-select" style="flex:1" onchange="updStep(${i},'act',this.value)" title="${t('me_act_hint', 'Авто-активация получателя')}">
+                                <option value="" ${s.act==''?'selected':''}>-</option>
+                                <option value="+" ${s.act=='+'?'selected':''}>[+] On (Target)</option>
+                                <option value="-" ${s.act=='-'?'selected':''}>[-] Off (Source)</option>
+                            </select>
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            else if (s.type === 'cmd') {
+                html += `
+                <div class="step-container">
+                    <div class="step-num icon" style="background:#8e44ad;">⚡</div>
+                    <div class="step-card" style="border-left-color:#8e44ad; background:var(--bg-main);">
+                        <div class="row">
+                            <input style="font-family:monospace; font-weight:bold; color:#8e44ad; background:transparent;" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)">
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            else if (s.type === 'loop_start') {
+                html += `
+                <div class="step-container"><div class="step-num icon">↳</div>
+                    <div class="step-card loop">
+                        <div class="row">
+                            <select style="width:80px; font-weight:bold" onchange="updStep(${i},'sub',this.value)">
+                                <option value="loop" ${s.sub=='loop'?'selected':''}>Loop</option>
+                                <option value="alt" ${s.sub=='alt'?'selected':''}>Alt</option>
+                                <option value="opt" ${s.sub=='opt'?'selected':''}>Opt</option>
+                                <option value="rect" ${s.sub=='rect'?'selected':''}>Rect</option>
+                            </select>
+                            <input value="${safeText}" oninput="updStep(${i},'text',this.value)">
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            else if (s.type === 'else') {
+                html += `
+                <div class="step-container"><div class="step-num icon" style="background:#e74c3c;">➗</div>
+                    <div class="step-card" style="border-left-color:#e74c3c; background:var(--bg-main);">
+                        <div class="row">
+                            <span style="font-weight:bold; color:#e74c3c; width:50px; text-align:center;">ELSE</span>
+                            <input style="flex:1" value="${safeText}" oninput="updStep(${i},'text',this.value)" placeholder="${t('me_ph_else', 'Условие альтернативного потока...')}">
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            else if (s.type === 'note') {
+                html += `
+                <div class="step-container"><div class="step-num icon" style="background:#9b59b6;">📝</div>
+                    <div class="step-card" style="border-left-color:#9b59b6; background:var(--bg-main);">
+                        <div class="row">
+                            <select style="width:140px; font-weight:bold" onchange="updStep(${i},'placement',this.value)">
+                                <option value="right of" ${s.placement=='right of'?'selected':''}>${t('me_opt_right', 'Справа (Right of)')}</option>
+                                <option value="left of"  ${s.placement=='left of'?'selected':''}>${t('me_opt_left', 'Слева (Left of)')}</option>
+                                <option value="over"     ${s.placement=='over'?'selected':''}>${t('me_opt_over', 'Поверх (Over)')}</option>
+                            </select>
+                            <select onchange="updStep(${i},'f',this.value)">${opts(s.f)}</select>
+                        </div>
+                        <div class="row">
+                            <input style="flex:1" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)" placeholder="${t('me_ph_note', 'Текст заметки...')}">
+                        </div>
+                        ${ctrl(i)}
+                    </div>
+                </div>`;
+            }
+            else if (s.type === 'loop_end') {
+                html += `<div class="step-container"><div style="width:26px"></div><div class="step-card end" style="padding:4px; text-align:center; font-size:10px; color:var(--text-muted);">END BLOCK ${ctrl(i)}</div></div>`;
+            }
+        });
+        div.innerHTML = html;
+    }
+
+    function ctrl(i) {
+        return `<div class="card-controls">
+                <button class="c-btn" onclick="movStep(${i},-1)">▲</button>
+                <button class="c-btn" onclick="movStep(${i},1)">▼</button>
+                <button class="c-btn del" onclick="delStep(${i})">×</button>
+               </div>`;
+    }
+
+    window.addMsg = function() {
+        if(!systems.length) return alert(t('me_err_no_sys', 'Создайте системы!'));
+        steps.push({ type: 'msg', f: systems[0].id, t: (systems[1] ? systems[1].id : systems[0].id), arr: '->>', act: '', txt: 'Msg' });
+        renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
+    }
+    window.addLoop = function() {
+        steps.push({ type: 'loop_start', text: 'If...', sub: 'alt' });
+        steps.push({ type: 'loop_end' });
+        renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
+    }
+    window.addElse = function() {
+        steps.push({ type: 'else', text: t('me_def_else', 'Альтернативный поток') });
+        renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
+    }
+    window.addNote = function() {
+        if(!systems.length) return alert(t('me_err_no_sys', 'Создайте системы!'));
+        steps.push({ type: 'note', f: systems[0].id, placement: 'right of', txt: t('me_def_note', 'Пояснение к процессу') });
+        renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
+    }
+    window.delStep = function(i) { steps.splice(i,1); renderSteps(); redraw(); }
+    window.movStep = function(i, d) {
+        if(i+d < 0 || i+d >= steps.length) return;
+        [steps[i], steps[i+d]] = [steps[i+d], steps[i]];
+        renderSteps(); redraw();
+    }
+    window.updStep = function(i, k, v) { steps[i][k] = v; redraw(); }
+
+    let redrawTimeout = null;
+
+    window.redraw = function() {
+        clearTimeout(redrawTimeout);
+        redrawTimeout = setTimeout(async () => {
+            const theme = document.getElementById('themeSelect').value;
+            const chkNum = document.getElementById('chkNum').checked;
+            const autoFix = document.getElementById('autofix').checked;
+
+            const err = document.getElementById('error-bar');
+            err.style.height = '0';
+            document.querySelectorAll('div[id^="dmermaid"], svg[id^="dmermaid"], .error-icon').forEach(el => el.remove());
+
+            mermaid.initialize({ theme: theme });
+
+            let code = "sequenceDiagram\n";
+            if (chkNum) code += "    autonumber\n";
+
+            let actState = {};
+            const isSys = (id) => systems.find(s => s.id === id);
+
+            systems.forEach(s => {
+                let safeId = s.id.trim();
+                let rawAlias = (s.alias || safeId).trim();
+                let safeName = (s.name || '').trim();
+
+                let qAlias = safeName ? `${rawAlias}<br>${safeName}` : `${rawAlias}`;
+
+                code += `    participant ${safeId} as ${qAlias}\n`;
+                actState[safeId] = false;
+            });
+            code += "\n";
+
+            let loopDepth = 0;
+
+            steps.forEach(s => {
+                if (s.type === 'msg') {
+                    if (isSys(s.f) && isSys(s.t)) {
+                        let suffix = '';
+                        if (s.act === '+') {
+                            if (!autoFix || !actState[s.t]) { suffix = '+'; actState[s.t] = true; }
+                        } else if (s.act === '-') {
+                            if (!autoFix || actState[s.f]) { suffix = '-'; actState[s.f] = false; }
+                        }
+                        code += `    ${s.f}${s.arr}${suffix}${s.t}: ${s.txt}\n`;
+                    }
+                }
+                else if (s.type === 'cmd') {
+                    let cleanTxt = s.txt.trim();
+                    const cmdMatch = cleanTxt.match(/^(activate|deactivate)\s+([^\s]+)(.*)?$/);
+                    if (cmdMatch) {
+                        const type = cmdMatch[1];
+                        const targetSys = cmdMatch[2];
+                        const comment = cmdMatch[3];
+                        if (isSys(targetSys)) {
+                            let shouldWrite = true;
+                            if (autoFix) {
+                                if (type === 'activate') {
+                                    if (actState[targetSys]) shouldWrite = false; else actState[targetSys] = true;
+                                } else {
+                                    if (!actState[targetSys]) shouldWrite = false; else actState[targetSys] = false;
+                                }
+                            }
+                            if (shouldWrite) {
+                                let tail = comment && comment.trim() ? ` %% ${comment.trim()}` : '';
+                                code += `    ${type} ${targetSys}${tail}\n`;
+                            }
+                        } else {
+                            code += `    %% Unknown system: ${cleanTxt}\n`;
+                        }
+                    } else {
+                        code += `    ${cleanTxt}\n`;
+                    }
+                }
+                else if (s.type === 'loop_start') {
+                    let kw = s.sub.startsWith('rect') ? 'rect rgb(240,240,240)' : s.sub;
+                    let safeTxt = s.text.trim() || 'group';
+                    code += `    ${kw} ${safeTxt}\n`;
+                    loopDepth++;
+                }
+                else if (s.type === 'else') {
+                    let safeTxt = (s.text || '').trim();
+                    code += `    else ${safeTxt}\n`;
+                }
+                else if (s.type === 'loop_end') {
+                    code += `    end\n`; loopDepth--;
+                }
+                else if (s.type === 'note') {
+                    if (isSys(s.f)) {
+                        let safeNoteTxt = s.txt.trim().replace(/"/g, "'");
+                        code += `    Note ${s.placement} ${s.f}: ${safeNoteTxt}\n`;
+                    }
+                }
+            });
+
+            if (autoFix && loopDepth > 0) {
+                while(loopDepth > 0) { code += `    end\n`; loopDepth--; }
+            }
+
+            document.getElementById('code-text').value = code;
+
+            const box = document.getElementById('graph-container');
+            try {
+                box.innerHTML = '';
+                const uniqueId = 'graph_' + Math.floor(Math.random() * 10000);
+                const { svg } = await mermaid.render(uniqueId, code);
+                box.innerHTML = svg;
+            } catch(e) {
+                console.error(e);
+                box.innerHTML = '';
+                let msg = e.message.split('\n')[0];
+                if(msg.includes('Parse error')) msg = t('me_err_syntax', "Ошибка синтаксиса (проверьте циклы/скобки)");
+                if(msg.includes('destroy')) msg = t('me_err_destroy', "Логическая ошибка в mermaid destroy");
+                err.innerText = t('me_err_render', "Ошибка отрисовки: ") + msg;
+                err.style.height = '40px';
+            }
+            saveCurrentTabState();
+        }, 150);
+    }
+
+    window.copyMermaidCode = function() {
+        const txt = document.getElementById('code-text');
+        txt.select();
+        document.execCommand('copy');
+        alert(t('me_msg_copied', 'Код скопирован в буфер обмена!'));
+    }
+
+    window.applyCode = function() {
+        const rawCode = document.getElementById('code-text').value;
+        if(!rawCode.trim()) return;
+        const parsed = parseMermaid(rawCode);
+
+        if (parsed.systems.length === 0 && parsed.steps.length === 0) {
+            alert(t('me_err_parse', "Не удалось распознать код. Убедитесь, что это корректный sequenceDiagram."));
+            return;
+        }
+
+        systems = parsed.systems;
+        steps = parsed.steps;
+        sysCounter = systems.length + 1;
+
+        renderSys();
+        renderSteps();
+        redraw();
+    }
+
+    function parseMermaid(code) {
+        const lines = code.split('\n');
+        const newSys = [];
+        const newSteps = [];
+        const sysMap = {};
+
+        const addSys = (id, alias, name) => {
+            const safeId = id.trim();
+            if (!sysMap[safeId]) {
+                newSys.push({ id: safeId, alias: alias || safeId, name: name || safeId });
+                sysMap[safeId] = true;
+            }
+        };
+
+        lines.forEach(line => {
+            let sLine = line.trim();
+            if (!sLine || sLine.startsWith('%%') || sLine.startsWith('sequenceDiagram') || sLine.startsWith('autonumber')) return;
+
+            if (sLine.startsWith('participant')) {
+                const body = sLine.replace(/^participant\s+/, '');
+                const asIndex = body.indexOf(' as ');
+                let id = (asIndex > -1) ? body.substring(0, asIndex).trim() : body.trim();
+                let rest = (asIndex > -1) ? body.substring(asIndex + 4).trim() : id;
+
+                rest = rest.replace(/^"/, '').replace(/"$/, '');
+                let alias = rest.split('<br>')[0].trim();
+                let name = rest.includes('<br>') ? rest.split('<br>')[1].trim() : '';
+
+                addSys(id, alias, name);
+                return;
+            }
+
+            const msgRegex = /^([^\s\->]+)\s*(-{1,2}>?>?|--\)|x-\))\s*([+\-]?)\s*([^\s:]+)\s*:\s*(.*)$/;
+            const mMatch = sLine.match(msgRegex);
+
+            if (mMatch) {
+                const f = mMatch[1].trim();
+                const arr = mMatch[2].trim();
+                const act = mMatch[3] || '';
+                const t = mMatch[4].trim();
+                const txt = mMatch[5].trim();
+                addSys(f); addSys(t);
+                newSteps.push({ type: 'msg', f, t, arr, act, txt });
+                return;
+            }
+
+            const loopMatch = sLine.match(/^(loop|alt|opt|rect)(\s+.*)?$/i);
+            if (loopMatch) {
+                let sub = loopMatch[1].toLowerCase();
+                if (sub.startsWith('rect')) sub = 'rect';
+                newSteps.push({ type: 'loop_start', sub: sub, text: (loopMatch[2]||'').trim() });
+                return;
+            }
+
+            const elseMatch = sLine.match(/^else(\s+.*)?$/i);
+            if (elseMatch) {
+                newSteps.push({ type: 'else', text: (elseMatch[1]||'').trim() });
+                return;
+            }
+
+            if (sLine === 'end') {
+                newSteps.push({ type: 'loop_end' });
+                return;
+            }
+
+            const noteMatch = sLine.match(/^Note\s+(right of|left of|over)\s+([^\s:]+)\s*:\s*(.*)$/i);
+            if (noteMatch) {
+                const placement = noteMatch[1].toLowerCase();
+                const f = noteMatch[2].trim();
+                const txt = noteMatch[3].trim();
+                addSys(f);
+                newSteps.push({ type: 'note', f, placement, txt });
+                return;
+            }
+
+            if (sLine.startsWith('activate') || sLine.startsWith('deactivate') || sLine.startsWith('note')) {
+                newSteps.push({ type: 'cmd', txt: sLine });
+                return;
+            }
+        });
+
+        return { systems: newSys, steps: newSteps };
+    }
+
+    window.massRenameInterfaces = function() {
+        const baseName = document.getElementById('massRenameInput').value.trim();
+        if (!baseName) return alert(t('me_err_rename', "Введите базовое имя, например: ProductInsuranceGet"));
+
+        const regex = /(si_so_|si_si_|si_ao_|si_ai_|so_si_)([A-Za-z0-9_]+)/g;
+        let changed = 0;
+
+        steps.forEach(s => {
+            if (s.txt && regex.test(s.txt)) {
+                s.txt = s.txt.replace(regex, `$1${baseName}`);
+                changed++;
+            }
+        });
+
+        if (changed > 0) {
+            renderSteps();
+            redraw();
+            alert(t('me_msg_renamed', "Успешно! Обновлено имен интерфейсов: ") + changed);
+        } else {
+            alert(t('me_msg_no_rename', 'Не найдено подходящих интерфейсов для замены.'));
+        }
+    }
+</script>
+</body>
+</html>
