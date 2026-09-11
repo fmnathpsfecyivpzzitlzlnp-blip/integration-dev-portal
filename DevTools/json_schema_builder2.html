@@ -244,6 +244,37 @@
                 commitChange(activeTab.id, newNodes, activeTab.nodes[id].parentId);
             },
 
+            removeNodeKeepChildren: (id) => {
+                const newNodes = { ...activeTab.nodes };
+                const nodeToDelete = newNodes[id];
+
+                // Нельзя удалить корень
+                if (!nodeToDelete || nodeToDelete.parentId === null) return;
+
+                const parentId = nodeToDelete.parentId;
+                const children = Object.values(newNodes).filter(n => n.parentId === id);
+
+                // Находим максимальный порядок у текущих детей родителя
+                const parentChildren = Object.values(newNodes).filter(n => n.parentId === parentId && n.id !== id);
+                let maxOrder = parentChildren.length > 0 ? Math.max(...parentChildren.map(n => n.order || 0)) : 0;
+
+                // Перепривязываем детей к родителю
+                children.forEach(child => {
+                    newNodes[child.id] = { ...child, parentId: parentId, order: ++maxOrder };
+                });
+
+                // Удаляем сам узел
+                delete newNodes[id];
+
+                // Если у родителя не было типа object или array, но появились дети, делаем его object
+                if (children.length > 0 && newNodes[parentId].type !== 'object' && newNodes[parentId].type !== 'array') {
+                    newNodes[parentId] = { ...newNodes[parentId], type: 'object' };
+                }
+                newNodes[parentId] = { ...newNodes[parentId], isExpanded: true };
+
+                commitChange(activeTab.id, newNodes, parentId);
+            },
+
             moveNode: (dragId, targetId, asSibling = false) => {
                 if (dragId === targetId) return;
 
@@ -637,10 +668,12 @@
     };
 
     const PropertiesPanel = ({ onOpenImportModal, onPasteNodes }) => {
-        const { activeTab, updateNode, removeNode, addNode, getChildren } = useSchemaStore();
+        const { activeTab, updateNode, removeNode, removeNodeKeepChildren, addNode, getChildren } = useSchemaStore();
         const node = activeTab.selectedNodeId ? activeTab.nodes[activeTab.selectedNodeId] : null;
 
         if (!node) return <div className="text-slate-500 text-center mt-10">{t('jsb2_sel_node', 'Выберите узел для редактирования')}</div>;
+
+        const hasChildren = getChildren(node.id).length > 0;
 
         const handleAddChild = () => {
             if (node.type !== 'object' && node.type !== 'array') updateNode(node.id, { type: 'object' }, true);
@@ -697,9 +730,16 @@
                         {t('jsb2_node_props', 'Свойства узла')}
                     </h3>
                     {node.parentId && (
-                        <button onClick={() => removeNode(node.id)} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1 rounded text-sm transition">
-                            {t('jsb2_btn_del', 'Удалить')}
-                        </button>
+                        <div className="flex gap-2">
+                            {hasChildren && (
+                                <button onClick={() => removeNodeKeepChildren(node.id)} className="bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 px-3 py-1 rounded text-xs transition font-medium" title={t('jsb2_hint_del_keep', 'Удалить только этот узел, а вложенные элементы перенести на уровень выше')}>
+                                    {t('jsb2_btn_del_keep', 'Удалить (оставить детей)')}
+                                </button>
+                            )}
+                            <button onClick={() => removeNode(node.id)} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1 rounded text-xs transition font-medium" title={t('jsb2_hint_del_all', 'Удалить узел вместе со всеми вложенными элементами')}>
+                                {t('jsb2_btn_del_all', 'Удалить всё')}
+                            </button>
+                        </div>
                     )}
                 </div>
 

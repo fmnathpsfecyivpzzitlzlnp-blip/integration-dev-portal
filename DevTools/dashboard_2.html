@@ -1,10 +1,565 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <title>ALM Дашборд (Синхронизация)</title>
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <style>
+        /* ==========================================================================
+           БАЗОВЫЕ СТИЛИ И ТЕМНАЯ ТЕМА
+           ========================================================================== */
+        :root {
+            --bg-main: #eff3f8;
+            --bg-card: #ffffff;
+            --text-main: #323232;
+            --text-muted: #555555;
+            --border-color: #e0e0e0;
+            --primary: #0063b0;
+            --primary-hover: #06497d;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+        }
+
+        html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg-main); font-family: 'Segoe UI', Arial, sans-serif; color: var(--text-main); }
+        .main-wrapper { display: flex; flex-direction: column; height: 100%; padding: 15px 20px; box-sizing: border-box; }
+
+        /* ==========================================================================
+           ПАНЕЛИ И КНОПКИ
+           ========================================================================== */
+        .panel { background: var(--bg-card); padding: 15px 20px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; flex-shrink: 0; }
+        .header-panel { display: flex; justify-content: space-between; align-items: center; }
+        .btn { background: var(--primary); color: #fff; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; margin-left: 5px; font-weight: 600; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: #fff; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ==========================================================================
+           СВОДНАЯ ПАНЕЛЬ (SUMMARY)
+           ========================================================================== */
+        .summary-panel { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px; flex-shrink: 0; }
+        .summary-box { flex: 1; min-width: 200px; background: var(--bg-card); padding: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 3px solid var(--primary); }
+        .summary-box h4 { margin: 0 0 10px 0; font-size: 14px; color: var(--text-muted); }
+        .summary-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; border-bottom: 1px dashed var(--border-color); }
+
+        /* ==========================================================================
+           ПАНЕЛЬ НАСТРОЙКИ СТОЛБЦОВ (DRAG & DROP)
+           ========================================================================== */
+        #config-panel { display: none; }
+        .config-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .col-drag-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; max-height: 250px; overflow-y: auto; }
+        .col-drag-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; cursor: grab; font-size: 12px; }
+        .col-drag-item.dragging { opacity: 0.4; background: #e0e7ff; }
+        .col-drag-item.over { border: 2px dashed var(--primary); }
+        .drag-handle { cursor: grab; color: var(--text-muted); font-weight: bold; }
+        .col-name-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; cursor: pointer; }
+
+        /* ==========================================================================
+           ГЛАВНАЯ ТАБЛИЦА С ФИЛЬТРАМИ
+           ========================================================================== */
+        .table-container { flex: 1; background: var(--bg-card); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid var(--border-color); padding: 8px; vertical-align: top; }
+        th { background: var(--bg-main); position: sticky; top: 0; z-index: 10; min-width: 150px; box-shadow: 0 1px 0 var(--border-color); }
+        tr:hover td { background: rgba(0, 0, 0, 0.02); }
+
+        .col-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: var(--primary); margin-bottom: 5px; cursor: pointer; }
+        .col-filter { width: 100%; box-sizing: border-box; padding: 4px; margin-bottom: 5px; border: 1px solid #ccc; font-size: 11px; border-radius: 2px; }
+        .dropdown-btn { width: 100%; padding: 4px; font-size: 11px; cursor: pointer; border: 1px solid #ccc; background: var(--bg-card); color: var(--text-main); margin-bottom: 5px; border-radius: 2px; }
+
+        .dropdown-content { display: none; position: absolute; background: var(--bg-card); width: max-content; min-width: 200px; max-width: 400px; max-height: 250px; overflow-y: auto; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 9999; border: 1px solid #ccc; border-radius: 4px; padding: 5px; top: 100%; left: 0; }
+        .dropdown-content label { display: flex; align-items: flex-start; gap: 5px; padding: 5px; cursor: pointer; font-size: 11px; white-space: normal; border-bottom: 1px solid var(--border-color); margin: 0; color: var(--text-main); }
+        .dropdown-content label:hover { background: var(--bg-main); }
+
+        .hide-btn { font-size: 10px; width: 100%; padding: 3px; cursor: pointer; border: 1px solid #e0a8a8; background: #fff; color: #c82333; margin-top: 5px; border-radius: 2px; }
+
+        input[type="text"].config-search { padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 3px; font-size: 12px; }
+        #toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 24px; background: #10b981; color: #fff; border-radius: 4px; font-weight: bold; display: none; z-index: 9999; }
+    </style>
 </head>
 <body>
-$END$
+
+<div class="main-wrapper">
+    <!-- ТУЛБАР -->
+    <div class="panel header-panel">
+        <div>
+            <h2 style="margin:0; font-size: 18px; color: var(--text-main);">Сводный ALM Дашборд</h2>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Загрузка данных из HTML-файлов и синхронизация с БД</div>
+        </div>
+        <div>
+            <select id="preset-select" onchange="loadPreset(this.value)" style="padding: 5px; border-radius: 3px; font-size: 12px;">
+                <option value="default">Пресет: Автосохранение</option>
+            </select>
+            <button class="btn btn-outline" onclick="saveCurrentAsPreset()">💾 Сохранить вид</button>
+            <button class="btn btn-outline" onclick="toggleConfigPanel()">⚙️ Настройка столбцов</button>
+            <button class="btn warning" id="btn-sync" onclick="syncWithDB()">🚀 Отправить в БД</button>
+            <button class="btn" onclick="fetchAlmData()">🔄 Загрузить из HTML</button>
+        </div>
+    </div>
+
+    <!-- ПАНЕЛЬ КОНФИГУРАЦИИ СТОЛБЦОВ -->
+    <div class="panel" id="config-panel">
+        <div class="config-header">
+            <strong>Отображаемые столбцы (Drag & Drop):</strong>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" class="config-search" id="col-search-input" placeholder="Поиск столбца..." onkeyup="filterConfigColumns()">
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="sortColumnsAlpha()">А-Я</button>
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="resetColumnsOrder()">Сброс порядка</button>
+            </div>
+        </div>
+        <ul class="col-drag-list" id="column-list"></ul>
+    </div>
+
+    <!-- СВОДНАЯ ПАНЕЛЬ СТАТИСТИКИ -->
+    <div class="summary-panel" id="summary-panel"></div>
+
+    <!-- ТАБЛИЦА С ФИЛЬТРАМИ -->
+    <div class="table-container">
+        <table id="dashboard-table">
+            <thead id="table-head"></thead>
+            <tbody id="table-body">
+            <tr><td style="text-align:center; padding:30px; color:var(--text-muted);">Ожидание сканирования файлов...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    let scannedTasks = [];
+    let allHeaders = [];
+    let currentColumns = [];
+    let originalOrder = [];
+    let presets = JSON.parse(localStorage.getItem('alm_dump_presets')) || {};
+
+    // Состояние фильтров: { textFilters: { 0: "текст" }, checkFilters: { 0: ["Значение 1"] }, sortCol: 1, sortAsc: true }
+    let state = { textFilters: {}, checkFilters: {}, sortCol: null, sortAsc: true };
+
+    $(function() {
+        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+        refreshPresetDropdown();
+        fetchAlmData();
+
+        // Закрытие dropdown фильтров при клике вне
+        document.addEventListener('click', e => {
+            const isDropdownBtn = e.target.classList.contains('dropdown-btn');
+            const isInsideDropdown = e.target.closest('.dropdown-content');
+
+            if (!isDropdownBtn && !isInsideDropdown) {
+                document.querySelectorAll('.dropdown-content').forEach(el => {
+                    el.style.display = 'none';
+                    el.closest('th').style.zIndex = '10';
+                });
+            } else if (isDropdownBtn) {
+                document.querySelectorAll('.dropdown-content').forEach(el => {
+                    if (el !== e.target.nextElementSibling) {
+                        el.style.display = 'none';
+                        el.closest('th').style.zIndex = '10';
+                    }
+                });
+                const content = e.target.nextElementSibling;
+                const th = e.target.closest('th');
+                if (content.style.display === 'block') {
+                    content.style.display = 'none';
+                    th.style.zIndex = '10';
+                } else {
+                    content.style.display = 'block';
+                    th.style.zIndex = '100';
+                }
+            }
+        });
+
+        // Делегирование событий таблицы
+        const table = document.getElementById("dashboard-table");
+
+        table.addEventListener('input', e => {
+            if (e.target.classList.contains('col-filter')) {
+                state.textFilters[e.target.getAttribute('data-col')] = e.target.value.toLowerCase();
+                applyState();
+            }
+        });
+
+        table.addEventListener('change', e => {
+            if (e.target.classList.contains('val-check')) {
+                let col = e.target.getAttribute('data-col');
+                let val = e.target.value;
+                if (!state.checkFilters[col]) state.checkFilters[col] = [];
+                if (e.target.checked) state.checkFilters[col].push(val);
+                else state.checkFilters[col] = state.checkFilters[col].filter(v => v !== val);
+                applyState();
+            }
+        });
+
+        table.addEventListener('click', e => {
+            if (e.target.classList.contains('hide-btn')) {
+                let colIdx = parseInt(e.target.getAttribute('data-col'));
+                currentColumns[colIdx].visible = false;
+                saveAutoPreset();
+                renderColumnConfig();
+                applyState();
+            }
+
+            let sortable = e.target.closest('.sortable');
+            if (sortable) {
+                let col = parseInt(sortable.getAttribute('data-col'));
+                if (state.sortCol === col) {
+                    state.sortAsc = !state.sortAsc;
+                } else {
+                    state.sortCol = col;
+                    state.sortAsc = true;
+                }
+                sortData();
+            }
+        });
+    });
+
+    function showToast(msg, isError = false) {
+        const toast = $('#toast');
+        toast.text(msg).css('background', isError ? '#ef4444' : '#10b981').fadeIn(200);
+        setTimeout(() => toast.fadeOut(300), 3500);
+    }
+
+    function toggleConfigPanel() { $('#config-panel').slideToggle(200); }
+
+    // ==========================================================================
+    // 1. ЗАГРУЗКА ИЗ ALM
+    // ==========================================================================
+    function fetchAlmData() {
+        $('#table-body').html(`<tr><td style="text-align:center; padding:30px;">🔄 Сканирование HTML файлов...</td></tr>`);
+
+        $.get('/api/alm/scan-html', function(res) {
+            if (res.error) {
+                $('#table-body').html(`<tr><td style="text-align:center; color:#ef4444;">${escapeHtml(res.error)}</td></tr>`);
+                showToast(res.error, true);
+                return;
+            }
+
+            scannedTasks = res.tasks || [];
+            allHeaders = res.headers || [];
+
+            if (scannedTasks.length === 0) {
+                $('#table-body').html(`<tr><td style="text-align:center;">Задачи не найдены.</td></tr>`);
+                return;
+            }
+
+            if (currentColumns.length === 0) {
+                if (presets['Автосохранение']) currentColumns = presets['Автосохранение'];
+                else currentColumns = allHeaders.map(h => ({ title: h, visible: true }));
+            }
+
+            allHeaders.forEach(h => {
+                if (!currentColumns.find(c => c.title === h)) currentColumns.push({ title: h, visible: true });
+            });
+            originalOrder = allHeaders.map(h => ({ title: h, visible: true }));
+
+            renderColumnConfig();
+            renderTableStructure();
+        }).fail(() => {
+            showToast('Ошибка обращения к API сканирования.', true);
+        });
+    }
+
+    // ==========================================================================
+    // 2. ОТПРАВКА В БД (СИНХРОНИЗАЦИЯ)
+    // ==========================================================================
+    async function syncWithDB() {
+        if (scannedTasks.length === 0) return showToast("Нет задач для синхронизации!", true);
+
+        const btn = $('#btn-sync');
+        btn.prop('disabled', true).text('⏳ Синхронизация...');
+
+        try {
+            const response = await $.ajax({
+                url: '/api/alm/import-tasks',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ tasks: scannedTasks })
+            });
+            showToast(`✅ Успешно! Обновлено существующих задач: ${response.updated}`);
+        } catch (err) {
+            showToast("Ошибка при синхронизации: " + (err.responseJSON ? err.responseJSON.error : "Сбой сети"), true);
+        } finally {
+            btn.prop('disabled', false).text('🚀 Отправить в БД');
+        }
+    }
+
+    // ==========================================================================
+    // 3. ПОЛНАЯ ОТРИСОВКА ТАБЛИЦЫ С ФИЛЬТРАМИ
+    // ==========================================================================
+    function renderTableStructure() {
+        const thead = $('#table-head').empty();
+        const tbody = $('#table-body').empty();
+
+        let trHead = $('<tr>');
+        currentColumns.forEach((col, i) => {
+            let sortIcon = state.sortCol === i ? (state.sortAsc ? '▲' : '▼') : '';
+            trHead.append(`
+                <th data-idx="${i}">
+                    <div class="col-header sortable" data-col="${i}">
+                        <span>${escapeHtml(col.title)}</span> <span>${sortIcon}</span>
+                    </div>
+                    <input type="text" class="col-filter" data-col="${i}" placeholder="Поиск..." value="${state.textFilters[i] || ''}">
+                    <div style="position: relative;">
+                        <button class="dropdown-btn" data-col="${i}">Значения ▼</button>
+                        <div class="dropdown-content" id="dd-content-${i}"></div>
+                    </div>
+                    <button class="hide-btn" data-col="${i}">Скрыть столбец</button>
+                </th>
+            `);
+        });
+        thead.append(trHead);
+
+        scannedTasks.forEach(task => {
+            let tr = $('<tr class="task-row">');
+            currentColumns.forEach((col, i) => {
+                let val = task[col.title] || '';
+                tr.append(`<td data-idx="${i}" title="${escapeHtml(val)}">${escapeHtml(val)}</td>`);
+            });
+            tbody.append(tr);
+        });
+
+        populateDropdowns();
+        applyState();
+    }
+
+    function populateDropdowns() {
+        const tbodyTrs = $('#table-body tr.task-row');
+
+        currentColumns.forEach((col, i) => {
+            if (!col.visible) return;
+
+            let vals = new Set();
+            tbodyTrs.each(function() {
+                vals.add($(this).children('td').eq(i).text().trim());
+            });
+
+            let uniqueVals = Array.from(vals).filter(v => v !== '').sort();
+            let ddContent = $(`#dd-content-${i}`).empty();
+
+            uniqueVals.forEach(val => {
+                let isChecked = state.checkFilters[i] && state.checkFilters[i].includes(val) ? 'checked' : '';
+                ddContent.append(`
+                    <label>
+                        <input type="checkbox" class="val-check" data-col="${i}" value="${escapeHtml(val)}" ${isChecked}>
+                        <span>${escapeHtml(val)}</span>
+                    </label>
+                `);
+            });
+        });
+    }
+
+    function sortData() {
+        if (state.sortCol === null) return;
+        const title = currentColumns[state.sortCol].title;
+
+        scannedTasks.sort((a, b) => {
+            let valA = (a[title] || '').toLowerCase();
+            let valB = (b[title] || '').toLowerCase();
+            if (valA < valB) return state.sortAsc ? -1 : 1;
+            if (valA > valB) return state.sortAsc ? 1 : -1;
+            return 0;
+        });
+
+        renderTableStructure();
+    }
+
+    function applyState() {
+        const theadThs = $('#table-head th');
+        const tbodyTrs = $('#table-body tr.task-row');
+
+        // Применяем видимость столбцов
+        currentColumns.forEach((col, i) => {
+            const display = col.visible ? '' : 'none';
+            theadThs.eq(i).css('display', display);
+            tbodyTrs.each(function() {
+                $(this).children('td').eq(i).css('display', display);
+            });
+        });
+
+        let visibleCount = 0;
+        let statusCounts = {};
+        let statusColIdx = currentColumns.findIndex(c => c.title.toLowerCase().includes('статус'));
+
+        // Применяем фильтры к строкам
+        tbodyTrs.each(function() {
+            let show = true;
+            for (let i = 0; i < currentColumns.length; i++) {
+                if (!currentColumns[i].visible) continue;
+
+                let cellText = $(this).children('td').eq(i).text().trim().toLowerCase();
+                let exactText = $(this).children('td').eq(i).text().trim();
+
+                let tFilter = state.textFilters[i];
+                if (tFilter && !cellText.includes(tFilter)) { show = false; break; }
+
+                let cFilter = state.checkFilters[i];
+                if (cFilter && cFilter.length > 0 && !cFilter.includes(exactText)) { show = false; break; }
+            }
+
+            $(this).css('display', show ? '' : 'none');
+
+            if (show) {
+                visibleCount++;
+                if (statusColIdx > -1) {
+                    let st = $(this).children('td').eq(statusColIdx).text().trim();
+                    statusCounts[st] = (statusCounts[st] || 0) + 1;
+                }
+            }
+        });
+
+        // Обновление сводной панели (Summary)
+        let summaryHtml = `<div class="summary-box"><h4>Всего задач</h4><div class="summary-item"><span>Отображается:</span> <strong>${visibleCount}</strong></div></div>`;
+        if (Object.keys(statusCounts).length > 0) {
+            let stats = Object.entries(statusCounts).map(([k,v]) => `<div class="summary-item"><span>${escapeHtml(k) || 'Пусто'}:</span> <strong>${v}</strong></div>`).join('');
+            summaryHtml += `<div class="summary-box"><h4>Разбивка по статусам</h4>${stats}</div>`;
+        }
+        $('#summary-panel').html(summaryHtml);
+    }
+
+    // ==========================================================================
+    // 4. КОНФИГУРАЦИЯ СТОЛБЦОВ И DRAG & DROP
+    // ==========================================================================
+    function renderColumnConfig() {
+        const list = $('#column-list').empty();
+        currentColumns.forEach((col, idx) => {
+            list.append(`
+                <li draggable="true" data-idx="${idx}" class="col-drag-item config-li-item" title="${escapeHtml(col.title)}">
+                    <span class="drag-handle">☰</span>
+                    <input type="checkbox" id="cb_${idx}" ${col.visible ? 'checked' : ''} onchange="toggleConfigVisibility(${idx})">
+                    <label for="cb_${idx}" class="col-name-label">${escapeHtml(col.title)}</label>
+                </li>
+            `);
+        });
+        attachDragEvents();
+    }
+
+    function toggleConfigVisibility(idx) {
+        currentColumns[idx].visible = !currentColumns[idx].visible;
+        saveAutoPreset();
+        applyState(); // Мгновенное применение
+    }
+
+    function filterConfigColumns() {
+        const q = $('#col-search-input').val().toLowerCase().trim();
+        $('.config-li-item').each(function() {
+            const text = $(this).find('.col-name-label').text().toLowerCase();
+            $(this).css('display', text.includes(q) ? 'flex' : 'none');
+        });
+    }
+
+    function sortColumnsAlpha() {
+        currentColumns.sort((a, b) => a.title.localeCompare(b.title));
+        renderColumnConfig();
+        renderTableStructure();
+        saveAutoPreset();
+    }
+
+    function resetColumnsOrder() {
+        let restored = [];
+        originalOrder.forEach(orig => {
+            let existing = currentColumns.find(c => c.title === orig.title);
+            if (existing) restored.push(existing);
+        });
+        currentColumns = restored;
+        renderColumnConfig();
+        renderTableStructure();
+        saveAutoPreset();
+    }
+
+    function attachDragEvents() {
+        const items = document.querySelectorAll('.col-drag-item');
+        items.forEach(item => {
+            item.addEventListener('dragstart', function(e) {
+                dragSrcEl = this;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', this.innerHTML);
+                this.classList.add('dragging');
+            });
+            item.addEventListener('dragover', function(e) {
+                e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false;
+            });
+            item.addEventListener('dragenter', function() { this.classList.add('over'); });
+            item.addEventListener('dragleave', function() { this.classList.remove('over'); });
+            item.addEventListener('drop', function(e) {
+                e.stopPropagation();
+                if (dragSrcEl !== this) {
+                    let srcIdx = parseInt(dragSrcEl.dataset.idx);
+                    let tgtIdx = parseInt(this.dataset.idx);
+                    let movedCol = currentColumns.splice(srcIdx, 1)[0];
+                    currentColumns.splice(tgtIdx, 0, movedCol);
+
+                    // Поскольку мы изменили индексы столбцов, нужно сбросить фильтры, чтобы они не перемешались
+                    state.textFilters = {}; state.checkFilters = {}; state.sortCol = null;
+
+                    renderColumnConfig();
+                    renderTableStructure();
+                    saveAutoPreset();
+                }
+                return false;
+            });
+            item.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                items.forEach(i => i.classList.remove('over'));
+            });
+        });
+    }
+
+    // ==========================================================================
+    // 5. ПРЕСЕТЫ (LOCAL STORAGE)
+    // ==========================================================================
+    function saveAutoPreset() {
+        presets['Автосохранение'] = JSON.parse(JSON.stringify(currentColumns));
+        localStorage.setItem('alm_dump_presets', JSON.stringify(presets));
+    }
+
+    window.saveCurrentAsPreset = function() {
+        const name = prompt("Введите имя для этого пресета (порядка и видимости столбцов):", "Моя выборка 1");
+        if (name && name.trim()) {
+            presets[name.trim()] = JSON.parse(JSON.stringify(currentColumns));
+            localStorage.setItem('alm_dump_presets', JSON.stringify(presets));
+            refreshPresetDropdown(name.trim());
+            showToast("Пресет успешно сохранен!");
+        }
+    }
+
+    function refreshPresetDropdown(selected = 'Автосохранение') {
+        const sel = $('#preset-select').empty();
+        sel.append('<option value="default">Пресет: Автосохранение</option>');
+        Object.keys(presets).forEach(k => {
+            if (k !== 'Автосохранение') sel.append(`<option value="${k}">Пресет: ${escapeHtml(k)}</option>`);
+        });
+        if(presets[selected]) sel.val(selected);
+    }
+
+    window.loadPreset = function(name) {
+        if (name === 'default' && presets['Автосохранение']) currentColumns = JSON.parse(JSON.stringify(presets['Автосохранение']));
+        else if (presets[name]) currentColumns = JSON.parse(JSON.stringify(presets[name]));
+
+        allHeaders.forEach(h => {
+            if (!currentColumns.find(c => c.title === h)) currentColumns.push({ title: h, visible: false });
+        });
+
+        // Сброс фильтров при смене пресета
+        state.textFilters = {}; state.checkFilters = {}; state.sortCol = null;
+
+        renderColumnConfig();
+        renderTableStructure();
+        saveAutoPreset();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
 </body>
 </html>

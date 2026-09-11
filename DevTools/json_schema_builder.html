@@ -80,7 +80,7 @@
 
         /* Стили дерева */
         .tree-node { margin-left: 15px; padding: 2px 0; }
-        .node-row { display: inline-flex; align-items: center; padding: 3px 6px; border-radius: 4px; cursor: pointer; color: var(--text-main); }
+        .node-row { display: inline-flex; align-items: center; padding: 3px 6px; border-radius: 4px; cursor: pointer; color: var(--text-main); transition: 0.1s; }
         .node-row:hover { background: var(--table-hover); }
         .node-row.active { background: #3b82f6; color: white; }
         .node-row.active .node-type { background: rgba(255,255,255,0.2); color: white; border-color: transparent; }
@@ -91,7 +91,8 @@
         }
         body.dark-theme .node-type { color: #60a5fa; }
 
-        .node-badge { font-size: 9px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 1px 4px; border-radius: 3px; margin-left: 4px; }
+        .node-badge { font-size: 9px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 1px 4px; border-radius: 3px; margin-left: 4px; font-weight: 600;}
+        .node-badge.pattern { background: rgba(168, 85, 247, 0.1); color: #a855f7; border-color: rgba(168, 85, 247, 0.3); }
 
         /* Модалка */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
@@ -110,6 +111,8 @@
         .btn.secondary:hover { filter: brightness(0.95); }
         .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
         .btn.danger:hover { background: #ef4444; color: white; }
+        .btn.warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .btn.warning:hover { background: #f59e0b; color: white; }
         .btn-small { padding: 4px 10px; font-size: 12px; }
 
         #toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -183,8 +186,8 @@
         id: 'root',
         name: 'Root',
         type: 'object',
-        primitiveType: 'string',
         isRequired: true,
+        isPatternProperty: false,
         description: '',
         title: 'Root',
         additionalProperties: false,
@@ -195,7 +198,7 @@
     let importTargetNode = null;
     let searchTerm = '';
 
-    const KNOWN_KEYS = ['type', 'properties', 'items', 'required', 'description', 'title', 'additionalProperties'];
+    const KNOWN_KEYS = ['type', 'properties', 'patternProperties', 'items', 'required', 'description', 'title', 'additionalProperties'];
 
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
@@ -248,15 +251,15 @@
         return 'string';
     }
 
-    // Парсер для ОБЫЧНОГО JSON payload
+    // 1. ПАРСЕР ДЛЯ ОБЫЧНОГО JSON (Гарантированный items без скобок)
     function parseJsonToSchema(obj, name = 'Root') {
         let type = inferType(obj);
         let node = {
             id: generateId(),
             name: name,
             type: type,
-            primitiveType: 'string',
             isRequired: true,
+            isPatternProperty: false,
             description: '',
             title: '',
             additionalProperties: false,
@@ -269,26 +272,47 @@
                 node.children.push(parseJsonToSchema(obj[key], key));
             }
         } else if (type === 'array') {
-            if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
-                let mergedObj = {};
-                obj.forEach(item => {
-                    if (typeof item === 'object' && item !== null) {
-                        Object.keys(item).forEach(k => { mergedObj[k] = item[k]; });
+            // ВСЕГДА создаем физический узел items для массивов
+            let itemsNode = {
+                id: generateId(),
+                name: 'items',
+                type: 'string',
+                isRequired: true,
+                isPatternProperty: false,
+                description: '',
+                title: '',
+                additionalProperties: false,
+                extraProps: {},
+                children: []
+            };
+
+            if (obj.length > 0) {
+                let firstItemType = inferType(obj[0]);
+                itemsNode.type = firstItemType;
+
+                if (firstItemType === 'object') {
+                    let mergedObj = {};
+                    obj.forEach(item => {
+                        if (typeof item === 'object' && item !== null) {
+                            Object.keys(item).forEach(k => { mergedObj[k] = item[k]; });
+                        }
+                    });
+                    for (let key in mergedObj) {
+                        itemsNode.children.push(parseJsonToSchema(mergedObj[key], key));
                     }
-                });
-                for (let key in mergedObj) {
-                    node.children.push(parseJsonToSchema(mergedObj[key], key));
+                } else if (firstItemType === 'array') {
+                    itemsNode = parseJsonToSchema(obj[0], 'items'); // Поддержка массива массивов
                 }
-            } else if (obj.length > 0) {
-                node.primitiveType = inferType(obj[0]);
             }
+            node.children.push(itemsNode);
         }
         return node;
     }
 
-    // НОВЫЙ Парсер для ГОТОВОЙ JSON Schema (С ЗАЩИТОЙ EXTRA PROPS)
-    function importJsonSchemaToTree(schemaObj, name = 'Root', isReq = true) {
+    // 2. ИДЕАЛЬНЫЙ ПАРСЕР ГОТОВОЙ JSON SCHEMA (С глубоким анализом patternProperties)
+    function importJsonSchemaToTree(schemaObj, name = 'Root', isReq = true, isPattern = false) {
         let extraProps = {};
+        // Все неизвестные ключи кидаем в extraProps
         for (let k in schemaObj) {
             if (!KNOWN_KEYS.includes(k) && k !== '$schema') {
                 extraProps[k] = schemaObj[k];
@@ -297,16 +321,17 @@
 
         let type = schemaObj.type || '';
         if (!type) {
-            if (schemaObj.properties) type = 'object';
+            if (schemaObj.properties || schemaObj.patternProperties) type = 'object';
             else if (schemaObj.items) type = 'array';
+            else type = 'string';
         }
 
         let node = {
             id: generateId(),
             name: name,
             type: type,
-            primitiveType: 'string',
             isRequired: isReq,
+            isPatternProperty: isPattern,
             description: schemaObj.description || '',
             title: schemaObj.title || '',
             additionalProperties: schemaObj.additionalProperties !== undefined ? schemaObj.additionalProperties : false,
@@ -314,26 +339,37 @@
             children: []
         };
 
-        if (type === 'object' && schemaObj.properties) {
+        if (type === 'object') {
             let reqList = schemaObj.required || [];
-            for (let key in schemaObj.properties) {
-                let isChildReq = reqList.includes(key);
-                node.children.push(importJsonSchemaToTree(schemaObj.properties[key], key, isChildReq));
-            }
-        } else if (type === 'array' && schemaObj.items) {
-            if (schemaObj.items.type === 'object' && schemaObj.items.properties) {
-                let reqList = schemaObj.items.required || [];
-                for (let key in schemaObj.items.properties) {
+
+            // Обработка обычных свойств
+            if (schemaObj.properties) {
+                for (let key in schemaObj.properties) {
                     let isChildReq = reqList.includes(key);
-                    node.children.push(importJsonSchemaToTree(schemaObj.items.properties[key], key, isChildReq));
+                    node.children.push(importJsonSchemaToTree(schemaObj.properties[key], key, isChildReq, false));
                 }
+            }
+
+            // Глубокая обработка Pattern Properties
+            if (schemaObj.patternProperties) {
+                for (let key in schemaObj.patternProperties) {
+                    node.children.push(importJsonSchemaToTree(schemaObj.patternProperties[key], key, false, true));
+                }
+            }
+        } else if (type === 'array') {
+            // Если это массив, ВСЕГДА добавляем физический узел items
+            if (schemaObj.items) {
+                node.children.push(importJsonSchemaToTree(schemaObj.items, 'items', true, false));
             } else {
-                node.primitiveType = schemaObj.items.type || 'string';
+                node.children.push({
+                    id: generateId(), name: 'items', type: 'string', isRequired: true, isPatternProperty: false, description: '', title: '', additionalProperties: false, extraProps: {}, children: []
+                });
             }
         }
         return node;
     }
 
+    // 3. ГЕНЕРАТОР ИТОГОВОГО JSON
     function buildSchemaJson(node) {
         let schema = { ...node.extraProps };
 
@@ -343,28 +379,30 @@
 
         if (node.type === 'object') {
             schema.properties = {};
+            let patternProperties = {};
+            let hasPatternProps = false;
             let required = [];
+
             node.children.forEach(child => {
-                schema.properties[child.name] = buildSchemaJson(child);
-                if (child.isRequired) required.push(child.name);
+                if (child.isPatternProperty) {
+                    hasPatternProps = true;
+                    patternProperties[child.name] = buildSchemaJson(child);
+                } else {
+                    schema.properties[child.name] = buildSchemaJson(child);
+                    if (child.isRequired) required.push(child.name);
+                }
             });
+
+            if (Object.keys(schema.properties).length === 0) delete schema.properties;
+            if (hasPatternProps) schema.patternProperties = patternProperties;
             if (required.length > 0) schema.required = required;
             if (node.additionalProperties !== undefined) schema.additionalProperties = node.additionalProperties;
+
         } else if (node.type === 'array') {
             if (node.children.length > 0) {
-                schema.items = {
-                    type: 'object',
-                    properties: {}
-                };
-                let req = [];
-                node.children.forEach(child => {
-                    schema.items.properties[child.name] = buildSchemaJson(child);
-                    if (child.isRequired) req.push(child.name);
-                });
-                if (req.length > 0) schema.items.required = req;
-                schema.items.additionalProperties = false;
+                schema.items = buildSchemaJson(node.children[0]);
             } else {
-                schema.items = { type: node.primitiveType || 'string' };
+                schema.items = { type: 'string' }; // fallback
             }
         }
         return schema;
@@ -380,17 +418,21 @@
         editorJson.setValue(JSON.stringify(fullSchema, null, 2));
     }
 
+    // 4. ОТРИСОВКА ДЕРЕВА
     function renderTree(node, filter = '') {
         let matches = filter === '' || node.name.toLowerCase().includes(filter.toLowerCase());
 
         let html = `<div class="tree-node">`;
         let activeClass = node.id === selectedNodeId ? 'active' : '';
-        let typeDisplay = node.type ? (node.type === 'array' && node.children.length === 0 ? `array<${node.primitiveType}>` : node.type) : 'mixed';
 
         html += `<div class="node-row ${activeClass}" onclick="selectNode('${node.id}')">`;
         html += `<span>📁 <b>${node.name}</b></span>`;
-        html += `<span class="node-type">${typeDisplay}</span>`;
-        if (!node.isRequired) html += `<span class="node-badge">opt</span>`;
+        html += `<span class="node-type">${node.type || 'mixed'}</span>`;
+
+        // Показываем бейджики
+        if (node.isPatternProperty) html += `<span class="node-badge pattern">pattern</span>`;
+        else if (!node.isRequired) html += `<span class="node-badge">opt</span>`;
+
         if (Object.keys(node.extraProps || {}).length > 0) html += `<span class="node-badge" style="background:#fef08a; color:#854d0e;">+props</span>`;
         html += `</div>`;
 
@@ -438,6 +480,7 @@
         }
     }
 
+    // 5. ПАНЕЛЬ СВОЙСТВ
     function renderProperties() {
         let node = findNodeById(schemaData, selectedNodeId);
         if (!node) {
@@ -446,17 +489,23 @@
         }
 
         let isRoot = node.id === schemaData.id;
+        let isItemsNode = node.name === 'items';
         let extraPropsStr = JSON.stringify(node.extraProps || {}, null, 2);
 
         let html = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
                 <b style="font-size:15px; color:var(--text-main);">${t('jsb_props_title', 'Свойства:')} ${node.name}</b>
-                ${!isRoot ? `<button class="btn danger btn-small" onclick="deleteNode('${node.id}')">${t('btn_delete', 'Удалить')}</button>` : ''}
+                ${(!isRoot && !isItemsNode) ? `
+                <div style="display: flex; gap: 8px;">
+                    ${node.children.length > 0 ? `<button class="btn warning btn-small" onclick="deleteNodeKeepChildren('${node.id}')" title="Удалить этот ключ/паттерн, но поднять его вложенные элементы наверх">✂️ Оставить детей</button>` : ''}
+                    <button class="btn danger btn-small" onclick="deleteNode('${node.id}')" title="Удалить узел и всё его содержимое полностью">🗑️ Удалить всё</button>
+                </div>
+                ` : ''}
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
                 <div>
                     <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_key', 'Имя ключа')}</label><br>
-                    <input type="text" id="prop-name" value="${node.name}" ${isRoot ? 'disabled' : ''} oninput="updateProp('name', this.value)" style="width:100%;">
+                    <input type="text" id="prop-name" value="${node.name}" ${(isRoot || isItemsNode) ? 'disabled' : ''} oninput="updateProp('name', this.value)" style="width:100%;">
                 </div>
                 <div>
                     <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_type', 'Тип')}</label><br>
@@ -478,23 +527,18 @@
                     <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_desc', 'Описание')}</label><br>
                     <input type="text" id="prop-desc" value="${node.description || ''}" oninput="updateProp('description', this.value)" style="width:100%;">
                 </div>
-                ${(node.type === 'array' && node.children.length === 0) ? `
-                <div style="grid-column: 1 / -1;">
-                    <label style="font-size:11px; color:var(--text-muted); font-weight:600;">${t('jsb_lbl_arr_type', 'Тип элементов массива')}</label><br>
-                    <select id="prop-primitive" onchange="updateProp('primitiveType', this.value)" style="width:100%;">
-                        <option value="string" ${node.primitiveType==='string'?'selected':''}>string</option>
-                        <option value="number" ${node.primitiveType==='number'?'selected':''}>number</option>
-                        <option value="integer" ${node.primitiveType==='integer'?'selected':''}>integer</option>
-                        <option value="boolean" ${node.primitiveType==='boolean'?'selected':''}>boolean</option>
-                    </select>
-                </div>
-                ` : ''}
 
                 <div style="grid-column: 1 / -1; display:flex; gap: 15px; align-items:center; margin-top:5px;">
                     <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-main);">
                         <input type="checkbox" ${node.isRequired ? 'checked' : ''} ${isRoot ? 'disabled' : ''} onchange="updateProp('isRequired', this.checked)">
                         ${t('jsb_lbl_req', 'Обязательное (Required)')}
                     </label>
+
+                    <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-main);">
+                        <input type="checkbox" ${node.isPatternProperty ? 'checked' : ''} ${(isRoot || isItemsNode) ? 'disabled' : ''} onchange="updateProp('isPatternProperty', this.checked)">
+                        RegEx Ключ (Pattern Property)
+                    </label>
+
                     ${node.type === 'object' ? `
                     <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-main);">
                         <input type="checkbox" ${node.additionalProperties ? 'checked' : ''} onchange="updateProp('additionalProperties', this.checked)">
@@ -529,18 +573,37 @@
     function addChildNode(parentId) {
         let parent = findNodeById(schemaData, parentId);
         if (parent) {
-            parent.children.push({
-                id: generateId(),
-                name: 'newField',
-                type: 'string',
-                primitiveType: 'string',
-                isRequired: false,
-                description: '',
-                title: '',
-                additionalProperties: false,
-                extraProps: {},
-                children: []
-            });
+            if (parent.type === 'array') {
+                if (parent.children.length > 0) {
+                    alert('Массив может содержать только один корневой элемент (узел items). Пожалуйста, редактируйте существующий items или его дочерние узлы.');
+                    return;
+                }
+                parent.children.push({
+                    id: generateId(),
+                    name: 'items',
+                    type: 'string',
+                    isRequired: true,
+                    isPatternProperty: false,
+                    description: '',
+                    title: '',
+                    additionalProperties: false,
+                    extraProps: {},
+                    children: []
+                });
+            } else {
+                parent.children.push({
+                    id: generateId(),
+                    name: 'newField',
+                    type: 'string',
+                    isRequired: false,
+                    isPatternProperty: false,
+                    description: '',
+                    title: '',
+                    additionalProperties: false,
+                    extraProps: {},
+                    children: []
+                });
+            }
             renderAll();
         }
     }
@@ -555,6 +618,40 @@
         renderAll();
     }
 
+    // УМНОЕ УДАЛЕНИЕ С СОХРАНЕНИЕМ ПОТОМКОВ
+    function deleteNodeKeepChildren(id) {
+        let parent = null;
+        let targetNode = null;
+
+        function findParentAndNode(current, targetId) {
+            for (let i = 0; i < current.children.length; i++) {
+                if (current.children[i].id === targetId) {
+                    parent = current;
+                    targetNode = current.children[i];
+                    return true;
+                }
+                if (findParentAndNode(current.children[i], targetId)) return true;
+            }
+            return false;
+        }
+
+        findParentAndNode(schemaData, id);
+
+        if (parent && targetNode) {
+            parent.children = parent.children.filter(c => c.id !== id);
+            parent.children.push(...targetNode.children);
+
+            // Если родитель не объект и не массив, но у него появились дети, делаем его объектом
+            if (parent.type !== 'object' && parent.type !== 'array' && targetNode.children.length > 0) {
+                parent.type = 'object';
+            }
+
+            selectedNodeId = parent.id;
+            renderAll();
+        }
+    }
+
+    // 6. МОДАЛКА ИМПОРТА
     function openGlobalImport() {
         importTargetNode = null;
         $('#modal-title').text(t('jsb_modal_title_global', 'Импорт JSON / Schema (Заменить всю структуру)'));
@@ -575,7 +672,7 @@
             let jsonText = $('#import-json-text').val();
             let parsedObj = JSON.parse(jsonText);
 
-            let isSchema = parsedObj.$schema !== undefined || (parsedObj.type === 'object' && parsedObj.properties !== undefined);
+            let isSchema = parsedObj.$schema !== undefined || (parsedObj.type === 'object' && (parsedObj.properties !== undefined || parsedObj.patternProperties !== undefined));
 
             let newSubSchema;
             if (isSchema) {
@@ -591,7 +688,7 @@
                 let target = findNodeById(schemaData, importTargetNode);
                 if (target) {
                     target.children.push(...newSubSchema.children);
-                    if(!target.type) target.type = 'object'; // Fallback
+                    if(!target.type) target.type = 'object'; // Защита
                 }
             }
             $('#import-modal').fadeOut(150);

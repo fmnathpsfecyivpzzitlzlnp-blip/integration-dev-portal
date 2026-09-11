@@ -19,3 +19,9 @@ db/*.sqlite
 logs/
 *.log
 tmp/
+
+# Test data
+testData/
+doc/
+src/test/
+tasks_html/

@@ -24,6 +24,9 @@
             --card-bg: #ffffff;
             --card-border: #dddddd;
             --btn-bg: #eeeeee;
+
+            /* Фон области диаграммы (белый по умолчанию) */
+            --preview-bg: #ffffff;
         }
 
         body.dark-theme {
@@ -89,6 +92,12 @@
         .head-btn:hover { background: rgba(255,255,255,0.3); }
         .db-status { font-size: 11px; color: #10b981; font-weight: bold; opacity: 0; transition: opacity 0.3s; }
 
+        /* Палитра выбора цвета фона */
+        .color-picker-box { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); }
+        .color-picker-box span { font-size: 12px; font-weight: 600; color: #fff; }
+        .color-picker-box input { cursor: pointer; border: none; padding: 0; width: 24px; height: 24px; border-radius: 4px; background: transparent; }
+        .color-picker-box button { background: none; border: none; font-size: 12px; color: #bae6fd; cursor: pointer; padding: 0; font-weight: 600; }
+
         /* ============================
            3. РАБОЧАЯ ЗОНА (САЙДБАР И ГРАФИК)
            ============================ */
@@ -149,7 +158,7 @@
         .c-btn.del:hover { background: #c0392b; }
         .footer-note { padding: 10px; background: var(--section-bg); font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border-color); transition: 0.3s; }
 
-        #preview-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-main); position: relative; transition: background 0.3s; }
+        #preview-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--preview-bg); position: relative; transition: background 0.3s; }
         #error-bar { height: 0; background: #e74c3c; color: white; font-size: 13px; text-align: center; line-height: 40px; overflow: hidden; transition: 0.3s; font-weight: bold; }
         #graph-container { flex: 1; overflow: auto; padding: 20px; text-align: center; }
 
@@ -188,6 +197,13 @@
     <div class="app-toolbar">
         <div style="font-size: 20px; font-weight: bold;" data-i18n="me_header_title">Mermaid Editor (DB Sync)</div>
         <div class="header-buttons">
+            <!-- Палитра выбора цвета фона -->
+            <div class="color-picker-box">
+                <span data-i18n="me_bg_color">Фон:</span>
+                <input type="color" id="bgColorPicker" value="#ffffff" title="Изменить цвет фона диаграммы">
+                <button onclick="resetBgColor()" title="Сбросить на белый">Сброс</button>
+            </div>
+
             <span id="db-status" class="db-status" data-i18n="me_db_saved">💾 Сохранено в БД</span>
             <button class="head-btn" onclick="toggleView('modal-code')" style="background: #27ae60; border-color: #2ecc71;" data-i18n="me_btn_code">📋 Исходный код / Импорт</button>
             <button class="head-btn" onclick="toggleView('modal-help')" data-i18n="me_btn_help">? Справка</button>
@@ -316,8 +332,26 @@
         if (isDark) {
             $('#themeSelect').val('dark');
         }
+
+        // Инициализация и применение цвета фона канваса
+        const savedBgColor = localStorage.getItem('mermaid_preview_bg') || '#ffffff';
+        document.documentElement.style.setProperty('--preview-bg', savedBgColor);
+        $('#bgColorPicker').val(savedBgColor).on('input', function(e) {
+            const newColor = e.target.value;
+            document.documentElement.style.setProperty('--preview-bg', newColor);
+            localStorage.setItem('mermaid_preview_bg', newColor);
+        });
+
         initTabs();
     });
+
+    // Функция сброса цвета фона
+    window.resetBgColor = function() {
+        const defaultWhite = '#ffffff';
+        document.documentElement.style.setProperty('--preview-bg', defaultWhite);
+        $('#bgColorPicker').val(defaultWhite);
+        localStorage.setItem('mermaid_preview_bg', defaultWhite);
+    };
 
     mermaid.initialize({ startOnLoad: false, theme: localStorage.getItem('global_dark_theme') === 'true' ? 'dark' : 'default', securityLevel: 'loose' });
 

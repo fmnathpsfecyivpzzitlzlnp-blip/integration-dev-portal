@@ -24,6 +24,9 @@
             --border-color: #e2e8f0;
             --chk-bg: #f1f5f9;
             --chk-hover: #e2e8f0;
+
+            /* Дефолтный цвет для жирных скобок (желтый) */
+            --match-bracket-color: #ffeb3b;
         }
 
         body.dark-theme {
@@ -71,7 +74,27 @@
         }
 
         .CodeMirror { height: 100% !important; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; }
+
+        /* Стили для поиска ошибок */
         .error-line-bg { background-color: rgba(239, 68, 68, 0.2) !important; }
+
+        /* === УМНАЯ ПОДСВЕТКА СКОБОК И СТРОК === */
+
+        /* Выделение парных скобок (Жирный шрифт + цвет + свечение) */
+        .custom-bracket {
+            font-weight: 900 !important;
+            color: var(--match-bracket-color) !important;
+            text-shadow: 0 0 10px var(--match-bracket-color), 0 0 3px var(--match-bracket-color);
+            background-color: rgba(128, 128, 128, 0.2) !important;
+            border-bottom: 2px solid var(--match-bracket-color) !important;
+            border-radius: 3px;
+        }
+
+        /* Легкая подсветка фона только ПЕРВОЙ и ПОСЛЕДНЕЙ строки объекта */
+        .line-highlight-bg {
+            background-color: rgba(128, 128, 128, 0.15) !important;
+            border-left: 3px solid var(--match-bracket-color) !important;
+        }
 
         .generator-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
         .generator-panel label { font-weight: 600; margin-bottom: 8px; display: inline-block; color: var(--text-main); transition: 0.3s; }
@@ -91,23 +114,30 @@
         .checkbox-wrapper:hover { background: var(--chk-hover); }
         .checkbox-wrapper input { cursor: pointer; width: 16px; height: 16px; }
 
-        .header-top {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;
-        }
-        .generator-columns-container {
-            display: flex; gap: 20px; flex: 1; min-height: 0;
-        }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
+        .generator-columns-container { display: flex; gap: 20px; flex: 1; min-height: 0; }
 
         .btn { padding: 8px 15px; border-radius: 4px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; }
         .btn.secondary { background: var(--chk-bg); color: var(--text-main); border: 1px solid var(--border-color); }
         .btn.secondary:hover { background: var(--chk-hover); }
         .btn.primary { background: #3b82f6; color: white; }
         .btn.primary:hover { background: #2563eb; }
+        .btn.warning { background: #f59e0b; color: white; border: 1px solid #d97706; }
+        .btn.warning:hover { background: #d97706; }
 
         #error-panel {
             display:none; padding:15px; background:rgba(220, 38, 38, 0.1); color:#ef4444;
             border:1px solid rgba(220, 38, 38, 0.3); border-radius: 6px; margin-bottom:15px;
             font-family: monospace; white-space: pre-wrap; font-size: 13px; flex-shrink: 0;
+        }
+
+        /* Умная панель подсказок (X-Ray) */
+        #smart-hint-panel {
+            display: none; padding: 12px 15px; border-radius: 6px; margin-bottom: 10px;
+            background: rgba(251, 191, 36, 0.1); border: 1px dashed #fbbf24;
+            font-size: 13px; line-height: 1.5; color: var(--text-main); flex-shrink: 0;
+            justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
     </style>
 </head>
@@ -135,7 +165,22 @@
 
     <div class="generator-columns-container">
         <div class="generator-panel">
-            <label for="input-area" data-i18n="eg_lbl_in">Входная JSON Schema:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="margin: 0;" data-i18n="eg_lbl_in">Входная JSON Schema:</label>
+
+                <!-- Настройка цвета выделения скобок -->
+                <div style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                    <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Цвет выделения скобок:</span>
+                    <input type="color" id="bracketColorPicker" value="#ffeb3b" style="cursor: pointer; border: none; padding: 0; width: 24px; height: 24px; border-radius: 4px; background: transparent;">
+                </div>
+            </div>
+
+            <!-- Умная панель при клике на скобку -->
+            <div id="smart-hint-panel">
+                <div id="smart-hint-text" style="flex: 1; padding-right: 15px;"></div>
+                <button id="smart-delete-btn" class="btn warning" style="white-space: nowrap; font-size: 12px; padding: 6px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">✂️ Удалить этот блок (Умно)</button>
+            </div>
+
             <div class="editor-wrapper">
                 <textarea id="input-area"></textarea>
             </div>
@@ -169,17 +214,29 @@
         if(typeof applyTheme === 'function') applyTheme(isDark);
 
         const cmTheme = isDark ? "dracula" : "default";
-
         const errorPanel = $('#error-panel');
         const statusBadge = $('#status-badge');
         let errorLineHandle = null;
 
+        // --- Настройка пользовательского цвета скобок ---
+        const savedColor = localStorage.getItem('bracket_highlight_color') || '#ffeb3b'; // Желтый по умолчанию
+        document.documentElement.style.setProperty('--match-bracket-color', savedColor);
+        $('#bracketColorPicker').val(savedColor).on('input', function(e) {
+            const newColor = e.target.value;
+            document.documentElement.style.setProperty('--match-bracket-color', newColor);
+            localStorage.setItem('bracket_highlight_color', newColor);
+        });
+
         const editorIn = CodeMirror.fromTextArea(document.getElementById('input-area'), {
-            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme, lineWrapping: true
+            mode: "application/json",
+            lineNumbers: true,
+            theme: cmTheme,
+            lineWrapping: true
+            // Убрали стандартный matchBrackets, так как написали свой, более мощный
         });
 
         const editorOut = CodeMirror.fromTextArea(document.getElementById('output-area'), {
-            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme, lineWrapping: true, readOnly: true
+            mode: "application/json", lineNumbers: true, theme: cmTheme, lineWrapping: true, readOnly: true
         });
 
         window.addEventListener('themeChanged', function(e) {
@@ -192,8 +249,148 @@
         if (savedSchema) {
             editorIn.setValue(savedSchema);
         } else {
-            editorIn.setValue(`{\n  "$schema": "http://json-schema.org/draft-06/schema#",\n  "type": "object",\n  "properties": {\n    "clientId": {\n      "type": "string",\n      "description": "Идентификатор Клиента"\n    },\n    "account": {\n      "type": "string"\n    }\n  },\n  "required": [\n    "clientId"\n  ]\n}`);
+            editorIn.setValue(`{\n  "$schema": "http://json-schema.org/draft-06/schema#",\n  "type": "object",\n  "properties": {\n    "request": {\n      "type": "object",\n      "properties": {\n        "id": { "type": "string" }\n      }\n    },\n    "account": {\n      "type": "string"\n    }\n  }\n}`);
         }
+
+        // ====================================================================
+        // УМНЫЙ ПАРСЕР СКОБОК И "УМНОЕ УДАЛЕНИЕ" БЛОКОВ (X-RAY)
+        // ====================================================================
+        let bracketMarks = [];
+        let lineMarks = [];
+
+        editorIn.on("cursorActivity", function() {
+            // 1. Очищаем старые выделения
+            bracketMarks.forEach(m => m.clear());
+            bracketMarks = [];
+            lineMarks.forEach(line => editorIn.removeLineClass(line, "background", "line-highlight-bg"));
+            lineMarks = [];
+            $('#smart-hint-panel').hide();
+
+            let cursor = editorIn.getCursor();
+            let lineStr = editorIn.getLine(cursor.line);
+            let ch = cursor.ch;
+
+            // 2. Ищем скобку рядом с курсором (справа или слева)
+            let charBefore = ch > 0 ? lineStr[ch-1] : '';
+            let charAfter = ch < lineStr.length ? lineStr[ch] : '';
+
+            let targetChar = null;
+            let startPos = null;
+            let isForward = true;
+
+            if (charAfter === '{' || charAfter === '[') { targetChar = charAfter; startPos = {line: cursor.line, ch: ch}; isForward = true; }
+            else if (charBefore === '{' || charBefore === '[') { targetChar = charBefore; startPos = {line: cursor.line, ch: ch-1}; isForward = true; }
+            else if (charAfter === '}' || charAfter === ']') { targetChar = charAfter; startPos = {line: cursor.line, ch: ch}; isForward = false; }
+            else if (charBefore === '}' || charBefore === ']') { targetChar = charBefore; startPos = {line: cursor.line, ch: ch-1}; isForward = false; }
+
+            // Если курсор стоит рядом со скобкой
+            if (targetChar) {
+                let pairs = {'{':'}', '}':'{', '[':']', ']':'['};
+                let matchPos = findMatchingBracket(editorIn, startPos, targetChar, pairs[targetChar], isForward);
+
+                if (matchPos) {
+                    // А) Выделяем жирным цветом САМИ СКОБКИ (светятся)
+                    bracketMarks.push(editorIn.markText(startPos, {line: startPos.line, ch: startPos.ch+1}, {className: "custom-bracket"}));
+                    bracketMarks.push(editorIn.markText(matchPos, {line: matchPos.line, ch: matchPos.ch+1}, {className: "custom-bracket"}));
+
+                    let blockStart = isForward ? startPos : matchPos;
+                    let blockEnd = isForward ? matchPos : startPos;
+
+                    // Б) Выделяем фон ТОЛЬКО у первой и последней строки объекта
+                    editorIn.addLineClass(blockStart.line, "background", "line-highlight-bg");
+                    lineMarks.push(blockStart.line);
+                    if (blockStart.line !== blockEnd.line) {
+                        editorIn.addLineClass(blockEnd.line, "background", "line-highlight-bg");
+                        lineMarks.push(blockEnd.line);
+                    }
+
+                    // В) Вызываем панель "Умного удаления" с анализом запятых
+                    analyzeAndShowSmartDelete(editorIn, blockStart, blockEnd);
+                }
+            }
+        });
+
+        // Функция поиска закрывающей/открывающей скобки (учитывает вложенность)
+        function findMatchingBracket(cm, startPos, openChar, closeChar, isForward) {
+            let depth = 1;
+            let lineIdx = startPos.line;
+            let chIdx = isForward ? startPos.ch + 1 : startPos.ch - 1;
+
+            while (isForward ? (lineIdx < cm.lineCount()) : (lineIdx >= 0)) {
+                let lineText = cm.getLine(lineIdx);
+                while (isForward ? (chIdx < lineText.length) : (chIdx >= 0)) {
+                    let c = lineText[chIdx];
+                    if (c === openChar) depth++;
+                    else if (c === closeChar) depth--;
+
+                    if (depth === 0) return {line: lineIdx, ch: chIdx};
+                    chIdx += isForward ? 1 : -1;
+                }
+                lineIdx += isForward ? 1 : -1;
+                if (isForward && lineIdx < cm.lineCount()) chIdx = 0;
+                else if (!isForward && lineIdx >= 0) chIdx = cm.getLine(lineIdx).length - 1;
+            }
+            return null;
+        }
+
+        // Анализ запятых и вывод подсказки для безопасного удаления
+        function analyzeAndShowSmartDelete(cm, blockStart, blockEnd) {
+            // Ищем запятую ДО начала блока
+            let prevCommaLine = -1;
+            let prevCommaCh = -1;
+            for(let k = blockStart.line - 1; k >= 0; k--) {
+                let text = cm.getLine(k).trim();
+                if (text.endsWith(',')) { prevCommaLine = k; prevCommaCh = cm.getLine(k).lastIndexOf(','); break; }
+                if (text !== '') break; // Наткнулись на другой символ, запятой нет
+            }
+
+            // Ищем запятую ПОСЛЕ блока
+            let hasTrailingComma = false;
+            let endLineText = cm.getLine(blockEnd.line).substring(blockEnd.ch + 1).trim();
+            if (endLineText.startsWith(',')) {
+                hasTrailingComma = true;
+            } else if (endLineText === '' && blockEnd.line + 1 < cm.lineCount()) {
+                let nextLineText = cm.getLine(blockEnd.line + 1).trim();
+                if (nextLineText.startsWith(',')) hasTrailingComma = true;
+            }
+
+            // Формируем умную подсказку
+            let msg = `<div style="font-size: 14px; font-weight: bold; color: var(--text-main); margin-bottom: 4px;">🎯 Выделен блок (строки: ${blockStart.line + 1} &mdash; ${blockEnd.line + 1})</div>`;
+
+            if (hasTrailingComma) {
+                msg += `⚠️ После объекта идет <b>запятая</b>. При нажатии на кнопку удаления, мы удалим её вместе с блоком.`;
+            } else if (prevCommaLine !== -1) {
+                msg += `⚠️ Это последний элемент в списке. Перед ним (на строке ${prevCommaLine + 1}) есть <b>запятая</b>. <br>💡 При удалении мы <b>сотрем её автоматически</b>, чтобы не сломать JSON.`;
+            } else {
+                msg += `✅ Запятых, требующих особого внимания, рядом не найдено. Можно безопасно удалять.`;
+            }
+
+            $('#smart-hint-text').html(msg);
+            $('#smart-hint-panel').css('display', 'flex');
+
+            // Кнопка АВТОМАТИЧЕСКОГО удаления
+            $('#smart-delete-btn').off('click').on('click', function() {
+                cm.operation(() => {
+                    // Мы удаляем строки целиком: от начала первой строки до начала строки, идущей после блока
+                    let from = {line: blockStart.line, ch: 0};
+                    let to = {line: blockEnd.line + 1, ch: 0};
+
+                    if (!hasTrailingComma && prevCommaLine !== -1) {
+                        // Если запятой после нет (это последний элемент), стираем запятую перед ним!
+                        cm.replaceRange("", {line: prevCommaLine, ch: prevCommaCh}, {line: prevCommaLine, ch: prevCommaCh + 1});
+                    }
+
+                    // Удаляем сам блок
+                    cm.replaceRange("", from, to);
+
+                    // Очистка выделений
+                    bracketMarks.forEach(m => m.clear()); bracketMarks = [];
+                    lineMarks.forEach(line => cm.removeLineClass(line, "background", "line-highlight-bg")); lineMarks = [];
+                    $('#smart-hint-panel').hide();
+                });
+            });
+        }
+        // ====================================================================
 
         editorIn.on('change', function() {
             localStorage.setItem('example_generator_input', editorIn.getValue());
@@ -208,6 +405,7 @@
         $('#clearBtn').on('click', function() {
             if (confirm(t('eg_conf_clear', 'Очистить поле ввода?'))) {
                 editorIn.setValue(''); editorOut.setValue(''); statusBadge.hide();
+                $('#smart-hint-panel').hide();
                 localStorage.removeItem('example_generator_input');
             }
         });
@@ -215,6 +413,7 @@
         $('#btn-generate').on('click', function() {
             errorPanel.hide();
             statusBadge.hide();
+            $('#smart-hint-panel').hide();
             if (errorLineHandle) {
                 editorIn.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
                 errorLineHandle = null;
@@ -279,10 +478,6 @@
             });
         });
     });
-    function escapeHtml(text) {
-        if (!text) return "";
-        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
 </script>
 </body>
 </html>
