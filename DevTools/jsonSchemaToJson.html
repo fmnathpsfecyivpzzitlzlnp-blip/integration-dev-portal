@@ -195,19 +195,6 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     $(function () {
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
@@ -403,7 +390,8 @@
         });
 
         $('#clearBtn').on('click', function() {
-            if (confirm(t('eg_conf_clear', 'Очистить поле ввода?'))) {
+            const msg = typeof window.t === 'function' ? window.t('eg_conf_clear', 'Очистить поле ввода?') : 'Очистить поле ввода?';
+            if (confirm(msg)) {
                 editorIn.setValue(''); editorOut.setValue(''); statusBadge.hide();
                 $('#smart-hint-panel').hide();
                 localStorage.removeItem('example_generator_input');
@@ -420,7 +408,11 @@
             }
 
             const schemaText = editorIn.getValue();
-            if (!schemaText.trim()) { alert(t('eg_err_empty', "Пожалуйста, вставьте JSON Schema.")); return; }
+            if (!schemaText.trim()) {
+                const msg = typeof window.t === 'function' ? window.t('eg_err_empty', "Пожалуйста, вставьте JSON Schema.") : "Пожалуйста, вставьте JSON Schema.";
+                alert(msg);
+                return;
+            }
 
             try {
                 JSON.parse(schemaText);
@@ -431,14 +423,19 @@
                     errorLineHandle = editorIn.addLineClass(lineNum - 1, 'background', 'error-line-bg');
                     editorIn.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
                 }
-                errorPanel.text(t('eg_err_syntax', "❌ Ошибка синтаксиса в JSON Schema:\n") + e.message).show();
+                const msg = typeof window.t === 'function' ? window.t('eg_err_syntax', "❌ Ошибка синтаксиса в JSON Schema:\n") : "❌ Ошибка синтаксиса в JSON Schema:\n";
+                errorPanel.text(msg + e.message).show();
                 return;
             }
 
             const btn = $(this);
             const originalText = btn.text();
-            btn.text(t('eg_msg_loading', '⏳ Генерация...')).prop('disabled', true);
-            editorOut.setValue(t('eg_msg_processing', 'Обработка...'));
+
+            const btnLoadingMsg = typeof window.t === 'function' ? window.t('eg_msg_loading', '⏳ Генерация...') : '⏳ Генерация...';
+            btn.text(btnLoadingMsg).prop('disabled', true);
+
+            const processingMsg = typeof window.t === 'function' ? window.t('eg_msg_processing', 'Обработка...') : 'Обработка...';
+            editorOut.setValue(processingMsg);
 
             const isFullMode = $('#force-full-checkbox').is(':checked');
 
@@ -452,14 +449,20 @@
 
                     editorOut.setValue(res.mock);
 
+                    const lblOpt = typeof window.t === 'function' ? window.t('eg_stat_opt', 'доп. полей') : 'доп. полей';
+                    const lblFrom = typeof window.t === 'function' ? window.t('eg_stat_from', 'из') : 'из';
+
                     if (res.mode === 'FULL') {
-                        statusBadge.text(`🟢 ${t('eg_stat_full', 'ПОЛНЫЙ НАБОР')} (${res.totOpt}/${res.totOpt} ${t('eg_stat_opt', 'доп. полей')})`)
+                        const lblFull = typeof window.t === 'function' ? window.t('eg_stat_full', 'ПОЛНЫЙ НАБОР') : 'ПОЛНЫЙ НАБОР';
+                        statusBadge.text(`🟢 ${lblFull} (${res.totOpt}/${res.totOpt} ${lblOpt})`)
                             .css({background: 'rgba(22, 163, 74, 0.1)', color: '#16a34a', border: '1px solid rgba(22, 163, 74, 0.3)'}).fadeIn();
                     } else if (res.mode === 'MINIMAL') {
-                        statusBadge.text(`🔴 ${t('eg_stat_min', 'МИНИМУМ (Только обязательные)')}`)
+                        const lblMin = typeof window.t === 'function' ? window.t('eg_stat_min', 'МИНИМУМ (Только обязательные)') : 'МИНИМУМ (Только обязательные)';
+                        statusBadge.text(`🔴 ${lblMin}`)
                             .css({background: 'rgba(220, 38, 38, 0.1)', color: '#dc2626', border: '1px solid rgba(220, 38, 38, 0.3)'}).fadeIn();
                     } else {
-                        statusBadge.text(`🟡 ${t('eg_stat_part', 'ЧАСТИЧНЫЙ')} (${res.genOpt} ${t('eg_stat_from', 'из')} ${res.totOpt} ${t('eg_stat_opt', 'доп. полей')})`)
+                        const lblPart = typeof window.t === 'function' ? window.t('eg_stat_part', 'ЧАСТИЧНЫЙ') : 'ЧАСТИЧНЫЙ';
+                        statusBadge.text(`🟡 ${lblPart} (${res.genOpt} ${lblFrom} ${res.totOpt} ${lblOpt})`)
                             .css({background: 'rgba(202, 138, 4, 0.1)', color: '#ca8a04', border: '1px solid rgba(202, 138, 4, 0.3)'}).fadeIn();
                     }
                 },
@@ -469,7 +472,9 @@
                         const errorObj = JSON.parse(xhr.responseText);
                         if (errorObj && errorObj.message) errorMessage = errorObj.message;
                     } catch (e) {}
-                    errorPanel.text(t('eg_err_gen', '⚠️ Ошибка генерации примера:\n') + errorMessage).show();
+
+                    const msg = typeof window.t === 'function' ? window.t('eg_err_gen', '⚠️ Ошибка генерации примера:\n') : '⚠️ Ошибка генерации примера:\n';
+                    errorPanel.text(msg + errorMessage).show();
                     editorOut.setValue('');
                 },
                 complete: function() {

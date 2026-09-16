@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Тестер XPath / JSONPath</title>
+    <title data-i18n="xt_page_title">Тестер XPath / JSONPath</title>
 
     <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
@@ -17,74 +17,144 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        body { background: #f4f7f9; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
-
-        .search-bar {
-            background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; gap: 15px; margin-bottom: 20px;
-            align-items: center; flex-shrink: 0;
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #fdfdfd;
+            --input-bg-focus: #ffffff;
+            --panel-head-bg: #f8fafc;
+            --tab-hover: #e2e8f0;
+            --tab-active-bg: #ffffff;
+            --tab-active-border: #cbd5e1;
+            --result-bg: #1e293b;
+            --result-text: #a5b4fc;
+            --result-item-bg: #334155;
+            --tree-hover-bg: #dbeafe;
+            --tree-hover-text: #1e40af;
         }
 
-        .search-bar select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; background: #f8fafc; cursor: pointer; }
-        .search-bar input { flex: 1; padding: 10px 15px; font-size: 16px; border: 2px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Consolas', monospace; transition: border 0.2s; background: #fdfdfd;}
-        .search-bar input:focus { border-color: #3b82f6; background: #fff;}
-        .search-bar button { padding: 10px 25px; font-size: 14px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .search-bar button:hover { background: #2563eb; }
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --input-bg-focus: #1e293b;
+            --panel-head-bg: #0f172a;
+            --tab-hover: #334155;
+            --tab-active-bg: #1e293b;
+            --tab-active-border: #475569;
+            --result-bg: #0b1120;
+            --result-text: #a5b4fc;
+            --result-item-bg: #1e293b;
+            --tree-hover-bg: rgba(59, 130, 246, 0.2);
+            --tree-hover-text: #60a5fa;
+        }
 
-        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
 
-        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; }
-        .panel-head { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; }
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); transition: 0.3s; }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; border: 1px solid #3b82f6; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        .search-bar {
+            background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; gap: 15px; margin-bottom: 20px;
+            align-items: center; flex-shrink: 0; transition: 0.3s;
+        }
+
+        .search-bar select { padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; background: var(--input-bg); color: var(--text-main); cursor: pointer; transition: 0.3s;}
+        .search-bar input { flex: 1; padding: 10px 15px; font-size: 16px; border: 2px solid var(--border-color); border-radius: 4px; outline: none; font-family: 'Consolas', monospace; transition: border 0.2s, background 0.3s, color 0.3s; background: var(--input-bg); color: var(--text-main);}
+        .search-bar input:focus { border-color: #3b82f6; background: var(--input-bg-focus);}
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; min-height: 0; }
+
+        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: 0.3s; }
+        .panel-head { background: var(--panel-head-bg); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: 0.3s; }
 
         /* Вкладки (Tabs) */
         .tabs { display: flex; gap: 5px; }
-        .tab-btn { background: transparent; border: 1px solid transparent; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; color: #64748b; cursor: pointer; transition: 0.2s; }
-        .tab-btn:hover { background: #e2e8f0; }
-        .tab-btn.active { background: #fff; border-color: #cbd5e1; color: #2563eb; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tab-btn { background: transparent; border: 1px solid transparent; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+        .tab-btn:hover { background: var(--tab-hover); }
+        .tab-btn.active { background: var(--tab-active-bg); border-color: var(--tab-active-border); color: #3b82f6; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
-        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; }
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; transition: 0.3s; }
 
-        .result-zone { flex: 1; background: #1e293b; color: #a5b4fc; padding: 15px; font-family: 'Consolas', monospace; font-size: 13px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;}
+        .result-zone { flex: 1; background: var(--result-bg); color: var(--result-text); padding: 15px; font-family: 'Consolas', monospace; font-size: 13px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; transition: 0.3s;}
 
         .error-msg { color: #fca5a5; font-weight: bold; }
         .success-msg { color: #86efac; font-weight: bold; margin-bottom: 10px; display: block; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-        .result-item { background: #334155; padding: 10px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #818cf8; color: #f8fafc; }
+        .result-item { background: var(--result-item-bg); padding: 10px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #818cf8; color: #f8fafc; transition: 0.3s; }
 
         /* Интерактивное дерево (Click-to-Path) */
-        #tree-view { flex: 1; display: none; overflow-y: auto; padding: 15px; font-family: 'Consolas', monospace; font-size: 14px; background: #fff; color: #334155; }
+        #tree-view { flex: 1; display: none; overflow-y: auto; padding: 15px; font-family: 'Consolas', monospace; font-size: 14px; background: var(--bg-card); color: var(--text-main); transition: 0.3s; }
         ul.path-tree { list-style-type: none; padding-left: 20px; margin: 0; }
         ul.path-tree li { position: relative; margin: 4px 0; }
-        ul.path-tree li::before { content: ''; position: absolute; top: 12px; left: -12px; border-top: 1px dashed #cbd5e1; width: 10px; }
-        ul.path-tree li::after { content: ''; position: absolute; top: 0; left: -12px; border-left: 1px dashed #cbd5e1; height: 100%; }
+        ul.path-tree li::before { content: ''; position: absolute; top: 12px; left: -12px; border-top: 1px dashed var(--border-color); width: 10px; }
+        ul.path-tree li::after { content: ''; position: absolute; top: 0; left: -12px; border-left: 1px dashed var(--border-color); height: 100%; }
         ul.path-tree li:last-child::after { height: 12px; }
 
-        .tree-node { cursor: pointer; color: #1d4ed8; font-weight: bold; padding: 2px 6px; border-radius: 4px; transition: 0.1s; display: inline-block;}
-        .tree-node:hover { background: #dbeafe; color: #1e40af; transform: translateX(2px); }
-        .tree-val { color: #059669; font-weight: normal; margin-left: 5px; }
-        .empty-state { padding: 40px; text-align: center; color: #94a3b8; font-size: 14px; }
+        .tree-node { cursor: pointer; color: #3b82f6; font-weight: bold; padding: 2px 6px; border-radius: 4px; transition: 0.1s; display: inline-block;}
+        .tree-node:hover { background: var(--tree-hover-bg); color: var(--tree-hover-text); transform: translateX(2px); }
+        .tree-val { color: #10b981; font-weight: normal; margin-left: 5px; }
+        .empty-state { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+        .btn-icon { background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-muted); transition:0.2s; padding:0; line-height: 1; }
+        .btn-icon:hover { color: #ef4444; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
         <div>
-            <h2 style="margin: 0; font-size: 22px; color: #1e293b;">Тестер XPath / JSONPath</h2>
-            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Мгновенная выборка данных из XML/XSD/WSDL и JSON.</p>
+            <h2 data-i18n="xt_title">Тестер XPath / JSONPath</h2>
+            <p style="margin: 2px 0 0 0; font-size: 12px;" class="text-muted" data-i18n="xt_subtitle">Мгновенная выборка данных из XML/XSD/WSDL и JSON.</p>
         </div>
     </div>
-    <button class="secondary" onclick="loadExamples()">📄 Загрузить примеры</button>
+    <button class="btn secondary" onclick="loadExamples()" data-i18n="xt_btn_examples">📄 Загрузить примеры</button>
 </div>
 
 <div class="search-bar">
     <select id="doc-type" onchange="changeMode()">
-        <option value="xml">XML / XSD / WSDL (XPath)</option>
-        <option value="json">JSON (JS Path)</option>
+        <option value="xml" data-i18n="xt_opt_xml">XML / XSD / WSDL (XPath)</option>
+        <option value="json" data-i18n="xt_opt_json">JSON (JS Path)</option>
     </select>
-    <input type="text" id="query-input" placeholder="//ClientInfo/Phone | Для JSON: root.Client.Phone" onkeypress="if(event.key === 'Enter') evaluateQuery()">
-    <button onclick="evaluateQuery()">⚡ Выполнить выборку</button>
+    <input type="text" id="query-input" onkeypress="if(event.key === 'Enter') evaluateQuery()">
+    <button class="btn primary" onclick="evaluateQuery()" data-i18n="xt_btn_eval">⚡ Выполнить выборку</button>
 </div>
 
 <div class="workspace">
@@ -92,10 +162,10 @@
     <div class="col">
         <div class="panel-head" style="padding: 8px 15px;">
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('code')" id="tab-code">📝 Исходный код</button>
-                <button class="tab-btn" onclick="switchTab('tree')" id="tab-tree" style="color:#059669;">🌳 Интерактивное дерево (Click-to-Path)</button>
+                <button class="tab-btn active" onclick="switchTab('code')" id="tab-code" data-i18n="xt_tab_code">📝 Исходный код</button>
+                <button class="tab-btn" onclick="switchTab('tree')" id="tab-tree" style="color:#10b981;" data-i18n="xt_tab_tree">🌳 Интерактивное дерево (Click-to-Path)</button>
             </div>
-            <button class="btn-icon" onclick="editorIn.setValue(''); switchTab('code');" title="Очистить">🗑</button>
+            <button class="btn-icon" onclick="editorIn.setValue(''); switchTab('code');" title="Очистить" data-i18n="btn_clear">🗑</button>
         </div>
 
         <div id="code-view" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
@@ -110,11 +180,11 @@
     <!-- ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ -->
     <div class="col">
         <div class="panel-head">
-            <span>📤 Результат выборки</span>
-            <span id="result-count" style="font-size: 12px; color: #64748b; font-weight: bold;"></span>
+            <span data-i18n="xt_lbl_result">📤 Результат выборки</span>
+            <span id="result-count" style="font-size: 12px; color: var(--text-muted); font-weight: bold;"></span>
         </div>
         <div class="result-zone" id="result-out">
-            <span style="color: #64748b;">Введите запрос в верхнюю строку или выберите тег в «Интерактивном дереве»...</span>
+            <span style="color: var(--text-muted);" data-i18n="xt_res_empty">Введите запрос в верхнюю строку или выберите тег в «Интерактивном дереве»...</span>
         </div>
     </div>
 </div>
@@ -123,8 +193,20 @@
     let editorIn;
 
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
         editorIn = CodeMirror.fromTextArea(document.getElementById('editor-in'), {
-            mode: "xml", lineNumbers: true, matchBrackets: true, theme: "default"
+            mode: "xml", lineNumbers: true, matchBrackets: true, theme: cmTheme
+        });
+
+        // Слушатель смены темы для динамического обновления CodeMirror
+        window.addEventListener('themeChanged', function(e) {
+            const newCmTheme = e.detail.isDark ? 'dracula' : 'default';
+            if (editorIn) editorIn.setOption('theme', newCmTheme);
         });
 
         // Восстанавливаем данные из кэша
@@ -147,6 +229,9 @@
             // Если мы находимся во вкладке дерева, перестраиваем его при изменении кода
             if($('#tree-view').is(':visible')) buildInteractiveTree();
         });
+
+        // Устанавливаем placeholder
+        changeMode(false);
     });
 
     // === ЛОГИКА ВКЛАДОК (КОД / ДЕРЕВО) ===
@@ -171,7 +256,8 @@
         const treeContainer = $('#tree-view').empty();
 
         if (!payload) {
-            treeContainer.html('<div class="empty-state">Вставьте данные в редактор кода слева</div>');
+            const msgNoData = typeof window.t === 'function' ? window.t('xt_err_no_data', 'Вставьте данные в редактор кода слева') : 'Вставьте данные в редактор кода слева';
+            treeContainer.html(`<div class="empty-state">${msgNoData}</div>`);
             return;
         }
 
@@ -179,7 +265,10 @@
             if (type === 'xml') {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(payload, "text/xml");
-                if (doc.getElementsByTagName("parsererror").length > 0) throw new Error("Синтаксическая ошибка в XML/XSD");
+                if (doc.getElementsByTagName("parsererror").length > 0) {
+                    const msgSynErr = typeof window.t === 'function' ? window.t('xt_err_syntax_xml', 'Синтаксическая ошибка в XML/XSD') : 'Синтаксическая ошибка в XML/XSD';
+                    throw new Error(msgSynErr);
+                }
 
                 let html = '<ul class="path-tree">' + buildXmlNode(doc.documentElement, '/' + doc.documentElement.nodeName) + '</ul>';
                 treeContainer.html(html);
@@ -196,7 +285,7 @@
 
                 // Подсвечиваем выбранный узел
                 $('.tree-node').css('background', 'transparent');
-                $(this).css('background', '#dbeafe');
+                $(this).css('background', 'var(--tree-hover-bg)');
 
                 // Вставляем и запускаем
                 $('#query-input').val(path);
@@ -204,13 +293,15 @@
             });
 
         } catch(e) {
-            treeContainer.html(`<div style="color: #dc2626; font-weight: bold; padding: 20px;">❌ Ошибка построения дерева: ${e.message}</div>`);
+            const msgErrTree = typeof window.t === 'function' ? window.t('xt_err_tree_build', '❌ Ошибка построения дерева: ') : '❌ Ошибка построения дерева: ';
+            treeContainer.html(`<div style="color: var(--error-text); font-weight: bold; padding: 20px;">${msgErrTree}${e.message}</div>`);
         }
     }
 
     // Рекурсивный сборщик XML (учитывает индексы элементов [1], [2])
     function buildXmlNode(node, currentPath) {
-        let html = `<li><span class="tree-node" data-path="${currentPath}" title="Кликните, чтобы получить XPath">&lt;${node.nodeName}&gt;</span>`;
+        const hintTitle = typeof window.t === 'function' ? window.t('xt_title_click_xpath', 'Кликните, чтобы получить XPath') : 'Кликните, чтобы получить XPath';
+        let html = `<li><span class="tree-node" data-path="${currentPath}" title="${hintTitle}">&lt;${node.nodeName}&gt;</span>`;
 
         let childrenHtml = '';
         let childCounts = {};
@@ -259,6 +350,8 @@
     // Рекурсивный сборщик JSON
     function buildJsonNode(obj, currentPath, isRoot = false) {
         let html = '';
+        const hintTitle = typeof window.t === 'function' ? window.t('xt_title_click_jsonpath', 'Кликните, чтобы получить JSONPath') : 'Кликните, чтобы получить JSONPath';
+
         for (let key in obj) {
             let val = obj[key];
 
@@ -268,7 +361,7 @@
 
             let displayKey = Array.isArray(obj) ? `[${key}]` : key;
 
-            html += `<li><span class="tree-node" data-path="${newPath}" title="Кликните, чтобы получить JSONPath">${displayKey}</span>`;
+            html += `<li><span class="tree-node" data-path="${newPath}" title="${hintTitle}">${displayKey}</span>`;
 
             if (typeof val === 'object' && val !== null) {
                 html += `<ul class="path-tree">${buildJsonNode(val, newPath)}</ul>`;
@@ -287,12 +380,15 @@
         const type = $('#doc-type').val();
         localStorage.setItem('xpath_tester_type', type);
 
+        const inputQ = $('#query-input');
         if (type === 'xml') {
             editorIn.setOption('mode', 'xml');
-            $('#query-input').attr('placeholder', 'Например: //ClientInfo/Address[1]/City');
+            const phXml = typeof window.t === 'function' ? window.t('xt_ph_xml', 'Например: //ClientInfo/Address[1]/City') : 'Например: //ClientInfo/Address[1]/City';
+            inputQ.attr('placeholder', phXml);
         } else {
             editorIn.setOption('mode', 'application/json');
-            $('#query-input').attr('placeholder', 'Например: root.client.address[0].city');
+            const phJson = typeof window.t === 'function' ? window.t('xt_ph_json', 'Например: root.client.address[0].city') : 'Например: root.client.address[0].city';
+            inputQ.attr('placeholder', phJson);
         }
 
         if (clearPayload && editorIn.getValue().trim() === '') {
@@ -320,7 +416,8 @@
                 const doc = parser.parseFromString(payload, "text/xml");
 
                 if (doc.getElementsByTagName("parsererror").length > 0) {
-                    throw new Error("Невалидный XML");
+                    const errXml = typeof window.t === 'function' ? window.t('xt_err_invalid_xml', 'Невалидный XML') : 'Невалидный XML';
+                    throw new Error(errXml);
                 }
 
                 const nsResolver = doc.createNSResolver(doc.documentElement);
@@ -350,7 +447,12 @@
 
             } else {
                 let root;
-                try { root = JSON.parse(payload); } catch(e) { throw new Error("Невалидный JSON"); }
+                try {
+                    root = JSON.parse(payload);
+                } catch(e) {
+                    const errJson = typeof window.t === 'function' ? window.t('xt_err_invalid_json', 'Невалидный JSON') : 'Невалидный JSON';
+                    throw new Error(errJson);
+                }
 
                 let jsQuery = query.startsWith('$') ? query.replace('$', 'root') : query;
                 if (!jsQuery.startsWith('root') && !jsQuery.startsWith('[')) {
@@ -379,20 +481,27 @@
                 renderResults(results, out, countBox, paths);
             }
         } catch (e) {
-            out.html(`<span class="error-msg">❌ Ошибка выполнения:<br><br>${escapeHtml(e.message)}</span>`);
-            countBox.text('Ошибка');
+            const errEval = typeof window.t === 'function' ? window.t('xt_err_eval', '❌ Ошибка выполнения:<br><br>') : '❌ Ошибка выполнения:<br><br>';
+            const lblErr = typeof window.t === 'function' ? window.t('xt_lbl_error', 'Ошибка') : 'Ошибка';
+            out.html(`<span class="error-msg">${errEval}${escapeHtml(e.message)}</span>`);
+            countBox.text(lblErr);
         }
     }
 
     function renderResults(results, outContainer, countBox, paths = []) {
         if (!results || results.length === 0) {
-            outContainer.html('<span style="color: #94a3b8;">По вашему запросу ничего не найдено.</span>');
-            countBox.text('0 совпадений');
+            const msgNothing = typeof window.t === 'function' ? window.t('xt_res_nothing', 'По вашему запросу ничего не найдено.') : 'По вашему запросу ничего не найдено.';
+            const msg0 = typeof window.t === 'function' ? window.t('xt_res_0_matches', '0 совпадений') : '0 совпадений';
+            outContainer.html(`<span style="color: var(--text-muted);">${msgNothing}</span>`);
+            countBox.text(msg0);
             return;
         }
 
-        countBox.text(`Найдено: ${results.length}`);
-        outContainer.append(`<span class="success-msg">✅ Успешно извлечено:</span>`);
+        const msgFound = typeof window.t === 'function' ? window.t('xt_res_found', 'Найдено: ') : 'Найдено: ';
+        const msgSuccess = typeof window.t === 'function' ? window.t('xt_res_success', '✅ Успешно извлечено:') : '✅ Успешно извлечено:';
+
+        countBox.text(`${msgFound}${results.length}`);
+        outContainer.append(`<span class="success-msg">${msgSuccess}</span>`);
 
         results.forEach((res, i) => {
             let displayStr = '';
@@ -404,7 +513,7 @@
 
             // Добавляем путь, если он есть в массиве paths
             const pathInfo = (paths && paths[i]) ?
-                `<div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px; font-family: monospace;">Path: ${escapeHtml(paths[i])}</div>` : '';
+                `<div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-family: monospace;">Path: ${escapeHtml(paths[i])}</div>` : '';
 
             outContainer.append(`
                 <div class="result-item">
@@ -456,17 +565,6 @@
         if (!text) return "";
         return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-    // Автоматическая смена темы CodeMirror
-    window.addEventListener('themeChanged', function(e) {
-        const isDark = e.detail.isDark;
-        const cmTheme = isDark ? 'dracula' : 'default';
-
-        // Перечисляем все переменные редакторов на странице (если они есть)
-        if (typeof editorOld !== 'undefined') editorOld.setOption('theme', cmTheme);
-        if (typeof editorNew !== 'undefined') editorNew.setOption('theme', cmTheme);
-        if (typeof cmEditor !== 'undefined') cmEditor.setOption('theme', cmTheme);
-        if (typeof editorJson !== 'undefined') editorJson.setOption('theme', cmTheme);
-    });
 </script>
 </body>
 </html>

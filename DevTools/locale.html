@@ -53,19 +53,33 @@
 
         .workspace { flex: 1; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: 0.3s; }
 
-        .panel-head { background: var(--bg-header); padding: 15px 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: 0.3s; }
+        .panel-head { background: var(--bg-header); padding: 15px 20px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: 0.3s; flex-wrap: wrap; gap: 10px; }
 
         .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); }
 
-        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; outline: none; }
         .btn.primary { background: #3b82f6; color: white; }
         .btn.primary:hover { background: #2563eb; }
         .btn.success { background: #10b981; color: white; }
         .btn.success:hover { background: #059669; }
         .btn.warning { background: #f59e0b; color: white; }
         .btn.warning:hover { background: #d97706; }
+        .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .btn.danger:hover { background: #ef4444; color: white; }
         .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
         .btn.secondary:hover { filter: brightness(0.95); }
+
+        select.btn { appearance: none; padding-right: 30px; background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right 10px top 50%; background-size: 10px auto; }
+
+        /* Модальные окна */
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--bg-card); color: var(--text-main); padding: 25px; border-radius: 8px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; border: 1px solid var(--border-color); }
+        .modal-title { margin-top: 0; font-size: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .close-modal { position: absolute; top: 20px; right: 20px; cursor: pointer; font-size: 24px; color: var(--text-muted); line-height: 1; }
+        .close-modal:hover { color: #ef4444; }
+
+        .radio-label { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; cursor: pointer; font-size: 13px; color: var(--text-main); }
+        .radio-label input { margin-top: 2px; }
 
         #toast { position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
@@ -76,29 +90,80 @@
     <div style="display: flex; align-items: center; gap: 15px;">
         <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
         <div>
-            <h2 data-i18n="loc_title">🌐 Глобальный словарь (Локаль)</h2>
-            <p data-i18n="loc_subtitle">Управление переводами интерфейса для всех модулей портала</p>
+            <h2 data-i18n="loc_title_isolated">🌐 Глобальная локализация</h2>
+            <p data-i18n="loc_subtitle_isolated">Управление переводами интерфейса. Каждый язык сохраняется в БД независимо.</p>
         </div>
     </div>
 </div>
 
 <div class="workspace">
     <div class="panel-head">
-        <span data-i18n="loc_editor_title">Редактор JSON-словаря</span>
-        <div>
-            <button class="btn warning" onclick="resetToDefault()" style="margin-right: 10px;">🔄 Сбросить к заводским (убрать дубли иконок)</button>
-            <button class="btn success" onclick="saveDictionaryToDB()" data-i18n="btn_save_dict">💾 Сохранить в БД</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span style="font-size: 13px; color: var(--text-muted);" data-i18n="loc_lbl_lang">Язык:</span>
+            <select id="lang-selector" class="btn secondary" onchange="switchLanguage(this.value)"></select>
+            <button class="btn secondary" onclick="addNewLanguage()" data-i18n="loc_btn_add">+ Добавить язык</button>
+            <button class="btn danger" onclick="deleteLanguage()" data-i18n="loc_btn_del">🗑 Удалить язык</button>
+
+            <div style="border-left: 1px solid var(--border-color); height: 20px; margin: 0 5px;"></div>
+
+            <button class="btn secondary" onclick="document.getElementById('file-upload').click()" data-i18n="loc_btn_upload">📥 Загрузить (Дополнить)</button>
+            <input type="file" id="file-upload" style="display:none;" accept=".json" onchange="handleFileUpload(event)">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-reset-default" class="btn warning" onclick="resetToDefault()">🔄 Заводской сброс</button>
+            <button class="btn success" onclick="saveDictionaryToDB()" data-i18n="btn_save_dict">💾 Сохранить язык в БД</button>
         </div>
     </div>
-    <div style="padding: 10px 20px; background: rgba(59, 130, 246, 0.05); border-bottom: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);" data-i18n="loc_hint">
-        Здесь хранятся все переводы портала. Для добавления нового языка скопируйте блок переводов и назовите его кодом (например, "es"). Не забудьте нажать "Сохранить в БД", чтобы изменения применились.
+    <div style="padding: 10px 20px; background: rgba(59, 130, 246, 0.05); border-bottom: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);">
+        <span data-i18n="loc_hint_p1">В редакторе отображаются ключи только для</span>
+        <b id="current-lang-lbl" style="color: var(--primary);">выбранного языка</b>.
+        <span data-i18n="loc_hint_p2">Сохранение применяется</span>
+        <b data-i18n="loc_hint_p3">только к текущей вкладке</b>.
     </div>
     <textarea id="dict-editor"></textarea>
+</div>
+
+<!-- Модальное окно режимов объединения -->
+<div id="merge-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="$('#merge-modal').fadeOut(150)">&times;</span>
+        <h2 class="modal-title">Режим загрузки словаря</h2>
+
+        <label class="radio-label">
+            <input type="radio" name="merge_mode" value="merge_all" checked>
+            <div>
+                <b>Обновить и добавить</b><br>
+                <span style="color: var(--text-muted); font-size: 11px;">Добавит новые ключи и обновит тексты существующих ключей. Старые ключи удалены не будут.</span>
+            </div>
+        </label>
+
+        <label class="radio-label">
+            <input type="radio" name="merge_mode" value="merge_new_only">
+            <div>
+                <b>Только добавить новые</b><br>
+                <span style="color: var(--text-muted); font-size: 11px;">Безопасное расширение: текущие переводы не изменятся, добавятся только недостающие ключи.</span>
+            </div>
+        </label>
+
+        <label class="radio-label">
+            <input type="radio" name="merge_mode" value="overwrite">
+            <div>
+                <b style="color: #ef4444;">Перезаписать полностью</b><br>
+                <span style="color: var(--text-muted); font-size: 11px;">Словарь будет полностью заменен файлом. Все старые ключи, которых нет в файле, будут удалены!</span>
+            </div>
+        </label>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:25px;">
+            <button class="btn secondary" onclick="$('#merge-modal').fadeOut(150)">Отмена</button>
+            <button class="btn primary" onclick="executeMerge()">Выполнить</button>
+        </div>
+    </div>
 </div>
 
 <div id="toast"></div>
 
 <script>
+    // Заводские настройки (ТЕПЕРЬ С ПОЛНЫМ АНГЛИЙСКИМ СЛОВАРЕМ!)
     const DEFAULT_DICTIONARY = {
         "ru": {
             "portal_title": "Инструменты для разработчика",
@@ -155,85 +220,76 @@
             "btn_logout": "Выйти из системы",
             "lbl_guest": "Гость",
             "btn_login": "Войти в систему",
-            "dash_title": "Обзор планов и задач",
-            "dash_subtitle": "Матрица: слева статус по пайплайну, по центру — дедлайны календаря.",
-            "dash_btn_release": "Собрать Релиз (Письмо)",
-            "dash_btn_refresh": "Обновить данные",
-            "dash_kpi_total": "Запланировано всего",
-            "dash_kpi_total_sub": "имеют даты плана",
-            "dash_kpi_active": "В активной работе",
-            "dash_kpi_active_sub": "Бэклог / Аналитика / Dev",
-            "dash_kpi_prod": "Внедрено (PROD)",
-            "dash_kpi_prod_sub": "завершенные интеграции",
-            "dash_kpi_blocked": "Отложено / Блок",
-            "dash_kpi_blocked_sub": "требуют внимания",
-            "dash_funnel": "Воронка (Все задачи)",
-            "stage_backlog": "Очередь (Backlog)",
-            "stage_analysis": "Аналитика",
-            "stage_dev": "В разработке",
-            "stage_test": "Тестирование",
-            "stage_prod": "Внедрение (Прод)",
-            "btn_all": "Все",
-            "dash_calendar": "Календарь (С датами)",
-            "cal_overdue": "Просрочено",
-            "cal_this_week": "Эта неделя",
-            "cal_next_week": "След. неделя",
-            "cal_future": "Позже",
-            "dash_archive": "Архив / Блок",
-            "stage_done": "Внедрено на ПРОД",
-            "stage_cancelled": "Спец. статусы (Отмена)",
-            "dash_table_title": "Детальный реестр планов (Кликните на заголовок для сортировки)",
-            "dash_table_hint": "По умолчанию свежие изменения всегда сверху",
-            "dash_search_placeholder": "Быстрый поиск по задаче, датам или заметкам...",
-            "th_task": "Задача ↕",
-            "th_system": "Система / Интерфейс ↕",
-            "th_start_dev": "НАЧАЛО РАЗРАБОТКИ ↕",
-            "th_end_dev": "ОКОНЧАНИЕ РАЗРАБОТКИ ↕",
-            "th_test": "ТЕСТ ↕",
-            "th_prod": "ПРОД ↕",
-            "th_notes": "Заметки (To-Do)",
-            "msg_loading": "Загрузка...",
-            "chart_stages": "Распределение по этапам",
-            "chart_systems": "Топ-5 загруженных систем",
-            "rm_title": "Генератор письма на Релиз",
-            "rm_subtitle": "Укажите задачи, проверьте чек-лист и скопируйте готовую таблицу. Ваш выбор сохраняется автоматически как Черновик!",
-            "rm_date_lbl": "Дата релиза:",
-            "rm_filter_lbl": "Категория задач для выбора:",
-            "rm_opt_prod": "Только Готовые к ПРОД / Установленные",
-            "rm_opt_test": "Только Готовые к TEST",
-            "rm_opt_all": "🌍 ПОКАЗАТЬ ВСЕ АКТИВНЫЕ ЗАДАЧИ",
-            "rm_warn_last": "⚠️ Это последний четверг месяца!",
-            "rm_step1": "1. Выберите задачи:",
-            "rm_btn_clear": "🗑 Очистить черновик",
-            "rm_search_ph": "🔍 Искать по: задаче, системе...",
-            "rm_th_task": "Задача / Контакт",
-            "rm_th_sys": "Система.Интерфейс",
-            "rm_step2": "2. Обязательный контроль:",
-            "rm_chk1": "Версии объектов в ALM совпадают с финальными",
-            "rm_chk2": "Скрипты миграции БД (Flyway/Liquibase) приложены",
-            "rm_chk3": "Маппинги и логика согласованы",
-            "rm_step3": "3. Готовое письмо:",
-            "rm_btn_copy": "📋 Скопировать письмо",
-            "err_auth_req": "Для просмотра дашборда необходимо авторизоваться в Реестре задач.",
-            "err_no_links": "В этой группе нет ссылок на ALM.",
-            "lbl_tasks_no_links": "Задач без ссылок:",
-            "confirm_open_tabs": "Готовим к открытию:",
-            "lbl_tabs": "вкладок.",
-            "msg_allow_popups": "Разрешите всплывающие окна в браузере.\nПродолжить?",
-            "err_load_dash": "Ошибка загрузки данных для дашборда.",
-            "msg_no_data": "Нет данных",
-            "lbl_none": "Нет",
-            "lbl_no_systems": "Системы не указаны",
-            "lbl_no_status": "Без статуса",
-            "btn_open": "Открыть",
-            "rm_no_tasks": "Нет подходящих задач",
-            "confirm_clear_draft": "Очистить черновик?",
-            "rm_email_hi": "Добрый день!",
-            "rm_email_req": "Прошу взять в Релиз следующие задачи на",
-            "lbl_integration": "Интеграция",
-            "rm_email_none": "Задачи не выбраны",
-            "msg_copied_outlook": "Скопировано для Outlook.",
-            "err_copy": "Ошибка копирования.",
+            "loc_title_isolated": "🌐 Глобальная локализация",
+            "loc_subtitle_isolated": "Управление переводами интерфейса. Каждый язык сохраняется в БД независимо.",
+            "loc_lbl_lang": "Язык:",
+            "loc_btn_add": "+ Добавить язык",
+            "loc_btn_del": "🗑 Удалить язык",
+            "loc_btn_upload": "📥 Загрузить (Дополнить)",
+            "btn_save_dict": "💾 Сохранить язык в БД",
+            "loc_hint_p1": "В редакторе отображаются ключи только для",
+            "loc_hint_p2": ". Сохранение применяется",
+            "loc_hint_p3": "только к текущей вкладке",
+            "btn_home": "🏠 Домой",
+            "auth_login_title": "Вход в систему",
+            "auth_err_invalid": "Неверный логин или пароль",
+            "auth_err_empty": "Введите логин и пароль",
+            "auth_lbl_login": "Логин / Username",
+            "auth_lbl_pass": "Пароль",
+            "auth_btn_submit": "Авторизоваться",
+            "auth_ph_login": "Например: admin",
+            "auth_ph_pass": "Введите пароль",
+            "lbl_page_title": "База Знаний (Метки)",
+            "lbl_ph_search": "Введите название или фрагмент кода для поиска...",
+            "lbl_ph_modal_title": "Пример: Auth Header JSON",
+            "lbl_top_labels": "🔥 Часто используемые метки",
+            "lbl_all_cat": "📁 Все категории",
+            "lbl_btn_new_cat": "+ Новая категория",
+            "lbl_empty_title": "База знаний пуста",
+            "lbl_empty_desc": "База знаний (метки) — это место для хранения сниппетов кода, шаблонов писем, тестовых JSON и частых команд, чтобы не искать их по чатам.",
+            "lbl_empty_rec": "Рекомендуемая структура:",
+            "lbl_empty_1": "Регламенты:",
+            "lbl_empty_1_desc": "Шаблоны писем на релиз, чеклисты.",
+            "lbl_empty_2": "Аналитика:",
+            "lbl_empty_2_desc": "WSDL/Swagger ссылки, контракты.",
+            "lbl_empty_3": "Разработка:",
+            "lbl_empty_3_desc": "Groovy/SQL сниппеты, маппинги.",
+            "lbl_empty_4": "Тестирование:",
+            "lbl_empty_4_desc": "cURL команды, моки, тестовые учётки.",
+            "lbl_empty_5": "Инфраструктура:",
+            "lbl_empty_5_desc": "Скрипты отката, команды логов.",
+            "lbl_btn_base_create": "Создать базовую структуру",
+            "lbl_btn_add_lbl": "Добавить метку",
+            "lbl_btn_del_cat": "Удалить категорию",
+            "lbl_hint_view": "Просмотр",
+            "lbl_hint_copied": "Скопировано раз",
+            "lbl_hint_click_view": "Кликни для просмотра полного текста",
+            "lbl_hint_copy": "Скопировать содержимое в буфер",
+            "btn_copy": "Скопировать",
+            "btn_edit": "Редактировать",
+            "btn_delete": "Удалить",
+            "lbl_msg_cat_empty": "Категория пуста",
+            "lbl_prompt_new_cat": "Название новой категории:",
+            "lbl_err_cat_add": "Ошибка создания категории",
+            "lbl_conf_del_cat": "ВНИМАНИЕ! Удалить категорию и ВСЕ метки внутри неё? Действие необратимо.",
+            "lbl_err_del": "Ошибка удаления",
+            "lbl_modal_new": "Новая метка",
+            "lbl_modal_edit": "Редактирование метки",
+            "lbl_modal_cat": "Категория",
+            "lbl_modal_name": "Название метки",
+            "lbl_modal_content": "Содержимое кода / Текст",
+            "lbl_err_empty_name": "Укажите название метки!",
+            "lbl_msg_saved": "Сохранено!",
+            "lbl_err_save": "Ошибка: ",
+            "lbl_conf_del_lbl": "Точно удалить метку?",
+            "lbl_syn_plain": "Без подсветки (Plain)",
+            "btn_copy_code": "Копировать код",
+            "btn_copied": "Скопировано",
+            "lbl_msg_copied": "Текст скопирован в буфер!",
+            "lbl_err_copy": "Ошибка копирования",
+            "lbl_creating": "Создание...",
+            "lbl_base_created": "Базовая структура успешно создана!",
+            "lbl_err_base_create": "Ошибка создания структуры",
             "tt_page_title": "Ведение задач",
             "tt_search_ph": "🔍 Глобальный поиск по всем полям...",
             "tt_sys_all": "🌍 Все системы",
@@ -241,7 +297,6 @@
             "tt_btn_refresh": "🔄 Обновить",
             "tt_btn_reset": "✖ Сброс фильтров",
             "tt_btn_bulk": "⚡ Массовое изменение",
-            "btn_delete": "🗑 Удалить",
             "tt_btn_create": "➕ Создать задачу",
             "tt_btn_edit": "✏️ Изменить",
             "tt_btn_clone": "👯 Клонировать",
@@ -254,8 +309,8 @@
             "tt_th_status": "Этап / Статус",
             "tt_th_dates": "Даты (План)",
             "tt_th_notes": "Заметки / Ссылки",
+            "ph_filter": "Фильтр...",
             "tt_form_new": "Создание новой задачи",
-            "tt_form_edit": "Редактирование: ",
             "tt_btn_cancel": "Отмена (Назад к списку)",
             "tt_btn_alm": "📥 Подтянуть из JIRA/ALM",
             "tt_btn_save": "💾 Сохранить задачу",
@@ -284,7 +339,7 @@
             "tt_lbl_notes": "📝 Чек-лист / Заметки к задаче",
             "tt_lbl_tags": "Ключевые слова (Теги для поиска)",
             "tt_bulk_title": "⚡ Массовое изменение задач",
-            "tt_bulk_desc": "Укажите значения, которые нужно применить ко всем выбранным задачам.",
+            "tt_bulk_desc": "Укажите значения, которые нужно применить ко всем выбранным задачам. Оставьте поле пустым, если его менять не нужно.",
             "tt_bulk_status": "Общий Статус:",
             "tt_bulk_apply": "Применить изменения",
             "tt_alm_title": "📥 Загрузка из ALM / JIRA",
@@ -297,230 +352,92 @@
             "tt_copy_target_lbl": "Задача-получатель (Цель):",
             "tt_copy_noconfirm": "Выполнять без дополнительных подтверждений",
             "tt_copy_btn": "Скопировать",
-            "ph_filter": "Фильтр...",
-            "err_load_settings": "Ошибка загрузки настроек",
-            "err_load_tasks": "Ошибка загрузки задач",
-            "tt_no_data": "Ничего не найдено",
-            "tt_lbl_start_short": "Старт:",
-            "tt_lbl_test_short": "Тест:",
-            "tt_lbl_prod_short": "Прод:",
-            "lbl_spec_wiki": "ТЗ / Wiki",
-            "lbl_unassigned": "Не назначен",
-            "lbl_new": "Новая",
-            "lbl_queued": "В очереди",
-            "tt_conf_delete_multi": "Вы уверены, что хотите удалить выбранные задачи?",
-            "msg_deleted": "Успешно удалено!",
-            "err_delete": "Ошибка удаления",
-            "tt_conf_clone": "Создать копию задачи?",
-            "lbl_copy": "(Копия)",
-            "msg_cloned": "Копия создана!",
-            "err_clone": "Ошибка клонирования: ",
-            "tt_copy_title_flows": "🔄 Копирование потоков",
-            "tt_copy_title_spec": "📄 Копирование ТЗ",
-            "tt_copy_target_def": "-- Выберите задачу-получатель --",
-            "tt_err_select_target": "Пожалуйста, выберите задачу-цель из списка!",
-            "lbl_flows": "ПОТОКИ",
-            "lbl_spec": "ТЗ",
-            "tt_conf_copy_data": "Вы подтверждаете копирование данных в выбранную задачу?",
-            "msg_copied": "Успешно скопировано!",
-            "tt_err_empty_task": "Название/Номер задачи обязательны!",
-            "msg_saved": "Успешно сохранено!",
-            "tt_err_empty_bulk": "Вы не выбрали ни одного значения для изменения.",
-            "lbl_updating": "⏳ Обновление...",
-            "msg_updated": "Обновлено",
-            "lbl_loading": "⏳ Загрузка...",
-            "msg_alm_loaded": "Данные ALM загружены",
-            "dtbl_page_title": "Справочники таблиц",
-            "dtbl_title": "🏢 Справочники Данных",
-            "dtbl_env_title": "🌍 Окружения (Hosts)",
-            "dtbl_btn_save": "💾 Сохранить",
-            "dtbl_env_desc": "Используется для подсветки PROD/TEST в истории.",
-            "dtbl_ph_host": "Хост (brmq-dev1)",
-            "dtbl_loading": "Загрузка...",
-            "dtbl_sys_title": "🖥️ Системы (BS)",
-            "dtbl_sys_desc": "Используется в конструкторах потоков.",
-            "dtbl_ph_sid": "ID (BS_CRM)",
-            "dtbl_ph_desc": "Описание",
-            "dtbl_btn_add": "Добавить",
-            "dtbl_stg_title": "🗂️ Жизненный цикл задач",
-            "dtbl_stg_desc": "Определяет Этапы и Статусы. Статусы вводите через запятую.",
-            "dtbl_ph_stage": "Название нового этапа",
-            "dtbl_empty": "Список пуст",
-            "dtbl_conf_del_sys": "Удалить систему?",
-            "dtbl_conf_del_stg": "Точно удалить этап и все его статусы?",
-            "dtbl_default_status": "Новая",
-            "dtbl_msg_saved": "✅ Успешно сохранено в БД!",
-            "dtbl_err_save": "Ошибка: ",
-            "dt_page_title": "Настройка шаблонов ТЗ",
-            "dt_title": "Настройка шаблонов документации",
-            "dt_panel_title": "Конструктор разделов (Generator Template)",
-            "dt_panel_desc": "Настройте какие разделы будут создаваться для разных типов интеграций.",
-            "dt_btn_save": "💾 Сохранить структуру",
-            "dt_lbl_mode": "Выберите тип интеграции для редактирования:",
-            "dt_opt_sync": "Синхронный (REST / SOAP Request-Response)",
-            "dt_opt_async": "Асинхронный (Kafka / MQ One-Way)",
-            "dt_opt_multi": "Мульти-обмен (Complex / Saga)",
-            "dt_lbl_list": "Список разделов:",
-            "dt_btn_add": "+ Добавить новый раздел",
-            "dt_hint_word": "💡 Подсказка:",
-            "dt_hint_drag": "Перетаскивайте разделы за иконку <b>☰</b>, чтобы изменить их порядок в итоговом документе.",
-            "dt_modal_title": "Контент раздела",
-            "dt_btn_full": "⤢ На весь экран",
-            "dt_btn_collapse": "⤡ Свернуть",
-            "dt_lbl_type": "Тип раздела:",
-            "dt_opt_text": "Текстовое описание (HTML)",
-            "dt_opt_mermaid": "Диаграмма (Mermaid)",
-            "dt_opt_table": "Таблица (Generic)",
-            "dt_opt_passport": "Авто: Паспорт документа",
-            "dt_opt_history": "Авто: История изменений",
-            "dt_lbl_def": "Содержимое по умолчанию («Рыба»):",
-            "dt_btn_cancel": "Отмена",
-            "dt_btn_apply": "Применить",
-            "dt_err_read_file": "Ошибка чтения файла: ",
-            "dt_err_load": "Не удалось загрузить настройки.",
-            "dt_empty_tpl": "Шаблон пуст. Нажмите '+ Добавить раздел'",
-            "dt_type_text": "Текст",
-            "dt_type_mermaid": "Схема",
-            "dt_type_table": "Таблица",
-            "dt_type_passport": "Паспорт",
-            "dt_type_history": "История",
-            "dt_btn_delete": "Удалить",
-            "dt_new_sec": "Новый раздел",
-            "dt_conf_del": "Удалить этот раздел?",
-            "dt_modal_edit": "Настройка: ",
-            "dt_saving": "Сохранение...",
-            "dt_saved": "✅ Сохранено",
-            "dt_err_save": "Ошибка сохранения: ",
-            "loc_page_title": "Глобальная локализация",
-            "loc_title": "🌐 Глобальный словарь (Локаль)",
-            "loc_subtitle": "Управление переводами интерфейса для всех модулей портала",
-            "loc_editor_title": "Редактор JSON-словаря",
-            "btn_save_dict": "💾 Сохранить в БД",
-            "loc_hint": "Здесь хранятся все переводы портала. Для добавления нового языка скопируйте блок переводов и назовите его кодом (например, \"es\"). Не забудьте нажать \"Сохранить в БД\", чтобы изменения применились.",
-            "loc_err_json": "Ошибка! Невалидный JSON. Проверьте синтаксис.",
-            "loc_msg_saved": "Словарь успешно сохранен в БД!",
-            "loc_err_save": "Ошибка при сохранении: ",
-            "theme_light": "☀️ Светлая тема",
-            "theme_dark": "🌙 Темная тема",
-            "Единое Окно": "Единое Окно",
-            "Онлайн": "Онлайн",
-            "Афина Восток": "Афина Восток",
-            "Афина Запад": "Афина Запад",
-            "Афина Москва": "Афина Москва",
-            "Фактор": "Фактор",
-            "Наумен": "Наумен",
-            "ДБО Корп": "ДБО Корп",
-            "Этап 1: Очередь (Backlog)": "Этап 1: Очередь (Backlog)",
-            "Новая": "Новая",
-            "Взято в работу": "Взято в работу",
-            "Оценка": "Оценка",
-            "В очереди": "В очереди",
-            "Этап 2: Аналитика (Analysis)": "Этап 2: Аналитика (Analysis)",
-            "Анализ": "Анализ",
-            "Проектирование / ТЗ": "Проектирование / ТЗ",
-            "Согласование ТЗ": "Согласование ТЗ",
-            "Этап 3: Разработка (Dev)": "Этап 3: Разработка (Dev)",
-            "В разработке": "В разработке",
-            "Code Review": "Code Review",
-            "Исправление замечаний": "Исправление замечаний",
-            "Dev Тест пройден": "Dev Тест пройден",
-            "Этап 4: Тестирование (Test/UAT)": "Этап 4: Тестирование (Test/UAT)",
-            "Готово к установке (TEST)": "Готово к установке (TEST)",
-            "Установлено (TEST)": "Установлено (TEST)",
-            "Тестирование": "Тестирование",
-            "Приемка (UAT)": "Приемка (UAT)",
-            "Этап 5: Внедрение (Prod)": "Этап 5: Внедрение (Prod)",
-            "Готово к внедрению (PROD)": "Готово к внедрению (PROD)",
-            "Установка (PROD)": "Установка (PROD)",
-            "Внедрение завершено": "Внедрение завершено",
-            "Специальные": "Специальные",
-            "Приостановлено (On Hold)": "Приостановлено (On Hold)",
-            "Заблокировано (Blocked)": "Заблокировано (Blocked)",
-            "Отменено": "Отменено",
-            "lbl_not_specified": "Не указано",
-            "btn_home": "🏠 Домой",
-            "lbl_page_title": "Управление метками",
-            "lbl_ph_search": "Введите название или фрагмент кода для поиска...",
-            "lbl_top_labels": "🔥 Часто используемые метки",
-            "lbl_all_cat": "📁 Все категории",
-            "lbl_btn_new_cat": "+ Новая категория",
-            "lbl_modal_new": "Новая метка",
-            "lbl_modal_cat": "Категория",
-            "lbl_modal_name": "Название метки",
-            "lbl_modal_content": "Содержимое кода / Текст",
             "btn_cancel": "Отмена",
-            "btn_save": "Сохранить",
-            "lbl_syn_plain": "Без подсветки (Plain)",
-            "btn_copy_code": "📋 Копировать код",
-            "lbl_err_load": "Ошибка загрузки данных с сервера",
-            "lbl_creating": "Создание...",
-            "lbl_base_created": "Базовая структура успешно создана!",
-            "lbl_err_base_create": "Ошибка создания структуры",
-            "lbl_btn_base_create": "Создать базовую структуру",
-            "lbl_hint_view": "Просмотр",
-            "lbl_empty_title": "База знаний пуста",
-            "lbl_empty_desc": "База знаний (метки) — это место для хранения сниппетов кода, шаблонов писем, тестовых JSON и частых команд, чтобы не искать их по чатам.",
-            "lbl_empty_rec": "Рекомендуемая структура:",
-            "lbl_empty_1": "Регламенты:",
-            "lbl_empty_1_desc": "Шаблоны писем на релиз, чеклисты.",
-            "lbl_empty_2": "Аналитика:",
-            "lbl_empty_2_desc": "WSDL/Swagger ссылки, контракты.",
-            "lbl_empty_3": "Разработка:",
-            "lbl_empty_3_desc": "Groovy/SQL сниппеты, маппинги.",
-            "lbl_empty_4": "Тестирование:",
-            "lbl_empty_4_desc": "cURL команды, моки, тестовые учётки.",
-            "lbl_empty_5": "Инфраструктура:",
-            "lbl_empty_5_desc": "Скрипты отката, команды логов.",
-            "lbl_btn_add_lbl": "Добавить метку",
-            "lbl_btn_del_cat": "Удалить категорию",
-            "lbl_hint_copied": "Скопировано раз",
-            "lbl_hint_click_view": "Кликни для просмотра полного текста",
-            "lbl_hint_copy": "Скопировать содержимое в буфер",
-            "btn_copy": "Скопировать",
-            "btn_edit": "Редактировать",
-            "btn_delete": "Удалить",
-            "lbl_msg_cat_empty": "Категория пуста",
-            "lbl_prompt_new_cat": "Название новой категории:",
-            "lbl_err_cat_add": "Ошибка создания категории",
-            "lbl_conf_del_cat": "ВНИМАНИЕ! Удалить категорию и ВСЕ метки внутри неё? Действие необратимо.",
-            "lbl_err_del": "Ошибка удаления",
-            "lbl_modal_edit": "Редактирование метки",
-            "lbl_err_empty_name": "Укажите название метки!",
-            "lbl_msg_saved": "Сохранено!",
-            "lbl_err_save": "Ошибка: ",
-            "lbl_conf_del_lbl": "Точно удалить метку?",
-            "btn_copied": "Скопировано",
-            "lbl_msg_copied": "Текст скопирован в буфер!",
-            "lbl_err_copy": "Ошибка копирования",
-            "jsb_page_title": "JSON Schema Builder (100% Offline)",
-            "jsb_title": "🌐 JSON Schema Builder (Safe Merge)",
-            "jsb_btn_import": "📥 Импорт JSON / Schema",
-            "jsb_btn_copy": "📋 Копировать Schema",
-            "jsb_tree_title": "Структура документа",
-            "jsb_select_node": "Выберите узел в дереве для редактирования свойств...",
-            "jsb_schema_title": "Сгенерированная JSON Schema",
-            "jsb_modal_desc": "Вставьте JSON объект или готовую JSON Schema. Система автоматически распознает формат.",
-            "jsb_search_ph": "🔍 Поиск по дереву...",
-            "jsb_err_invalid_extra": "Ошибка: Невалидный JSON в дополнительных свойствах!",
-            "jsb_node_not_found": "Узел не найден",
-            "jsb_props_title": "Свойства:",
-            "jsb_lbl_key": "Имя ключа",
-            "jsb_lbl_type": "Тип",
-            "jsb_opt_notype": "- Без типа (anyOf/$ref) -",
-            "jsb_lbl_title": "Заголовок (Title)",
-            "jsb_lbl_desc": "Описание",
-            "jsb_lbl_arr_type": "Тип элементов массива",
-            "jsb_lbl_req": "Обязательное (Required)",
-            "jsb_lbl_add_props": "Доп. свойства (AdditionalProperties)",
-            "jsb_lbl_extra_props": "⚙️ Доп. свойства JSON (anyOf, enum, pattern, $ref...)",
-            "jsb_btn_add_field": "+ Добавить поле",
-            "jsb_btn_import_here": "📥 Импорт JSON сюда",
-            "jsb_modal_title_global": "Импорт JSON / Schema (Заменить всю структуру)",
-            "jsb_modal_title_branch": "Импорт JSON / Schema в ветку: ",
-            "jsb_err_parse": "Ошибка разбора JSON: ",
-            "jsb_msg_copied": "JSON Schema скопирована в буфер обмена!",
-            "loc_conf_reset": "Это заменит все ваши текущие переводы на чистый эталонный словарь (без двойных иконок). Продолжить?",
-            "loc_msg_reset": "Словарь сброшен. Не забудьте нажать 'Сохранить в БД'!"
+            "tt_ph_num": "JIRA-123",
+            "tt_ph_url": "https://jira.company.com/browse/TASK-123",
+            "tt_ph_iface": "si_ao_MultiAccount...",
+            "tt_ph_contact": "ФИО / Telegram",
+            "tt_ph_alm": "TASK-1234",
+            "STAGE_BACKLOG": "Этап 1: Очередь (Backlog)",
+            "STAGE_ANALYSIS": "Этап 2: Аналитика (Analysis)",
+            "STAGE_DEV": "Этап 3: Разработка (Dev)",
+            "STAGE_TEST": "Этап 4: Тестирование (Test/UAT)",
+            "STAGE_PROD": "Этап 5: Внедрение (Prod)",
+            "STAGE_SPECIAL": "Специальные",
+            "STATUS_NEW": "Новая",
+            "STATUS_OPEN": "Открыта",
+            "STATUS_IN_PROGRESS": "Взято в работу",
+            "STATUS_ESTIMATION": "Оценка",
+            "STATUS_QUEUED": "В очереди",
+            "STATUS_ANALYSIS": "Анализ",
+            "STATUS_DESIGN": "Проектирование / ТЗ",
+            "STATUS_AGREEMENT": "Согласование ТЗ",
+            "STATUS_FORMING_TZ": "Формирование ТЗ",
+            "STATUS_FORMING_BT": "Формирование БТ",
+            "STATUS_DEV": "В разработке",
+            "STATUS_CODE_REVIEW": "Code Review",
+            "STATUS_FIXING": "Исправление замечаний",
+            "STATUS_DEV_TEST_PASSED": "Dev Тест пройден",
+            "STATUS_READY_FOR_TEST": "Готова к тестированию",
+            "STATUS_INSTALLED_TEST": "Установлено (Test)",
+            "STATUS_TESTING": "Тестирование",
+            "STATUS_UAT": "Приемка (UAT)",
+            "STATUS_READY_FOR_PROD": "Готова к внедрению",
+            "STATUS_INSTALLATION_PROD": "Установка (Prod)",
+            "STATUS_PROD_DONE": "Внедрение завершено",
+            "STATUS_ON_HOLD": "Приостановлено (On Hold)",
+            "STATUS_BLOCKED": "Заблокировано (Blocked)",
+            "STATUS_CANCELLED": "Отменено",
+            "dash_title": "Главный Дашборд",
+            "dash_subtitle": "Матрица: слева статус по пайплайну, по центру — дедлайны календаря.",
+            "dash_btn_release": "🚀 Собрать Релиз (Письмо)",
+            "dash_btn_refresh": "🔄 Обновить данные",
+            "dash_kpi_total": "Запланировано всего",
+            "dash_kpi_total_sub": "имеют даты плана",
+            "dash_kpi_active": "В активной работе",
+            "dash_kpi_active_sub": "Бэклог / Аналитика / Dev",
+            "dash_kpi_prod": "Внедрено (PROD)",
+            "dash_kpi_prod_sub": "завершенные интеграции",
+            "dash_kpi_blocked": "Отложено / Блок",
+            "dash_kpi_blocked_sub": "требуют внимания",
+            "dash_funnel": "Воронка (Все задачи)",
+            "dash_calendar": "Календарь (С датами)",
+            "cal_overdue": "Просрочено",
+            "cal_this_week": "Эта неделя",
+            "cal_next_week": "След. неделя",
+            "cal_future": "Позже",
+            "dash_archive": "Архив / Блок",
+            "dash_table_title": "📑 Детальный реестр планов (Кликните на заголовок для сортировки)",
+            "dash_table_hint": "По умолчанию свежие изменения всегда сверху",
+            "dash_search_placeholder": "🔍 Быстрый поиск по задаче, датам или заметкам...",
+            "th_task": "Задача ↕",
+            "th_system": "Система / Интерфейс ↕",
+            "th_start_dev": "НАЧАЛО РАЗРАБОТКИ ↕",
+            "th_end_dev": "ОКОНЧАНИЕ РАЗРАБОТКИ ↕",
+            "th_test": "ТЕСТ ↕",
+            "th_prod": "ПРОД ↕",
+            "th_notes": "Заметки (To-Do)",
+            "msg_loading": "Загрузка...",
+            "chart_stages": "Распределение по этапам",
+            "chart_systems": "Топ-5 загруженных систем",
+            "rm_title": "🚀 Генератор письма на Релиз",
+            "rm_subtitle": "Укажите задачи, проверьте чек-лист и скопируйте готовую таблицу. \nВаш выбор сохраняется автоматически как Черновик!",
+            "rm_date_lbl": "Дата релиза:",
+            "rm_filter_lbl": "Категория задач для выбора:",
+            "rm_opt_prod": "Только Готовые к ПРОД / Установленные",
+            "rm_opt_test": "Только Готовые к TEST",
+            "rm_opt_all": "🌍 ПОКАЗАТЬ ВСЕ АКТИВНЫЕ ЗАДАЧИ",
+            "rm_step1": "1. Выберите задачи:",
+            "rm_btn_clear": "🗑 Очистить черновик",
+            "rm_search_ph": "🔍 Искать по: задаче, системе...",
+            "rm_th_task": "Задача / Контакт",
+            "rm_th_sys": "Система.Интерфейс",
+            "rm_step2": "2. Обязательный контроль:",
+            "rm_chk1": "Версии объектов в ALM совпадают с финальными",
+            "rm_chk2": "Скрипты миграции БД (Flyway/Liquibase) приложены",
+            "rm_chk3": "Маппинги и логика согласованы",
+            "rm_step3": "3. Готовое письмо:",
+            "rm_btn_copy": "📋 Скопировать письмо"
         },
         "en": {
             "portal_title": "Developer Tools",
@@ -577,309 +494,31 @@
             "btn_logout": "Logout",
             "lbl_guest": "Guest",
             "btn_login": "Login",
-            "dash_title": "Plans and Tasks Overview",
-            "dash_subtitle": "Matrix: pipeline status on left, calendar deadlines in center.",
-            "dash_btn_release": "Build Release (Email)",
-            "dash_btn_refresh": "Refresh Data",
-            "dash_kpi_total": "TOTAL PLANNED",
-            "dash_kpi_total_sub": "have plan dates",
-            "dash_kpi_active": "IN ACTIVE WORK",
-            "dash_kpi_active_sub": "Backlog / Analysis / Dev",
-            "dash_kpi_prod": "DEPLOYED (PROD)",
-            "dash_kpi_prod_sub": "completed integrations",
-            "dash_kpi_blocked": "DELAYED / BLOCKED",
-            "dash_kpi_blocked_sub": "require attention",
-            "dash_funnel": "FUNNEL (ALL TASKS)",
-            "stage_backlog": "BACKLOG",
-            "stage_analysis": "ANALYSIS",
-            "stage_dev": "IN DEVELOPMENT",
-            "stage_test": "TESTING",
-            "stage_prod": "DEPLOYMENT (PROD)",
-            "btn_all": "All",
-            "dash_calendar": "CALENDAR (WITH DATES)",
-            "cal_overdue": "OVERDUE",
-            "cal_this_week": "THIS WEEK",
-            "cal_next_week": "NEXT WEEK",
-            "cal_future": "FUTURE",
-            "dash_archive": "ARCHIVE / BLOCK",
-            "stage_done": "DEPLOYED TO PROD",
-            "stage_cancelled": "SPECIAL STATUS (CANCELLED)",
-            "dash_table_title": "PLANS AND TASKS DETAILED REGISTER (Click header to sort)",
-            "dash_table_hint": "By default fresh changes always on top",
-            "dash_search_placeholder": "Quick search by task, dates or notes...",
-            "th_task": "Task ↕",
-            "th_system": "System / Interface ↕",
-            "th_start_dev": "START DEV ↕",
-            "th_end_dev": "END DEV ↕",
-            "th_test": "TEST ↕",
-            "th_prod": "PROD ↕",
-            "th_notes": "Notes (To-Do)",
-            "msg_loading": "Loading...",
-            "chart_stages": "Stages Distribution",
-            "chart_systems": "Top 5 loaded systems",
-            "rm_title": "Release Email Generator",
-            "rm_subtitle": "Select tasks, check to-do list and copy the table. Your selection is automatically saved as Draft!",
-            "rm_date_lbl": "Release date:",
-            "rm_filter_lbl": "Task category to select:",
-            "rm_opt_prod": "Only Ready for PROD / Installed",
-            "rm_opt_test": "Only Ready for TEST",
-            "rm_opt_all": "🌍 SHOW ALL ACTIVE TASKS",
-            "rm_warn_last": "⚠️ This is the last Thursday of the month!",
-            "rm_step1": "1. Select tasks:",
-            "rm_btn_clear": "🗑 Clear draft",
-            "rm_search_ph": "🔍 Search by: task, system...",
-            "rm_th_task": "Task / Contact",
-            "rm_th_sys": "System.Interface",
-            "rm_step2": "2. Mandatory control:",
-            "rm_chk1": "ALM object versions match final ones",
-            "rm_chk2": "DB migration scripts are attached",
-            "rm_chk3": "Mappings and logic are agreed",
-            "rm_step3": "3. Final Email:",
-            "rm_btn_copy": "📋 Copy email",
-            "err_auth_req": "You need to log in to view the dashboard.",
-            "err_no_links": "No ALM links in this group.",
-            "lbl_tasks_no_links": "Tasks without links:",
-            "confirm_open_tabs": "Preparing to open:",
-            "lbl_tabs": "tabs.",
-            "msg_allow_popups": "Allow pop-ups in browser.\nContinue?",
-            "err_load_dash": "Dashboard data loading error.",
-            "msg_no_data": "No data",
-            "lbl_none": "None",
-            "lbl_no_systems": "Systems not specified",
-            "lbl_no_status": "No status",
-            "btn_open": "Open",
-            "rm_no_tasks": "No suitable tasks",
-            "confirm_clear_draft": "Clear draft?",
-            "rm_email_hi": "Good afternoon!",
-            "rm_email_req": "Please include the following tasks in the Release for",
-            "lbl_integration": "Integration",
-            "rm_email_none": "No tasks selected",
-            "msg_copied_outlook": "Copied for Outlook.",
-            "err_copy": "Copy error.",
-            "tt_page_title": "Task Tracker",
-            "tt_search_ph": "🔍 Global search across all fields...",
-            "tt_sys_all": "🌍 All systems",
-            "tt_stg_all": "📋 All stages",
-            "tt_btn_refresh": "🔄 Refresh",
-            "tt_btn_reset": "✖ Reset filters",
-            "tt_btn_bulk": "⚡ Bulk Edit",
-            "btn_delete": "🗑 Delete",
-            "tt_btn_create": "➕ Create task",
-            "tt_btn_edit": "✏️ Edit",
-            "tt_btn_clone": "👯 Clone",
-            "tt_btn_copy_flows": "🔄 Copy flows",
-            "tt_btn_copy_spec": "📄 Copy Spec",
-            "tt_btn_int_flows": "🔌 Int. flows",
-            "tt_btn_gen_spec": "📑 Spec Gen",
-            "tt_th_task": "Task",
-            "tt_th_sys": "System / Interface",
-            "tt_th_status": "Stage / Status",
-            "tt_th_dates": "Dates (Plan)",
-            "tt_th_notes": "Notes / Links",
-            "tt_form_new": "Create new task",
-            "tt_form_edit": "Edit: ",
-            "tt_btn_cancel": "Cancel (Back to list)",
-            "tt_btn_alm": "📥 Fetch from JIRA/ALM",
-            "tt_btn_save": "💾 Save task",
-            "tt_lbl_num": "Title / Task Number *",
-            "tt_lbl_url": "Task URL",
-            "tt_lbl_sys_iface": "Systems and Interface",
-            "tt_lbl_sender": "Sender",
-            "tt_lbl_receiver": "Receiver",
-            "tt_lbl_iface_name": "Interface Name",
-            "tt_lbl_conn_type": "Connection Type",
-            "tt_opt_choose": "- Select -",
-            "tt_opt_sync": "Synchronous (REST/SOAP)",
-            "tt_opt_async": "Asynchronous (MQ/Kafka)",
-            "tt_opt_file": "File-based",
-            "tt_lbl_format": "Format (In / Out)",
-            "tt_lbl_contact": "Contact Person (Customer / Analyst)",
-            "tt_lbl_stage": "Stage (Pipeline)",
-            "tt_lbl_status": "Status",
-            "tt_lbl_dates": "Dates and Deadlines",
-            "tt_lbl_start": "Dev Start",
-            "tt_lbl_end": "Dev End",
-            "tt_lbl_test": "Deploy (TEST)",
-            "tt_lbl_rel": "Build (Release)",
-            "tt_lbl_prod": "Deploy (PROD)",
-            "tt_lbl_spec": "Spec / Wiki / Swagger URL",
-            "tt_lbl_notes": "📝 Checklist / Task Notes",
-            "tt_lbl_tags": "Keywords (Search Tags)",
-            "tt_bulk_title": "⚡ Bulk Edit Tasks",
-            "tt_bulk_desc": "Specify values to apply to all selected tasks.",
-            "tt_bulk_status": "General Status:",
-            "tt_bulk_apply": "Apply changes",
-            "tt_alm_title": "📥 Fetch from ALM / JIRA",
-            "tt_alm_desc": "Enter task number. Server will download title and description.",
-            "tt_alm_id": "Task ID (e.g. TASK-1234):",
-            "tt_alm_load": "Load",
-            "tt_copy_title": "Copying",
-            "tt_copy_src": "Selected task (source):",
-            "tt_copy_target": "Specify target task WHERE to copy data:",
-            "tt_copy_target_lbl": "Target task:",
-            "tt_copy_noconfirm": "Execute without additional confirmations",
-            "tt_copy_btn": "Copy",
-            "ph_filter": "Filter...",
-            "err_load_settings": "Settings load error",
-            "err_load_tasks": "Tasks load error",
-            "tt_no_data": "Nothing found",
-            "tt_lbl_start_short": "Start:",
-            "tt_lbl_test_short": "Test:",
-            "tt_lbl_prod_short": "Prod:",
-            "lbl_spec_wiki": "Spec / Wiki",
-            "lbl_unassigned": "Unassigned",
-            "lbl_new": "New",
-            "lbl_queued": "Queued",
-            "tt_conf_delete_multi": "Are you sure you want to delete selected tasks?",
-            "msg_deleted": "Successfully deleted!",
-            "err_delete": "Delete error",
-            "tt_conf_clone": "Create task copy?",
-            "lbl_copy": "(Copy)",
-            "msg_cloned": "Copy created!",
-            "err_clone": "Clone error: ",
-            "tt_copy_title_flows": "🔄 Copy flows",
-            "tt_copy_title_spec": "📄 Copy Spec",
-            "tt_copy_target_def": "-- Select target task --",
-            "tt_err_select_target": "Please select target task from the list!",
-            "lbl_flows": "FLOWS",
-            "lbl_spec": "SPEC",
-            "tt_conf_copy_data": "Do you confirm copying data to the selected task?",
-            "msg_copied": "Successfully copied!",
-            "tt_err_empty_task": "Title/Task Number is required!",
-            "msg_saved": "Successfully saved!",
-            "tt_err_empty_bulk": "You didn't select any values to change.",
-            "lbl_updating": "⏳ Updating...",
-            "msg_updated": "Updated",
-            "lbl_loading": "⏳ Loading...",
-            "msg_alm_loaded": "ALM data loaded",
-            "dtbl_page_title": "Table Directories",
-            "dtbl_title": "🏢 Data Directories",
-            "dtbl_env_title": "🌍 Environments (Hosts)",
-            "dtbl_btn_save": "💾 Save",
-            "dtbl_env_desc": "Used to highlight PROD/TEST in history.",
-            "dtbl_ph_host": "Host (brmq-dev1)",
-            "dtbl_loading": "Loading...",
-            "dtbl_sys_title": "🖥️ Systems (BS)",
-            "dtbl_sys_desc": "Used in flow constructors.",
-            "dtbl_ph_sid": "ID (BS_CRM)",
-            "dtbl_ph_desc": "Description",
-            "dtbl_btn_add": "Add",
-            "dtbl_stg_title": "🗂️ Task Lifecycle",
-            "dtbl_stg_desc": "Defines Stages and Statuses. Enter statuses separated by commas.",
-            "dtbl_ph_stage": "New stage name",
-            "dtbl_empty": "List is empty",
-            "dtbl_conf_del_sys": "Delete system?",
-            "dtbl_conf_del_stg": "Are you sure to delete stage and all its statuses?",
-            "dtbl_default_status": "New",
-            "dtbl_msg_saved": "✅ Successfully saved to DB!",
-            "dtbl_err_save": "Error: ",
-            "dt_page_title": "Spec Templates Config",
-            "dt_title": "Documentation Templates Config",
-            "dt_panel_title": "Section Constructor (Generator Template)",
-            "dt_panel_desc": "Configure which sections will be created for different integration types.",
-            "dt_btn_save": "💾 Save structure",
-            "dt_lbl_mode": "Select integration type to edit:",
-            "dt_opt_sync": "Synchronous (REST / SOAP Request-Response)",
-            "dt_opt_async": "Asynchronous (Kafka / MQ One-Way)",
-            "dt_opt_multi": "Multi-exchange (Complex / Saga)",
-            "dt_lbl_list": "Sections list:",
-            "dt_btn_add": "+ Add new section",
-            "dt_hint_word": "💡 Hint:",
-            "dt_hint_drag": "Drag sections by icon <b>☰</b> to change their order in the document.",
-            "dt_modal_title": "Section content",
-            "dt_btn_full": "⤢ Fullscreen",
-            "dt_btn_collapse": "⤡ Collapse",
-            "dt_lbl_type": "Section type:",
-            "dt_opt_text": "Text description (HTML)",
-            "dt_opt_mermaid": "Diagram (Mermaid)",
-            "dt_opt_table": "Table (Generic)",
-            "dt_opt_passport": "Auto: Document Passport",
-            "dt_opt_history": "Auto: Change History",
-            "dt_lbl_def": "Default content (Draft):",
-            "dt_btn_cancel": "Cancel",
-            "dt_btn_apply": "Apply",
-            "dt_err_read_file": "File read error: ",
-            "dt_err_load": "Failed to load settings.",
-            "dt_empty_tpl": "Template is empty. Click '+ Add section'",
-            "dt_type_text": "Text",
-            "dt_type_mermaid": "Schema",
-            "dt_type_table": "Table",
-            "dt_type_passport": "Passport",
-            "dt_type_history": "History",
-            "dt_btn_delete": "Delete",
-            "dt_new_sec": "New section",
-            "dt_conf_del": "Delete this section?",
-            "dt_modal_edit": "Config: ",
-            "dt_saving": "Saving...",
-            "dt_saved": "✅ Saved",
-            "dt_err_save": "Save error: ",
-            "loc_page_title": "Global Localization",
-            "loc_title": "🌐 Global Dictionary (Locale)",
-            "loc_subtitle": "Manage UI translations for all portal modules",
-            "loc_editor_title": "JSON Dictionary Editor",
-            "btn_save_dict": "💾 Save to DB",
-            "loc_hint": "All portal translations are stored here. To add a new language, copy the block of translations and name it with a code (e.g., \"es\"). Do not forget to click \"Save to DB\" to apply changes.",
-            "loc_err_json": "Error! Invalid JSON. Check syntax.",
-            "loc_msg_saved": "Dictionary successfully saved to DB!",
-            "loc_err_save": "Error while saving: ",
-            "theme_light": "☀️ Light theme",
-            "theme_dark": "🌙 Dark theme",
-            "Единое Окно": "Single Window",
-            "Онлайн": "Online",
-            "Афина Восток": "Athena East",
-            "Афина Запад": "Athena West",
-            "Афина Москва": "Athena Moscow",
-            "Фактор": "Factor",
-            "Наумен": "Naumen",
-            "ДБО Корп": "DBO Corp",
-            "Этап 1: Очередь (Backlog)": "Stage 1: Backlog",
-            "Новая": "New",
-            "Взято в работу": "In Progress",
-            "Оценка": "Estimation",
-            "В очереди": "Queued",
-            "Этап 2: Аналитика (Analysis)": "Stage 2: Analysis",
-            "Анализ": "Analysis",
-            "Проектирование / ТЗ": "Design / Spec",
-            "Согласование ТЗ": "Spec Approval",
-            "Этап 3: Разработка (Dev)": "Stage 3: Development (Dev)",
-            "В разработке": "In Development",
-            "Code Review": "Code Review",
-            "Исправление замечаний": "Fixing Issues",
-            "Dev Тест пройден": "Dev Test Passed",
-            "Этап 4: Тестирование (Test/UAT)": "Stage 4: Testing (Test/UAT)",
-            "Готово к установке (TEST)": "Ready for Deploy (TEST)",
-            "Установлено (TEST)": "Deployed (TEST)",
-            "Тестирование": "Testing",
-            "Приемка (UAT)": "UAT",
-            "Этап 5: Внедрение (Prod)": "Stage 5: Deployment (Prod)",
-            "Готово к внедрению (PROD)": "Ready for Deploy (PROD)",
-            "Установка (PROD)": "Deploying (PROD)",
-            "Внедрение завершено": "Deployment Completed",
-            "Специальные": "Special",
-            "Приостановлено (On Hold)": "On Hold",
-            "Заблокировано (Blocked)": "Blocked",
-            "Отменено": "Cancelled",
-            "lbl_not_specified": "Not specified",
+            "loc_title_isolated": "🌐 Global Localization",
+            "loc_subtitle_isolated": "Manage UI translations. Each language is saved to the DB independently.",
+            "loc_lbl_lang": "Language:",
+            "loc_btn_add": "+ Add language",
+            "loc_btn_del": "🗑 Delete language",
+            "loc_btn_upload": "📥 Upload (Merge)",
+            "btn_save_dict": "💾 Save language to DB",
+            "loc_hint_p1": "The editor displays keys only for the",
+            "loc_hint_p2": ". Saving applies",
+            "loc_hint_p3": "only to the current tab",
             "btn_home": "🏠 Home",
-            "lbl_page_title": "Labels Management",
+            "auth_login_title": "Sign In",
+            "auth_err_invalid": "Invalid username or password",
+            "auth_err_empty": "Enter username and password",
+            "auth_lbl_login": "Login / Username",
+            "auth_lbl_pass": "Password",
+            "auth_btn_submit": "Log In",
+            "auth_ph_login": "E.g. admin",
+            "auth_ph_pass": "Enter password",
+            "lbl_page_title": "Knowledge Base (Labels)",
             "lbl_ph_search": "Enter name or code snippet to search...",
-            "lbl_top_labels": "🔥 Frequently Used Labels",
-            "lbl_all_cat": "📁 All Categories",
-            "lbl_btn_new_cat": "+ New Category",
-            "lbl_modal_new": "New Label",
-            "lbl_modal_cat": "Category",
-            "lbl_modal_name": "Label Name",
-            "lbl_modal_content": "Code Content / Text",
-            "btn_cancel": "Cancel",
-            "btn_save": "Save",
-            "lbl_syn_plain": "No highlight (Plain)",
-            "btn_copy_code": "📋 Copy Code",
-            "lbl_err_load": "Data loading error from server",
-            "lbl_creating": "Creating...",
-            "lbl_base_created": "Base structure successfully created!",
-            "lbl_err_base_create": "Structure creation error",
-            "lbl_btn_base_create": "Create base structure",
-            "lbl_hint_view": "View",
+            "lbl_ph_modal_title": "Example: Auth Header JSON",
+            "lbl_top_labels": "🔥 Frequently used labels",
+            "lbl_all_cat": "📁 All categories",
+            "lbl_btn_new_cat": "+ New category",
             "lbl_empty_title": "Knowledge Base is empty",
             "lbl_empty_desc": "Knowledge Base (labels) is a place to store code snippets, email templates, test JSONs, and frequent commands so you don't have to search for them in chats.",
             "lbl_empty_rec": "Recommended structure:",
@@ -893,8 +532,10 @@
             "lbl_empty_4_desc": "cURL commands, mocks, test accounts.",
             "lbl_empty_5": "Infrastructure:",
             "lbl_empty_5_desc": "Rollback scripts, log commands.",
-            "lbl_btn_add_lbl": "Add Label",
-            "lbl_btn_del_cat": "Delete Category",
+            "lbl_btn_base_create": "Create base structure",
+            "lbl_btn_add_lbl": "Add label",
+            "lbl_btn_del_cat": "Delete category",
+            "lbl_hint_view": "View",
             "lbl_hint_copied": "Copied times",
             "lbl_hint_click_view": "Click to view full text",
             "lbl_hint_copy": "Copy content to clipboard",
@@ -903,50 +544,181 @@
             "btn_delete": "Delete",
             "lbl_msg_cat_empty": "Category is empty",
             "lbl_prompt_new_cat": "New category name:",
-            "lbl_err_cat_add": "Category creation error",
-            "lbl_conf_del_cat": "WARNING! Delete category and ALL labels inside it? Action is irreversible.",
+            "lbl_err_cat_add": "Error creating category",
+            "lbl_conf_del_cat": "WARNING! Delete category and ALL labels inside? This is irreversible.",
             "lbl_err_del": "Delete error",
-            "lbl_modal_edit": "Edit Label",
-            "lbl_err_empty_name": "Please specify label name!",
+            "lbl_modal_new": "New label",
+            "lbl_modal_edit": "Edit label",
+            "lbl_modal_cat": "Category",
+            "lbl_modal_name": "Label Name",
+            "lbl_modal_content": "Code content / Text",
+            "lbl_err_empty_name": "Please specify a label name!",
             "lbl_msg_saved": "Saved!",
             "lbl_err_save": "Error: ",
-            "lbl_conf_del_lbl": "Are you sure to delete label?",
+            "lbl_conf_del_lbl": "Delete label?",
+            "lbl_syn_plain": "No highlighting (Plain)",
+            "btn_copy_code": "Copy code",
             "btn_copied": "Copied",
             "lbl_msg_copied": "Text copied to clipboard!",
             "lbl_err_copy": "Copy error",
-            "jsb_page_title": "JSON Schema Builder (100% Offline)",
-            "jsb_title": "🌐 JSON Schema Builder (Safe Merge)",
-            "jsb_btn_import": "📥 Import JSON / Schema",
-            "jsb_btn_copy": "📋 Copy Schema",
-            "jsb_tree_title": "Document Structure",
-            "jsb_select_node": "Select a node in the tree to edit properties...",
-            "jsb_schema_title": "Generated JSON Schema",
-            "jsb_modal_desc": "Paste a JSON object or ready JSON Schema. The system automatically recognizes the format.",
-            "jsb_search_ph": "🔍 Search tree...",
-            "jsb_err_invalid_extra": "Error: Invalid JSON in extra properties!",
-            "jsb_node_not_found": "Node not found",
-            "jsb_props_title": "Properties:",
-            "jsb_lbl_key": "Key Name",
-            "jsb_lbl_type": "Type",
-            "jsb_opt_notype": "- No type (anyOf/$ref) -",
-            "jsb_lbl_title": "Title",
-            "jsb_lbl_desc": "Description",
-            "jsb_lbl_arr_type": "Array Item Type",
-            "jsb_lbl_req": "Required",
-            "jsb_lbl_add_props": "AdditionalProperties",
-            "jsb_lbl_extra_props": "⚙️ JSON Extra Properties (anyOf, enum, pattern, $ref...)",
-            "jsb_btn_add_field": "+ Add field",
-            "jsb_btn_import_here": "📥 Import JSON here",
-            "jsb_modal_title_global": "Import JSON / Schema (Replace whole structure)",
-            "jsb_modal_title_branch": "Import JSON / Schema into branch: ",
-            "jsb_err_parse": "JSON parse error: ",
-            "jsb_msg_copied": "JSON Schema copied to clipboard!",
-            "loc_conf_reset": "This will replace all your current translations with a clean reference dictionary (without double icons). Continue?",
-            "loc_msg_reset": "Dictionary reset. Don't forget to click 'Save to DB'!"
+            "lbl_creating": "Creating...",
+            "lbl_base_created": "Base structure successfully created!",
+            "lbl_err_base_create": "Error creating structure",
+            "tt_page_title": "Task Tracker",
+            "tt_search_ph": "🔍 Global search in all fields...",
+            "tt_sys_all": "🌍 All systems",
+            "tt_stg_all": "📋 All stages",
+            "tt_btn_refresh": "🔄 Refresh",
+            "tt_btn_reset": "✖ Reset filters",
+            "tt_btn_bulk": "⚡ Bulk update",
+            "tt_btn_create": "➕ Create task",
+            "tt_btn_edit": "✏️ Edit",
+            "tt_btn_clone": "👯 Clone",
+            "tt_btn_copy_flows": "🔄 Copy flows",
+            "tt_btn_copy_spec": "📄 Copy spec",
+            "tt_btn_int_flows": "🔌 Integration flows",
+            "tt_btn_gen_spec": "📑 Spec Generator",
+            "tt_th_task": "Task",
+            "tt_th_sys": "System / Interface",
+            "tt_th_status": "Stage / Status",
+            "tt_th_dates": "Dates (Plan)",
+            "tt_th_notes": "Notes / Links",
+            "ph_filter": "Filter...",
+            "tt_form_new": "Create new task",
+            "tt_btn_cancel": "Cancel (Back to list)",
+            "tt_btn_alm": "📥 Fetch from JIRA/ALM",
+            "tt_btn_save": "💾 Save task",
+            "tt_lbl_num": "Task Name / Number *",
+            "tt_lbl_url": "Task URL",
+            "tt_lbl_sys_iface": "Systems and Interface",
+            "tt_lbl_sender": "Sender",
+            "tt_lbl_receiver": "Receiver",
+            "tt_lbl_iface_name": "Interface name",
+            "tt_lbl_conn_type": "Connection type",
+            "tt_opt_choose": "- Select -",
+            "tt_opt_sync": "Synchronous (REST/SOAP)",
+            "tt_opt_async": "Asynchronous (MQ/Kafka)",
+            "tt_opt_file": "File based",
+            "tt_lbl_format": "Format (In / Out)",
+            "tt_lbl_contact": "Contact Person (Customer / Analyst)",
+            "tt_lbl_stage": "Stage (Pipeline)",
+            "tt_lbl_status": "Status",
+            "tt_lbl_dates": "Dates & Deadlines",
+            "tt_lbl_start": "Development start",
+            "tt_lbl_end": "Development end",
+            "tt_lbl_test": "Deployment (TEST)",
+            "tt_lbl_rel": "Build (Release)",
+            "tt_lbl_prod": "Deployment (PROD)",
+            "tt_lbl_spec": "Spec / Wiki / Swagger Link",
+            "tt_lbl_notes": "📝 Checklist / Task Notes",
+            "tt_lbl_tags": "Keywords (Search Tags)",
+            "tt_bulk_title": "⚡ Bulk update tasks",
+            "tt_bulk_desc": "Specify values to apply to all selected tasks. Leave blank if no change needed.",
+            "tt_bulk_status": "Global Status:",
+            "tt_bulk_apply": "Apply changes",
+            "tt_alm_title": "📥 Load from ALM / JIRA",
+            "tt_alm_desc": "Enter task number. Server will fetch title and description.",
+            "tt_alm_id": "Task ID (e.g. TASK-1234):",
+            "tt_alm_load": "Load",
+            "tt_copy_title": "Copy",
+            "tt_copy_src": "Selected task (Source):",
+            "tt_copy_target": "Specify target task:",
+            "tt_copy_target_lbl": "Target Task:",
+            "tt_copy_noconfirm": "Execute without additional confirmation",
+            "tt_copy_btn": "Copy",
+            "btn_cancel": "Cancel",
+            "tt_ph_num": "JIRA-123",
+            "tt_ph_url": "https://jira.company.com/browse/TASK-123",
+            "tt_ph_iface": "si_ao_MultiAccount...",
+            "tt_ph_contact": "Full Name / Telegram",
+            "tt_ph_alm": "TASK-1234",
+            "STAGE_BACKLOG": "Stage 1: Backlog",
+            "STAGE_ANALYSIS": "Stage 2: Analysis",
+            "STAGE_DEV": "Stage 3: Development",
+            "STAGE_TEST": "Stage 4: Testing (Test/UAT)",
+            "STAGE_PROD": "Stage 5: Production",
+            "STAGE_SPECIAL": "Special",
+            "STATUS_NEW": "New",
+            "STATUS_OPEN": "Open",
+            "STATUS_IN_PROGRESS": "In Progress",
+            "STATUS_ESTIMATION": "Estimation",
+            "STATUS_QUEUED": "Queued",
+            "STATUS_ANALYSIS": "Analysis",
+            "STATUS_DESIGN": "Design / Spec",
+            "STATUS_AGREEMENT": "Spec Agreement",
+            "STATUS_FORMING_TZ": "Forming Tech Spec",
+            "STATUS_FORMING_BT": "Forming Biz Spec",
+            "STATUS_DEV": "In Development",
+            "STATUS_CODE_REVIEW": "Code Review",
+            "STATUS_FIXING": "Fixing Bugs",
+            "STATUS_DEV_TEST_PASSED": "Dev Test Passed",
+            "STATUS_READY_FOR_TEST": "Ready for Test",
+            "STATUS_INSTALLED_TEST": "Installed on TEST",
+            "STATUS_TESTING": "Testing",
+            "STATUS_UAT": "UAT Acceptance",
+            "STATUS_READY_FOR_PROD": "Ready for Prod",
+            "STATUS_INSTALLATION_PROD": "Installing on PROD",
+            "STATUS_PROD_DONE": "Production Done",
+            "STATUS_ON_HOLD": "On Hold",
+            "STATUS_BLOCKED": "Blocked",
+            "STATUS_CANCELLED": "Cancelled",
+            "dash_title": "Main Dashboard",
+            "dash_subtitle": "Matrix: pipeline status on left, calendar deadlines in center.",
+            "dash_btn_release": "🚀 Prepare Release (Email)",
+            "dash_btn_refresh": "🔄 Refresh Data",
+            "dash_kpi_total": "Total Planned",
+            "dash_kpi_total_sub": "have plan dates",
+            "dash_kpi_active": "Active Work",
+            "dash_kpi_active_sub": "Backlog / Analysis / Dev",
+            "dash_kpi_prod": "Deployed (PROD)",
+            "dash_kpi_prod_sub": "completed integrations",
+            "dash_kpi_blocked": "On Hold / Blocked",
+            "dash_kpi_blocked_sub": "require attention",
+            "dash_funnel": "Funnel (All Tasks)",
+            "dash_calendar": "Calendar (With Dates)",
+            "cal_overdue": "Overdue",
+            "cal_this_week": "This Week",
+            "cal_next_week": "Next Week",
+            "cal_future": "Later",
+            "dash_archive": "Archive / Blocked",
+            "dash_table_title": "📑 Detailed Plan Registry (Click header to sort)",
+            "dash_table_hint": "Recent changes are on top by default",
+            "dash_search_placeholder": "🔍 Quick search by task, dates or notes...",
+            "th_task": "Task ↕",
+            "th_system": "System / Interface ↕",
+            "th_start_dev": "DEV START ↕",
+            "th_end_dev": "DEV END ↕",
+            "th_test": "TEST ↕",
+            "th_prod": "PROD ↕",
+            "th_notes": "Notes (To-Do)",
+            "msg_loading": "Loading...",
+            "chart_stages": "Distribution by Stages",
+            "chart_systems": "Top-5 Loaded Systems",
+            "rm_title": "🚀 Release Email Generator",
+            "rm_subtitle": "Select tasks, check checklist and copy ready table. \nYour selection is saved automatically as a Draft!",
+            "rm_date_lbl": "Release Date:",
+            "rm_filter_lbl": "Task category to select:",
+            "rm_opt_prod": "Only Ready for PROD / Installed",
+            "rm_opt_test": "Only Ready for TEST",
+            "rm_opt_all": "🌍 SHOW ALL ACTIVE TASKS",
+            "rm_step1": "1. Select tasks:",
+            "rm_btn_clear": "🗑 Clear draft",
+            "rm_search_ph": "🔍 Search by: task, system...",
+            "rm_th_task": "Task / Contact",
+            "rm_th_sys": "System.Interface",
+            "rm_step2": "2. Mandatory Control:",
+            "rm_chk1": "Object versions in ALM match final ones",
+            "rm_chk2": "DB migration scripts (Flyway/Liquibase) attached",
+            "rm_chk3": "Mappings and logic agreed",
+            "rm_step3": "3. Ready Email:",
+            "rm_btn_copy": "📋 Copy Email"
         }
     };
 
+    let currentLang = 'ru';
+    let availableLangs = [];
     let dictEditor;
+    let pendingMergeJson = null;
 
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
@@ -964,7 +736,8 @@
             dictEditor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
         });
 
-        loadSettingsFromDB();
+        // Запускаем процесс: сначала список языков, потом данные текущего
+        loadLanguagesList();
     });
 
     function showToast(msg) {
@@ -973,66 +746,214 @@
         setTimeout(() => toast.fadeOut(300), 2000);
     }
 
-    window.resetToDefault = function() {
-        if (confirm(t('loc_conf_reset', "Это заменит все ваши текущие переводы на чистый эталонный словарь (без двойных иконок). Продолжить?"))) {
-            dictEditor.setValue(JSON.stringify(DEFAULT_DICTIONARY, null, 4));
-            showToast(t('loc_msg_reset', "Словарь сброшен. Не забудьте нажать 'Сохранить в БД'!"));
+    // 1. Получаем список доступных языков из БД
+    function loadLanguagesList() {
+        $.get('/api/locale?list=true', function(langs) {
+            availableLangs = langs;
+            if(!availableLangs || availableLangs.length === 0) {
+                availableLangs = ['ru', 'en']; // Fallback
+            }
+            renderLangSelector();
+
+            if (!availableLangs.includes(currentLang)) {
+                currentLang = availableLangs[0];
+            }
+            loadLanguageData(currentLang);
+        }).fail(function() {
+            availableLangs = ['ru'];
+            renderLangSelector();
+            loadLanguageData(currentLang);
+        });
+    }
+
+    // 2. Получаем данные конкретного языка
+    function loadLanguageData(lang) {
+        $.get('/api/locale?lang=' + lang, function(data) {
+            let dict = typeof data === 'string' ? JSON.parse(data) : data;
+
+            // Если пришел пустой объект, пробуем подставить дефолтный (для первого запуска)
+            if (Object.keys(dict).length === 0 && DEFAULT_DICTIONARY[lang]) {
+                dict = DEFAULT_DICTIONARY[lang];
+            }
+
+            $('#lang-selector').val(lang);
+            $('#current-lang-lbl').text(lang.toUpperCase());
+            updateResetButtonLabel(lang);
+            dictEditor.setValue(JSON.stringify(dict, null, 4));
+        }).fail(function() {
+            let dict = DEFAULT_DICTIONARY[lang] || {};
+            updateResetButtonLabel(lang);
+            dictEditor.setValue(JSON.stringify(dict, null, 4));
+        });
+    }
+
+    function renderLangSelector() {
+        const sel = $('#lang-selector').empty();
+        availableLangs.forEach(k => {
+            sel.append(`<option value="${k}">${k.toUpperCase()}</option>`);
+        });
+        sel.val(currentLang);
+    }
+
+    window.switchLanguage = function(newLang) {
+        if (currentLang === newLang) return;
+        currentLang = newLang;
+        loadLanguageData(newLang);
+    }
+
+    function updateResetButtonLabel(lang) {
+        $('#btn-reset-default').text('🔄 Заводской сброс (' + lang.toUpperCase() + ')');
+    }
+
+    window.addNewLanguage = function() {
+        const code = prompt("Введите код нового языка (например, 'es', 'de', 'fr'):");
+        if (!code || code.trim() === '') return;
+        const langCode = code.trim().toLowerCase();
+
+        if (availableLangs.includes(langCode)) {
+            alert("❌ Этот язык уже существует!");
+            return;
+        }
+
+        availableLangs.push(langCode);
+        renderLangSelector();
+
+        // Переключаемся на новый язык, оставляя в редакторе текущий JSON (как болванку)
+        currentLang = langCode;
+        $('#lang-selector').val(currentLang);
+        $('#current-lang-lbl').text(currentLang.toUpperCase());
+        updateResetButtonLabel(currentLang);
+        showToast(`Язык ${langCode.toUpperCase()} создан! Отредактируйте JSON и нажмите "Сохранить в БД".`);
+    }
+
+    window.deleteLanguage = function() {
+        if (availableLangs.length <= 1) {
+            alert("❌ Нельзя удалить последний язык в системе!");
+            return;
+        }
+
+        if (confirm(`Вы уверены, что хотите НАВСЕГДА удалить язык [${currentLang.toUpperCase()}] из БД?`)) {
+            $.ajax({
+                url: '/api/locale',
+                type: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({ lang: currentLang }),
+                success: function() {
+                    showToast(`Язык ${currentLang.toUpperCase()} удален.`);
+                    loadLanguagesList(); // Перезагружаем список
+                },
+                error: function(xhr) {
+                    alert("Ошибка удаления: " + xhr.responseText);
+                }
+            });
         }
     }
 
-    function loadSettingsFromDB() {
-        $.get('/api/tasks/settings', function(data) {
-            let dbDict = null;
-            if (data && data.ui_dictionary) {
-                try { dbDict = JSON.parse(data.ui_dictionary); } catch(e) { }
+    // === ЛОГИКА ОБЪЕДИНЕНИЯ СЛОВАРЕЙ (MERGE) ===
+    window.handleFileUpload = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                pendingMergeJson = JSON.parse(e.target.result);
+                $('#merge-modal').css('display', 'flex').hide().fadeIn(200);
+            } catch(err) {
+                alert("❌ Ошибка чтения файла! Убедитесь, что это корректный JSON.");
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    window.executeMerge = function() {
+        const mode = $('input[name="merge_mode"]:checked').val();
+        let currentDict = {};
+
+        try {
+            currentDict = JSON.parse(dictEditor.getValue());
+        } catch(e) {
+            currentDict = {}; // Если в редакторе была ошибка синтаксиса, начинаем с нуля
+        }
+
+        if (mode === 'overwrite') {
+            const total = Object.keys(pendingMergeJson).length;
+            dictEditor.setValue(JSON.stringify(pendingMergeJson, null, 4));
+            alert(`⚠️ Полная перезапись выполнена.\nЗагружено ключей: ${total}\n\nНе забудьте нажать "Сохранить язык в БД"!`);
+        } else {
+            let added = 0;
+            let updated = 0;
+            let skipped = 0;
+
+            for (let key in pendingMergeJson) {
+                if (!(key in currentDict)) {
+                    // Ключа нет - добавляем
+                    currentDict[key] = pendingMergeJson[key];
+                    added++;
+                } else if (currentDict[key] !== pendingMergeJson[key]) {
+                    // Ключ есть, но значение отличается
+                    if (mode === 'merge_all') {
+                        currentDict[key] = pendingMergeJson[key];
+                        updated++;
+                    } else {
+                        // Если режим "только новые", пропускаем обновление
+                        skipped++;
+                    }
+                }
             }
 
-            // Если в базе пусто или JSON некорректен, загружаем наш огромный дефолтный словарь
-            if (!dbDict || Object.keys(dbDict).length === 0) {
-                dbDict = DEFAULT_DICTIONARY;
-            }
+            dictEditor.setValue(JSON.stringify(currentDict, null, 4));
 
-            dictEditor.setValue(JSON.stringify(dbDict, null, 4));
-        }).fail(function() {
-            // В случае ошибки сервера тоже даем пользователю дефолтный словарь
-            dictEditor.setValue(JSON.stringify(DEFAULT_DICTIONARY, null, 4));
-        });
+            alert(`📊 Статистика объединения:\n\n➕ Добавлено новых ключей: ${added}\n🔄 Обновлено существующих: ${updated}\n⏭ Пропущено: ${skipped}\n\n✅ Итого ключей в словаре: ${Object.keys(currentDict).length}\n\nНе забудьте нажать "Сохранить язык в БД"!`);
+        }
+
+        $('#merge-modal').fadeOut(150);
+        pendingMergeJson = null;
+    }
+
+    window.resetToDefault = function() {
+        if (confirm(`ВНИМАНИЕ! Это заменит текущий текст в редакторе на базовый (заводской) словарь для языка [${currentLang.toUpperCase()}]. Вы потеряете все ручные правки.\nПродолжить?`)) {
+            // Берем либо дефолтный словарь для текущего языка, либо болванку английского (если язык совсем кастомный)
+            let dict = DEFAULT_DICTIONARY[currentLang] || DEFAULT_DICTIONARY["en"];
+            dictEditor.setValue(JSON.stringify(dict, null, 4));
+            showToast("Словарь восстановлен в редакторе. Не забудьте нажать 'Сохранить в БД'!");
+        }
     }
 
     window.saveDictionaryToDB = function() {
         let jsonToSave;
         try {
-            const parsed = JSON.parse(dictEditor.getValue());
-            jsonToSave = JSON.stringify(parsed);
-
-            // Сохраняем в браузер для моментального обновления
-            localStorage.setItem('portal_dictionary', jsonToSave);
-
-            // Заставляем систему обновить тексты прямо сейчас
-            if (typeof applyLanguage === 'function') {
-                applyLanguage(localStorage.getItem('app_lang') || 'ru');
-            }
-
-            // Уведомляем родительский iframe (если есть) об изменении языка
-            if (window.parent && typeof window.parent.applyLanguage === 'function') {
-                window.parent.applyLanguage(localStorage.getItem('app_lang') || 'ru');
-            }
-
+            jsonToSave = JSON.parse(dictEditor.getValue());
         } catch(e) {
-            alert(t('loc_err_json', "Ошибка! Невалидный JSON. Проверьте синтаксис."));
+            alert("❌ Ошибка! Невалидный JSON. Проверьте синтаксис в редакторе.");
             return;
         }
 
         $.ajax({
-            url: '/api/tasks/settings',
+            url: '/api/locale',
             type: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ ui_dictionary: jsonToSave }),
+            data: JSON.stringify({ lang: currentLang, data: jsonToSave }),
             success: function() {
-                showToast(t('loc_msg_saved', "Словарь успешно сохранен в БД!"));
+                showToast(`✅ Словарь [${currentLang.toUpperCase()}] успешно сохранен!`);
+
+                // ВРЕМЕННЫЙ МОСТ: Обновляем старую структуру localStorage,
+                // чтобы портал не сломался, пока мы не обновили utils.js
+                try {
+                    let oldPortalDict = JSON.parse(localStorage.getItem('portal_dictionary') || '{}');
+                    oldPortalDict[currentLang] = jsonToSave;
+                    localStorage.setItem('portal_dictionary', JSON.stringify(oldPortalDict));
+                } catch(e) {}
+
+                // Мгновенное обновление UI
+                if (typeof applyLanguage === 'function') applyLanguage(localStorage.getItem('app_lang') || 'ru');
+                if (window.parent && typeof window.parent.applyLanguage === 'function') {
+                    window.parent.applyLanguage(localStorage.getItem('app_lang') || 'ru');
+                }
             },
             error: function(xhr) {
-                alert(t('loc_err_save', "Ошибка при сохранении: ") + xhr.responseText);
+                alert("Ошибка при сохранении: " + xhr.responseText);
             }
         });
     }

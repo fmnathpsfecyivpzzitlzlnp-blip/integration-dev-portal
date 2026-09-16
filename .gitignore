@@ -9,18 +9,21 @@ out/
 build/
 *.class
 
-# Database
-db/*.db
-db/*.sqlite
+# Database (Ignore all DB files)
 *.db
 *.sqlite
+db/*.db
+db/*.sqlite
+
+# EXCEPTION: Track the localization database
+!db/locale.db
 
 # Logs & Temp
 logs/
 *.log
 tmp/
 
-# Test data
+# Test data & specific directories
 testData/
 doc/
 src/test/

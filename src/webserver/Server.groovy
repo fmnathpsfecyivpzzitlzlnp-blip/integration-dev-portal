@@ -20,6 +20,37 @@ import java.util.Base64
 
 class Server {
 
+    static String normalizeStatusToKey(String rawStatus) {
+        if (!rawStatus) return "STATUS_NEW"
+        switch(rawStatus.toLowerCase().trim()) {
+            case "новая": case "new": return "STATUS_NEW"
+            case "открыта": case "open": return "STATUS_OPEN"
+            case "взято в работу": case "in progress": return "STATUS_IN_PROGRESS"
+            case "оценка": case "estimation": return "STATUS_ESTIMATION"
+            case "в очереди": case "queued": return "STATUS_QUEUED"
+            case "анализ": case "analysis": return "STATUS_ANALYSIS"
+            case "проектирование / тз": case "design": return "STATUS_DESIGN"
+            case "согласование тз": case "agreement": return "STATUS_AGREEMENT"
+            case "формирование тз": return "STATUS_FORMING_TZ"
+            case "формирование бт": return "STATUS_FORMING_BT"
+            case "в разработке": case "разработка": case "development": return "STATUS_DEV"
+            case "code review": return "STATUS_CODE_REVIEW"
+            case "исправление замечаний": case "fixing": return "STATUS_FIXING"
+            case "dev тест пройден": case "dev test passed": return "STATUS_DEV_TEST_PASSED"
+            case "готово к установке (test)": case "готова к тестированию": case "ready for test": return "STATUS_READY_FOR_TEST"
+            case "установлено (test)": case "installed (test)": return "STATUS_INSTALLED_TEST"
+            case "тестирование": case "testing": return "STATUS_TESTING"
+            case "приемка (uat)": case "uat": return "STATUS_UAT"
+            case "готово к внедрению (prod)": case "готова к внедрению": case "ready for prod": return "STATUS_READY_FOR_PROD"
+            case "установка (prod)": case "installing (prod)": return "STATUS_INSTALLATION_PROD"
+            case "внедрение завершено": case "done": return "STATUS_PROD_DONE"
+            case "приостановлено (on hold)": case "on hold": case "остановлено": return "STATUS_ON_HOLD"
+            case "заблокировано (blocked)": case "blocked": return "STATUS_BLOCKED"
+            case "отменено": case "cancelled": return "STATUS_CANCELLED"
+            default: return rawStatus
+        }
+    }
+
     static String fetchTaskFromALM(String taskId) {
         String almBaseUrl = "https://alm.yourcompany.com/rest/api/2/issue"
         String authHeader = "Basic " + "ТВОЙ_ЛОГИН:ТВОЙ_ПАРОЛЬ".bytes.encodeBase64().toString()
@@ -41,7 +72,7 @@ class Server {
                         task_url   : "https://alm.yourcompany.com/browse/${taskId}",
                         title      : almJson.fields?.summary ?: almJson.summary ?: almJson.title ?: "Без названия",
                         description: almJson.fields?.description ?: almJson.description ?: "",
-                        status     : almJson.fields?.status?.name ?: almJson.status?.name ?: "Новая"
+                        status     : normalizeStatusToKey(almJson.fields?.status?.name ?: almJson.status?.name ?: "")
                 ]
 
                 return new groovy.json.JsonBuilder(portalData).toString()
@@ -57,8 +88,15 @@ class Server {
     static void main(String[] args) {
         def dbDir = new File("db")
         if (!dbDir.exists()) dbDir.mkdirs()
+
+        // 1. ОСНОВНАЯ БАЗА (Проекты, задачи, пользователи)
         def dbFile = '../db/portal.db'
         def sql = Sql.newInstance("jdbc:sqlite:${dbFile}", "org.sqlite.JDBC")
+
+        // 2. БАЗА ЛОКАЛИЗАЦИЙ (Словари интерфейса)
+        def localeDbFile = '../db/locale.db'
+        def sqlLocale = Sql.newInstance("jdbc:sqlite:${localeDbFile}", "org.sqlite.JDBC")
+        sqlLocale.execute'''CREATE TABLE IF NOT EXISTS locales (lang TEXT PRIMARY KEY, content TEXT)'''
 
         sql.execute'''CREATE TABLE IF NOT EXISTS saved_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, content TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
         sql.execute'''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user TEXT, task_url TEXT, task_number TEXT, stage TEXT, status TEXT, deployment_date TEXT, planned_dev_date TEXT, additional_comment TEXT, contact_person TEXT, spec_url TEXT, last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)'''
@@ -129,17 +167,67 @@ class Server {
         sql.execute("UPDATE tasks SET owner_id = 1 WHERE owner_id IS NULL")
         sql.execute("UPDATE tasks SET version = 1 WHERE version IS NULL")
 
-        def stagesExist = sql.firstRow("SELECT 1 FROM task_settings WHERE key='task_stages_dictionary'")
-        if (!stagesExist) {
-            def defaultStages = [
-                    "Этап 1: Очередь (Backlog)": ["Новая", "Взято в работу", "Оценка", "В очереди"],
-                    "Этап 2: Аналитика (Analysis)": ["Анализ", "Проектирование / ТЗ", "Согласование ТЗ"],
-                    "Этап 3: Разработка (Dev)": ["В разработке", "Code Review", "Исправление замечаний", "Dev Тест пройден"],
-                    "Этап 4: Тестирование (Test/UAT)": ["Готово к установке (TEST)", "Установлено (TEST)", "Тестирование", "Приемка (UAT)"],
-                    "Этап 5: Внедрение (Prod)": ["Готово к внедрению (PROD)", "Установка (PROD)", "Внедрение завершено"],
-                    "Специальные": ["Приостановлено (On Hold)", "Заблокировано (Blocked)", "Отменено"]
-            ]
-            sql.execute("INSERT INTO task_settings (key, value) VALUES ('task_stages_dictionary', ?)", [MyJsonOutput.toJson(defaultStages)])
+        def defaultStages = [
+                "STAGE_BACKLOG": ["STATUS_NEW", "STATUS_IN_PROGRESS", "STATUS_ESTIMATION", "STATUS_QUEUED", "STATUS_OPEN"],
+                "STAGE_ANALYSIS": ["STATUS_ANALYSIS", "STATUS_DESIGN", "STATUS_AGREEMENT", "STATUS_FORMING_TZ", "STATUS_FORMING_BT"],
+                "STAGE_DEV": ["STATUS_DEV", "STATUS_CODE_REVIEW", "STATUS_FIXING", "STATUS_DEV_TEST_PASSED"],
+                "STAGE_TEST": ["STATUS_READY_FOR_TEST", "STATUS_INSTALLED_TEST", "STATUS_TESTING", "STATUS_UAT"],
+                "STAGE_PROD": ["STATUS_READY_FOR_PROD", "STATUS_INSTALLATION_PROD", "STATUS_PROD_DONE"],
+                "STAGE_SPECIAL": ["STATUS_ON_HOLD", "STATUS_BLOCKED", "STATUS_CANCELLED"]
+        ]
+
+        // Гарантируем, что словарь этапов в БД использует правильные ключи
+        sql.execute("INSERT OR REPLACE INTO task_settings (key, value) VALUES ('task_stages_dictionary', ?)", [MyJsonOutput.toJson(defaultStages)])
+
+        // Автомиграция застрявших задач (сырые русские строки -> ключи)
+        def tasksToFix = sql.rows("SELECT id, status, stage FROM tasks WHERE stage NOT LIKE 'STAGE_%' OR status NOT LIKE 'STATUS_%' OR stage IS NULL OR status IS NULL")
+
+        if (!tasksToFix.isEmpty()) {
+            println "Migration: Обнаружены сырые статусы в ${tasksToFix.size()} задачах. Выполняю жесткую конвертацию в ключи локализации..."
+            sql.withBatch(100, "UPDATE tasks SET status = ?, stage = ? WHERE id = ?") { stmt ->
+                tasksToFix.each { row ->
+                    String newStatus = normalizeStatusToKey(row.status)
+                    String newStage = "STAGE_SPECIAL"
+                    if (row.stage?.contains("Этап 1")) newStage = "STAGE_BACKLOG"
+                    else if (row.stage?.contains("Этап 2")) newStage = "STAGE_ANALYSIS"
+                    else if (row.stage?.contains("Этап 3")) newStage = "STAGE_DEV"
+                    else if (row.stage?.contains("Этап 4")) newStage = "STAGE_TEST"
+                    else if (row.stage?.contains("Этап 5")) newStage = "STAGE_PROD"
+                    else if (row.stage?.contains("Специальные")) newStage = "STAGE_SPECIAL"
+                    else {
+                        defaultStages.each { k, v -> if (v.contains(newStatus)) newStage = k }
+                    }
+                    stmt.addBatch([newStatus, newStage, row.id])
+                }
+            }
+            println "Migration: Конвертация статусов успешно завершена."
+        }
+
+        // ====================================================================
+        // МИГРАЦИЯ ЛОКАЛЕЙ ИЗ portal.db В НОВУЮ locale.db
+        // ====================================================================
+        def existingLocalesInPortal = sql.rows("SELECT key, value FROM task_settings WHERE key LIKE 'locale_%'")
+        if (!existingLocalesInPortal.isEmpty()) {
+            existingLocalesInPortal.each { row ->
+                def lang = row.key.replace('locale_', '')
+                sqlLocale.execute("INSERT OR REPLACE INTO locales (lang, content) VALUES (?, ?)", [lang, row.value])
+            }
+            sql.execute("DELETE FROM task_settings WHERE key LIKE 'locale_%'")
+            println "Migration: Словари локализации (locales) успешно перенесены из portal.db в отдельную базу locale.db"
+        }
+
+        def oldDict = sql.firstRow("SELECT value FROM task_settings WHERE key='ui_dictionary'")
+        if (oldDict && oldDict.value) {
+            try {
+                def parsedDict = new JsonSlurper().parseText(oldDict.value)
+                parsedDict.each { lang, translations ->
+                    sqlLocale.execute("INSERT OR REPLACE INTO locales (lang, content) VALUES (?, ?)", [lang, MyJsonOutput.toJson(translations)])
+                }
+                sql.execute("DELETE FROM task_settings WHERE key='ui_dictionary'")
+                println "Migration: Устаревший ui_dictionary успешно перенесен в locale.db"
+            } catch (Exception ex) {
+                println "Migration error for ui_dictionary: " + ex.message
+            }
         }
 
         int port = args.length > 0 && args[0].isInteger() ? args[0].toInteger() : 47183
@@ -153,6 +241,50 @@ class Server {
         def multiRequestExecutor = new MultiRequestExecutor(historyManager)
         def xsdToWsdlConverter = new XsdToWsdlConverter()
         def labelsManager = new LabelsManager(sql)
+
+        // API ЛОКАЛИЗАЦИИ ТЕПЕРЬ СМОТРИТ В locale.db
+        server.createContext("/api/locale") { e ->
+            if (e.requestMethod == "GET") {
+                handleRequest(e, "GET") {
+                    def query = e.requestURI.query
+                    if (query && query.contains("list=true")) {
+                        def rows = sqlLocale.rows("SELECT lang FROM locales")
+                        def langs = rows.collect { it.lang }
+                        if (langs.isEmpty()) langs = ['ru', 'en']
+                        sendResponse(e, MyJsonOutput.toJson(langs), "application/json")
+                    } else if (query && query.contains("lang=")) {
+                        def lang = query.split("lang=")[1].split("&")[0]
+                        def row = sqlLocale.firstRow("SELECT content FROM locales WHERE lang=?", [lang])
+                        def localeData = row ? row.content : "{}"
+                        sendResponse(e, localeData, "application/json")
+                    } else {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Не указан параметр lang"]), "application/json", 400)
+                    }
+                }
+            } else if (e.requestMethod == "POST") {
+                handleRequest(e, "POST") {
+                    def payload = new JsonSlurper().parseText(e.requestBody.text)
+                    if (!payload.lang || !payload.data) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Ожидаются lang и data"]), "application/json", 400)
+                        return
+                    }
+                    sqlLocale.execute("INSERT OR REPLACE INTO locales (lang, content) VALUES (?, ?)", [payload.lang, MyJsonOutput.toJson(payload.data)])
+                    sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
+                }
+            } else if (e.requestMethod == "DELETE") {
+                handleRequest(e, "DELETE") {
+                    def payload = new JsonSlurper().parseText(e.requestBody.text)
+                    if (!payload.lang) {
+                        sendResponse(e, MyJsonOutput.toJson([error: "Не указан lang"]), "application/json", 400)
+                        return
+                    }
+                    sqlLocale.execute("DELETE FROM locales WHERE lang=?", [payload.lang])
+                    sendResponse(e, MyJsonOutput.toJson([status: "OK"]), "application/json")
+                }
+            } else {
+                sendResponse(e, "Method Not Allowed", "text/plain", 405)
+            }
+        }
 
         server.createContext("/api/login") { e ->
             if (e.requestMethod == "POST") {
@@ -305,18 +437,20 @@ class Server {
                             }
                             if (!taskNumber) return
 
-                            String status = t.find { it.key?.toLowerCase() == "статус" }?.value?.toString()?.trim() ?: ""
+                            String rawStatus = t.find { it.key?.toLowerCase() == "статус" || it.key?.toLowerCase() == "[jira] статус" }?.value?.toString()?.trim() ?: ""
+                            String status = normalizeStatusToKey(rawStatus)
+
                             String contact = t.find { it.key?.toLowerCase() == "исполнитель" || it.key?.toLowerCase() == "разработчик" }?.value?.toString()?.trim() ?: ""
                             String title = t.find { it.key?.toLowerCase() == "название" || it.key?.toLowerCase() == "тема" }?.value?.toString()?.trim() ?: ""
                             String description = t.find { it.key?.toLowerCase() == "описание" || it.key?.toLowerCase() == "краткое описание jira" }?.value?.toString()?.trim() ?: ""
                             String taskUrl = t.find { it.key?.toLowerCase() == "ссылка на задачу" }?.value?.toString()?.trim() ?: ""
 
-                            String matchedStage = "Специальные"
+                            String matchedStage = "STAGE_SPECIAL"
                             stageDict.each { stageName, statuses ->
                                 if (statuses.contains(status)) matchedStage = stageName
                             }
-                            if (status && matchedStage == "Специальные" && !stageDict["Специальные"]?.contains(status)) {
-                                matchedStage = stageDict.keySet().first() ?: "Новая"
+                            if (status && matchedStage == "STAGE_SPECIAL" && !stageDict["STAGE_SPECIAL"]?.contains(status)) {
+                                matchedStage = stageDict.keySet().first() ?: "STAGE_BACKLOG"
                             }
 
                             def existing = sql.firstRow("SELECT id FROM tasks WHERE LOWER(TRIM(task_number)) = LOWER(?)", [taskNumber])

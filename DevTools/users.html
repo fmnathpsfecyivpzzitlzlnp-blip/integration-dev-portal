@@ -139,7 +139,7 @@
 
         <div id="user-editor" style="display: none; height: 100%; flex-direction: column;">
             <div class="panel-head">
-                <span id="editor-title">Редактирование пользователя</span>
+                <span id="editor-title" data-i18n="usr_title_edit">Редактирование пользователя</span>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn danger" id="btn-delete" onclick="deleteUser()" data-i18n="usr_btn_delete">Удалить</button>
                     <button class="btn success" onclick="saveUser()" data-i18n="usr_btn_save">💾 Сохранить</button>
@@ -181,14 +181,14 @@
                 </div>
 
                 <div class="roles-grid" id="groups-container">
-                    <label class="role-check"><input type="checkbox" value="dashboard"> <span>Главный Дашборд</span></label>
-                    <label class="role-check"><input type="checkbox" value="calls"> <span>Вызовы и ESB</span></label>
-                    <label class="role-check"><input type="checkbox" value="tasks"> <span>Задачи и ТЗ</span></label>
-                    <label class="role-check"><input type="checkbox" value="mapper"> <span>Data Mapper & Catalog</span></label>
-                    <label class="role-check"><input type="checkbox" value="constructors"> <span>Конструкторы (WSDL/XSD/Mermaid)</span></label>
-                    <label class="role-check"><input type="checkbox" value="converters"> <span>Конвертеры</span></label>
-                    <label class="role-check"><input type="checkbox" value="excel"> <span>Экспорт в Excel</span></label>
-                    <label class="role-check"><input type="checkbox" value="validation"> <span>Валидация и Утилиты</span></label>
+                    <label class="role-check"><input type="checkbox" value="dashboard"> <span data-i18n="menu_dashboard">Главный Дашборд</span></label>
+                    <label class="role-check"><input type="checkbox" value="calls"> <span data-i18n="group_calls_esb">Вызовы и ESB</span></label>
+                    <label class="role-check"><input type="checkbox" value="tasks"> <span data-i18n="group_tasks_spec">Задачи и ТЗ</span></label>
+                    <label class="role-check"><input type="checkbox" value="mapper"> <span data-i18n="menu_mapper">Data Mapper & Catalog</span></label>
+                    <label class="role-check"><input type="checkbox" value="constructors"> <span data-i18n="group_constructors">Конструкторы (WSDL/XSD/Mermaid)</span></label>
+                    <label class="role-check"><input type="checkbox" value="converters"> <span data-i18n="group_converters">Конвертеры</span></label>
+                    <label class="role-check"><input type="checkbox" value="excel"> <span data-i18n="group_excel_export">Экспорт в Excel</span></label>
+                    <label class="role-check"><input type="checkbox" value="validation"> <span data-i18n="group_validation_utils">Валидация и Утилиты</span></label>
                 </div>
 
             </div>
@@ -199,25 +199,18 @@
 <div id="toast"></div>
 
 <script>
-    // Универсальная функция перевода (БЕЗ РЕКУРСИИ)
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     let USERS = [];
     let currentUserId = null;
 
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
         if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+
+        // Локализация плейсхолдеров
+        if (typeof window.t === 'function') {
+            $('#u_username').attr('placeholder', window.t('usr_ph_name', 'Например: admin'));
+            $('#u_password').attr('placeholder', window.t('usr_ph_pass', 'Новый пароль (оставьте пустым, если не меняете)'));
+        }
 
         // Подтягиваем данные авторизации из localStorage и вшиваем их во все AJAX-запросы
         const storedUser = localStorage.getItem('esb_user');
@@ -273,7 +266,9 @@
         const list = $('#user-list').empty();
         USERS.forEach(u => {
             const isActive = u.id === currentUserId ? 'active' : '';
-            const roleName = u.role === 'admin' ? t('usr_opt_admin', 'Admin') : t('usr_opt_user', 'User');
+            const tAdmin = typeof window.t === 'function' ? window.t('usr_opt_admin', 'Admin') : 'Admin';
+            const tUser = typeof window.t === 'function' ? window.t('usr_opt_user', 'User') : 'User';
+            const roleName = u.role === 'admin' ? tAdmin : tUser;
             list.append(`
                 <li class="user-item ${isActive}" onclick="selectUser(${u.id})">
                     <span class="u-name">${escapeHtml(u.username)}</span>
@@ -289,7 +284,9 @@
 
         $('#empty-state').hide();
         $('#user-editor').css('display', 'flex');
-        $('#editor-title').text(t('usr_title_new', 'Создание нового пользователя'));
+
+        const titleNew = typeof window.t === 'function' ? window.t('usr_title_new', 'Создание нового пользователя') : 'Создание нового пользователя';
+        $('#editor-title').text(titleNew);
 
         $('#u_id').val('');
         $('#u_username').val('').prop('disabled', false);
@@ -311,7 +308,9 @@
 
         $('#empty-state').hide();
         $('#user-editor').css('display', 'flex');
-        $('#editor-title').text(t('usr_title_edit', 'Редактирование: ') + escapeHtml(user.username));
+
+        const titleEdit = typeof window.t === 'function' ? window.t('usr_title_edit', 'Редактирование: ') : 'Редактирование: ';
+        $('#editor-title').text(titleEdit + escapeHtml(user.username));
 
         $('#u_id').val(user.id);
         $('#u_username').val(user.username);
@@ -354,7 +353,8 @@
     window.resetPassword = function() {
         const defPass = 'root';
         $('#u_password').val(defPass);
-        showToast(t('usr_msg_pass_reset', 'Пароль установлен по умолчанию. Нажмите Сохранить.'));
+        const msgReset = typeof window.t === 'function' ? window.t('usr_msg_pass_reset', 'Пароль установлен по умолчанию. Нажмите Сохранить.') : 'Пароль установлен по умолчанию. Нажмите Сохранить.';
+        showToast(msgReset);
     }
 
     window.saveUser = function() {
@@ -363,7 +363,10 @@
         const password = $('#u_password').val().trim();
         const role = $('#u_role').val();
 
-        if (!username) return alert(t('usr_err_name', 'Имя пользователя не может быть пустым!'));
+        if (!username) {
+            const errName = typeof window.t === 'function' ? window.t('usr_err_name', 'Имя пользователя не может быть пустым!') : 'Имя пользователя не может быть пустым!';
+            return alert(errName);
+        }
 
         let groups = [];
         if (role !== 'admin') {
@@ -381,6 +384,8 @@
 
         if (password) payload.password = password;
 
+        const msgSaved = typeof window.t === 'function' ? window.t('usr_msg_saved', 'Пользователь сохранен!') : 'Пользователь сохранен!';
+
         // Отправка на бэкенд
         $.ajax({
             url: '/api/users',
@@ -388,7 +393,7 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(res) {
-                showToast(t('usr_msg_saved', 'Пользователь сохранен!'));
+                showToast(msgSaved);
                 loadUsers(); // Перезагружаем список
             },
             error: function(xhr) {
@@ -406,7 +411,7 @@
                         USERS.push(payload);
                     }
                     localStorage.setItem('mock_users', JSON.stringify(USERS));
-                    showToast(t('usr_msg_saved', 'Пользователь сохранен! (Local)'));
+                    showToast(msgSaved + ' (Local)');
                     loadUsers();
                 } else {
                     let errorMsg = xhr.responseText;
@@ -414,7 +419,8 @@
                         const parsedErr = JSON.parse(xhr.responseText);
                         if (parsedErr.error) errorMsg = parsedErr.error;
                     } catch(e) {}
-                    showToast('Ошибка сохранения: ' + errorMsg, true);
+                    const errSave = typeof window.t === 'function' ? window.t('usr_err_save', 'Ошибка сохранения: ') : 'Ошибка сохранения: ';
+                    showToast(errSave + errorMsg, true);
                 }
             }
         });
@@ -424,14 +430,17 @@
         const id = $('#u_id').val();
         if (!id) return;
 
-        if (confirm(t('usr_conf_del', 'Вы уверены, что хотите удалить этого пользователя?'))) {
+        const confDel = typeof window.t === 'function' ? window.t('usr_conf_del', 'Вы уверены, что хотите удалить этого пользователя?') : 'Вы уверены, что хотите удалить этого пользователя?';
+        const msgDel = typeof window.t === 'function' ? window.t('usr_msg_deleted', 'Пользователь удален.') : 'Пользователь удален.';
+
+        if (confirm(confDel)) {
             $.ajax({
                 url: `/api/users/${id}`,
                 type: 'DELETE',
                 contentType: 'application/json',
                 data: JSON.stringify({id: id}),
                 success: function() {
-                    showToast(t('usr_msg_deleted', 'Пользователь удален.'));
+                    showToast(msgDel);
                     $('#user-editor').hide();
                     $('#empty-state').show();
                     loadUsers();
@@ -441,7 +450,7 @@
                     if (xhr.status === 404) {
                         USERS = USERS.filter(u => u.id != id);
                         localStorage.setItem('mock_users', JSON.stringify(USERS));
-                        showToast(t('usr_msg_deleted', 'Пользователь удален. (Local)'));
+                        showToast(msgDel + ' (Local)');
                         $('#user-editor').hide();
                         $('#empty-state').show();
                         loadUsers();
@@ -451,7 +460,8 @@
                             const parsedErr = JSON.parse(xhr.responseText);
                             if (parsedErr.error) errorMsg = parsedErr.error;
                         } catch(e) {}
-                        showToast('Ошибка удаления: ' + errorMsg, true);
+                        const errDel = typeof window.t === 'function' ? window.t('usr_err_del', 'Ошибка удаления: ') : 'Ошибка удаления: ';
+                        showToast(errDel + errorMsg, true);
                     }
                 }
             });

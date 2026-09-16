@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Умный Конвертер и WireMock</title>
+    <title data-i18n="mg_page_title">Умный Конвертер и WireMock</title>
+
     <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
 
@@ -14,36 +15,98 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        body { background: #f4f7f9; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --action-bar-bg: #f1f5f9;
+            --error-bg: #fee2e2;
+            --error-text: #dc2626;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --action-bar-bg: #1e293b;
+            --error-bg: rgba(220, 38, 38, 0.1);
+            --error-text: #f87171;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); }
+        .header p { margin: 2px 0 0 0; color: var(--text-muted); font-size: 12px; }
 
-        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
-        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; }
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
 
-        .panel-head { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; }
-        .panel-body { display: flex; flex-direction: column; flex: 1; padding: 15px; gap: 15px; overflow-y: auto; }
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; min-height: 0; }
+        .col { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: 0.3s; }
 
-        .CodeMirror { flex: 1; border: 1px solid #cbd5e1; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; }
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; transition: 0.3s; }
+        .panel-body { display: flex; flex-direction: column; flex: 1; padding: 15px; gap: 15px; overflow-y: auto; background: var(--bg-card); transition: 0.3s; }
 
-        .action-bar { display: flex; gap: 10px; background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap;}
-        .action-bar select, .action-bar input { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; outline: none; }
+        .CodeMirror { flex: 1; border: 1px solid var(--border-color); border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); }
+
+        .action-bar { display: flex; gap: 10px; background: var(--action-bar-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); align-items: center; flex-wrap: wrap; transition: 0.3s;}
+        .action-bar select, .action-bar input { padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; outline: none; background: var(--input-bg); color: var(--text-main); transition: 0.3s; }
+        .action-bar input:focus, .action-bar select:focus { border-color: #3b82f6; }
 
         .btn-action { background: #3b82f6; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; }
         .btn-action:hover { background: #2563eb; }
         .btn-wiremock { background: #f59e0b; color: white; }
         .btn-wiremock:hover { background: #d97706; }
+        .btn-swagger { background: #10b981; color: white; }
+        .btn-swagger:hover { background: #059669; }
 
-        .error-msg { background: #fee2e2; color: #dc2626; padding: 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; margin-bottom: 10px; }
+        .btn-icon { background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--text-muted); transition: 0.2s; padding: 0; }
+        .btn-icon:hover { color: #ef4444; }
+
+        .error-msg { background: var(--error-bg); color: var(--error-text); padding: 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; margin-bottom: 10px; border: 1px solid var(--error-text); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
         <div>
-            <h2 style="margin: 0; font-size: 22px; color: #1e293b;">Конвертер Данных и Генератор WireMock</h2>
-            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">cURL ➔ JSON | SQL ➔ JSON | JSON ➔ WireMock Stub</p>
+            <h2 data-i18n="mg_title">Конвертер Данных и Генератор WireMock</h2>
+            <p data-i18n="mg_subtitle">cURL ➔ JSON | SQL ➔ JSON | JSON ➔ WireMock Stub</p>
         </div>
     </div>
 </div>
@@ -52,14 +115,14 @@
     <!-- ЛЕВАЯ КОЛОНКА: Входные данные (cURL, SQL, текст) -->
     <div class="col">
         <div class="panel-head">
-            <span>1. Входные данные (Source)</span>
-            <button class="btn-icon" onclick="editorIn.setValue('')" title="Очистить">🗑</button>
+            <span data-i18n="mg_col_in">1. Входные данные (Source)</span>
+            <button class="btn-icon" onclick="editorIn.setValue('')" title="Очистить" data-i18n="btn_clear">🗑</button>
         </div>
         <div class="panel-body" style="padding-bottom: 0;">
             <div class="action-bar">
-                <span style="font-size: 12px; font-weight: bold; color: #475569;">Конвертировать:</span>
-                <button class="btn-action" onclick="parseCurlToJson()">cURL ➔ JSON</button>
-                <button class="btn-action" onclick="parseSqlToJson()">SQL Результат ➔ JSON</button>
+                <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);" data-i18n="mg_lbl_convert">Конвертировать:</span>
+                <button class="btn-action" onclick="parseCurlToJson()" data-i18n="mg_btn_curl">cURL ➔ JSON</button>
+                <button class="btn-action" onclick="parseSqlToJson()" data-i18n="mg_btn_sql">SQL Результат ➔ JSON</button>
             </div>
             <div class="error-msg" id="in-error"></div>
             <textarea id="editor-in" placeholder="Вставьте сюда команду cURL, результат SQL запроса (таблицу) или сырой текст..."></textarea>
@@ -69,14 +132,14 @@
     <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА: JSON (Request/Response) -->
     <div class="col">
         <div class="panel-head">
-            <span>2. Структура JSON</span>
-            <button class="btn-icon" onclick="editorJson.setValue('')" title="Очистить">🗑</button>
+            <span data-i18n="mg_col_json">2. Структура JSON</span>
+            <button class="btn-icon" onclick="editorJson.setValue('')" title="Очистить" data-i18n="btn_clear">🗑</button>
         </div>
         <div class="panel-body" style="padding-bottom: 0;">
             <div class="action-bar">
-                <span style="font-size: 12px; font-weight: bold; color: #475569;">Генерировать:</span>
-                <button class="btn-action btn-wiremock" onclick="generateWiremockStub()">⚡ WireMock Stub</button>
-                <button class="btn-action" style="background:#10b981;" onclick="sendToSwagger()">➡️ В Swagger</button>
+                <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);" data-i18n="mg_lbl_generate">Генерировать:</span>
+                <button class="btn-action btn-wiremock" onclick="generateWiremockStub()" data-i18n="mg_btn_wm">⚡ WireMock Stub</button>
+                <button class="btn-action btn-swagger" onclick="sendToSwagger()" data-i18n="mg_btn_swagger">➡️ В Swagger</button>
             </div>
             <div class="error-msg" id="json-error"></div>
             <textarea id="editor-json" placeholder="Здесь появится готовый JSON..."></textarea>
@@ -86,16 +149,18 @@
     <!-- ПРАВАЯ КОЛОНКА: Результат (WireMock Stub) -->
     <div class="col">
         <div class="panel-head">
-            <span>3. Результат (WireMock Mapping)</span>
-            <button class="secondary btn-small" onclick="copyResult()">📋 Копировать</button>
+            <span data-i18n="mg_col_out">3. Результат (WireMock Mapping)</span>
+            <button class="btn secondary" style="padding: 4px 10px; font-size: 12px;" onclick="copyResult()" data-i18n="btn_copy">📋 Копировать</button>
         </div>
-        <div class="panel-body" style="padding-bottom: 0; background: #282a36;">
+        <div class="panel-body" style="padding-bottom: 0;">
             <div class="action-bar" style="background: transparent; border: none; padding: 0 0 10px 0;">
-                <input type="text" id="wm-url" value="/api/v1/test" placeholder="URL Endpoint'а" style="flex: 1;">
+                <input type="text" id="wm-url" value="/api/v1/test" placeholder="URL Endpoint" style="flex: 1;">
                 <select id="wm-method">
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
                     <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
                 </select>
                 <input type="number" id="wm-status" value="200" style="width: 70px;" title="HTTP Status Code">
             </div>
@@ -108,23 +173,44 @@
     let editorIn, editorJson, editorOut;
 
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmThemeIn = isDark ? "dracula" : "default";
+
         editorIn = CodeMirror.fromTextArea(document.getElementById('editor-in'), {
-            mode: "text/plain", lineNumbers: true, lineWrapping: true
+            mode: "text/plain", lineNumbers: true, lineWrapping: true, theme: cmThemeIn
         });
         editorJson = CodeMirror.fromTextArea(document.getElementById('editor-json'), {
-            mode: "application/json", lineNumbers: true, matchBrackets: true
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmThemeIn
         });
         editorOut = CodeMirror.fromTextArea(document.getElementById('editor-out'), {
             mode: "application/json", lineNumbers: true, theme: "dracula", readOnly: true
         });
 
-        // Пример для старта
-        editorIn.setValue("curl -X POST https://api.test.com/users \\\n -H 'Content-Type: application/json' \\\n -d '{\"name\": \"Ivan\", \"role\": \"admin\"}'");
+        window.addEventListener('themeChanged', function(e) {
+            const newTheme = e.detail.isDark ? 'dracula' : 'default';
+            editorIn.setOption('theme', newTheme);
+            editorJson.setOption('theme', newTheme);
+            // editorOut оставляем темным (или можно сделать newTheme)
+            editorOut.setOption('theme', e.detail.isDark ? 'dracula' : 'dracula');
+        });
 
-        // НОВЫЙ КОД: Перехват параметров из Task Tracker
+        const startCurl = "curl -X POST https://api.test.com/users \\\n -H 'Content-Type: application/json' \\\n -d '{\"name\": \"Ivan\", \"role\": \"admin\"}'";
+        editorIn.setValue(startCurl);
+
+        // Перехват параметров из URL
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('url')) {
             $('#wm-url').val(urlParams.get('url'));
+        }
+
+        // Локализация плейсхолдеров
+        if (typeof window.t === 'function') {
+            $('#editor-in').attr('placeholder', window.t('mg_ph_in', 'Вставьте сюда команду cURL, результат SQL запроса (таблицу) или сырой текст...'));
+            $('#editor-json').attr('placeholder', window.t('mg_ph_json', 'Здесь появится готовый JSON...'));
+            $('#wm-url').attr('placeholder', window.t('mg_ph_url', "URL Endpoint'а"));
         }
     });
 
@@ -146,7 +232,8 @@
                 editorJson.setValue(dataMatch[2]);
             }
         } else {
-            $('#in-error').text("Не найдено тело запроса (-d / --data) в команде cURL.").show();
+            const msg = typeof window.t === 'function' ? window.t('mg_err_curl_body', "Не найдено тело запроса (-d / --data) в команде cURL.") : "Не найдено тело запроса (-d / --data) в команде cURL.";
+            $('#in-error').text(msg).show();
         }
 
         // Пытаемся выцепить URL и Метод для WireMock
@@ -172,7 +259,8 @@
         // Примитивный парсер табличных данных (Tab-Separated)
         const lines = text.split('\n');
         if (lines.length < 2) {
-            return $('#in-error').text("Ожидаются табличные данные (минимум 2 строки: заголовки и значения)").show();
+            const msg = typeof window.t === 'function' ? window.t('mg_err_sql', "Ожидаются табличные данные (минимум 2 строки: заголовки и значения)") : "Ожидаются табличные данные (минимум 2 строки: заголовки и значения)";
+            return $('#in-error').text(msg).show();
         }
 
         const headers = lines[0].split('\t').map(h => h.trim());
@@ -210,7 +298,8 @@
             try {
                 responseBody = JSON.parse(jsonText);
             } catch(e) {
-                return $('#json-error').text("Ошибка синтаксиса JSON в центральном окне: " + e.message).show();
+                const msg = typeof window.t === 'function' ? window.t('mg_err_json_syntax', "Ошибка синтаксиса JSON в центральном окне: ") : "Ошибка синтаксиса JSON в центральном окне: ";
+                return $('#json-error').text(msg + e.message).show();
             }
         }
 
@@ -233,14 +322,20 @@
         };
 
         editorOut.setValue(JSON.stringify(stub, null, 4));
-        if(typeof showNotification === 'function') showNotification("WireMock заглушка сгенерирована!");
-        else alert("WireMock заглушка сгенерирована!");
+
+        if(typeof window.showNotification === 'function') {
+            const msg = typeof window.t === 'function' ? window.t('mg_msg_wm_ok', "WireMock заглушка сгенерирована!") : "WireMock заглушка сгенерирована!";
+            window.showNotification(msg);
+        }
     }
 
     // === ИНТЕГРАЦИЯ: ПЕРЕДАЧА В SWAGGER ===
     function sendToSwagger() {
         const jsonText = editorJson.getValue().trim();
-        if (!jsonText) return alert("Сначала получите JSON!");
+        if (!jsonText) {
+            const msg = typeof window.t === 'function' ? window.t('mg_err_no_json', "Сначала получите JSON!") : "Сначала получите JSON!";
+            return alert(msg);
+        }
 
         // Сохраняем во временное хранилище и переходим на страницу Swagger
         localStorage.setItem('swagger_temp_req', jsonText);
@@ -249,8 +344,10 @@
 
     function copyResult() {
         navigator.clipboard.writeText(editorOut.getValue());
-        if(typeof showNotification === 'function') showNotification("Скопировано!");
-        else alert("Скопировано!");
+        if(typeof window.showNotification === 'function') {
+            const msg = typeof window.t === 'function' ? window.t('msg_copied', "Скопировано!") : "Скопировано!";
+            window.showNotification(msg);
+        }
     }
 </script>
 </body>

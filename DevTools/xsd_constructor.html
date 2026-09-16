@@ -5,7 +5,7 @@
     <title data-i18n="xsd_page_title">XSD Конструктор</title>
 
     <script src="libs/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
+    <link rel="stylesheet" href="libs/style.min.css"/>
     <script src="libs/jstree.min.js"></script>
 
     <!-- CodeMirror Core -->
@@ -15,16 +15,18 @@
     <script src="libs/xml.min.js"></script>
 
     <!-- CodeMirror Addons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/xml-fold.min.js"></script>
+    <link rel="stylesheet" href="libs/foldgutter.min.css">
+    <script src="libs/foldcode.min.js"></script>
+    <script src="libs/foldgutter.min.js"></script>
+    <script src="libs/xml-fold.min.js"></script>
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/search.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/jump-to-line.min.js"></script>
+    <link rel="stylesheet" href="libs/dialog.min.css">
+    <script src="libs/dialog.min.js"></script>
+    <script src="libs/searchcursor.min.js"></script>
+    <script src="libs/search.min.js"></script>
+    <script src="libs/jump-to-line.min.js"></script>
+
+    <script src="utils.js"></script>
 
     <link rel="stylesheet" href="style.css">
 
@@ -59,7 +61,20 @@
             color: var(--text-main);
             transition: background 0.3s, color 0.3s;
         }
+
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+
+        /* Кнопки */
+        .btn { padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+        .btn.success { background: #10b981; color: white; }
+        .btn.success:hover { background: #059669; }
+        .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .btn.danger:hover { background: #ef4444; color: white; }
+
         .workspace {
             flex: 1; display: flex; gap: 15px; overflow: hidden;
             border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 6px; padding: 15px;
@@ -119,25 +134,25 @@
 
 <div class="header">
     <h2 style="margin:0; color:var(--text-main);" data-i18n="xsd_page_title">XSD Конструктор</h2>
-    <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+    <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
 </div>
 
 <div class="toolbar">
-    <button id="gen-btn" class="primary" data-i18n="xsd_btn_refresh">🔄 Обновить XSD</button>
-    <button id="copy-btn" class="secondary" data-i18n="xsd_btn_copy_xml">📋 Копировать XML</button>
+    <button id="gen-btn" class="btn primary" data-i18n="xsd_btn_refresh">🔄 Обновить XSD</button>
+    <button id="copy-btn" class="btn secondary" data-i18n="xsd_btn_copy_xml">📋 Копировать XML</button>
     <div style="width:1px;height:20px;background:var(--border-color);margin:0 5px;"></div>
 
-    <button onclick="$('#modal-import-json').fadeIn(200)" class="primary" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="xsd_btn_import_json">📥 Импорт JSON</button>
+    <button onclick="$('#modal-import-json').fadeIn(200)" class="btn primary" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="xsd_btn_import_json">📥 Импорт JSON</button>
     <div style="width:1px;height:20px;background:var(--border-color);margin:0 5px;"></div>
-    <button class="secondary" onclick="$('#xsd-file-input').click()" style="background: #f59e0b; border-color: #f59e0b; color: white;" data-i18n="xsd_btn_import_xsd">📥 Импорт XSD</button>
+    <button class="btn secondary" onclick="$('#xsd-file-input').click()" style="background: #f59e0b; border-color: #f59e0b; color: white;" data-i18n="xsd_btn_import_xsd">📥 Импорт XSD</button>
     <input type="file" id="xsd-file-input" accept=".xsd, .xml" style="display: none;" onchange="importXSD(event)">
-    <label data-i18n="xsd_lbl_db">БД (Server.groovy):</label>
+    <label data-i18n="xsd_lbl_db" style="margin-bottom:0; font-weight:600; color:var(--text-muted); font-size:13px;">БД (Server.groovy):</label>
     <input type="text" id="save-name" placeholder="Имя схемы..." style="width: 180px;">
-    <button id="save-btn" class="success" data-i18n="btn_save">Сохранить</button>
+    <button id="save-btn" class="btn success" data-i18n="btn_save">Сохранить</button>
     <div style="flex:1"></div>
     <select id="load-select" style="min-width:150px; padding:6px;"></select>
-    <button id="load-btn" class="primary" data-i18n="btn_load">Загрузить</button>
-    <button id="del-btn" class="danger" data-i18n="btn_delete">Удалить</button>
+    <button id="load-btn" class="btn primary" data-i18n="btn_load">Загрузить</button>
+    <button id="del-btn" class="btn danger" data-i18n="btn_delete">Удалить</button>
 </div>
 
 <div class="workspace">
@@ -154,8 +169,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h3 style="margin:0;" data-i18n="xsd_lbl_result">РЕЗУЛЬТАТ (XSD)</h3>
             <div style="display: flex; gap: 5px; align-items: center;">
-                <button class="secondary" onclick="editorOutput.execCommand('find')" style="padding: 4px 8px; font-size: 14px; border:none;" title="Поиск (Ctrl+F)" data-i18n="btn_search_title">🔍</button>
-                <button class="secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyEditorResult()" data-i18n="btn_copy">📋 Копировать</button>
+                <button class="btn secondary" onclick="editorOutput.execCommand('find')" style="padding: 4px 8px; font-size: 14px; border:none;" title="Поиск (Ctrl+F)" data-i18n="btn_search_title">🔍</button>
+                <button class="btn secondary" style="font-size: 11px; padding: 4px 10px;" onclick="copyEditorResult()" data-i18n="btn_copy">📋 Копировать</button>
             </div>
         </div>
         <hr style="border:0; border-bottom:1px solid var(--border-color); margin:10px 0;">
@@ -177,25 +192,16 @@
 
         <textarea id="json-import-text" placeholder='{\n  "Client": {\n    "Id": 123,\n    "IsActive": true,\n    "Contacts": ["email@test.ru"]\n  }\n}' style="width:100%; height:250px; font-family:'Consolas', monospace; font-size:13px; border:1px solid var(--border-color); border-radius:4px; padding:10px; background:var(--input-bg); color:var(--text-main); resize:vertical; box-sizing: border-box;"></textarea>
 
-        <div style="text-align:right; margin-top:20px;">
-            <button class="secondary" onclick="$('#modal-import-json').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
-            <button class="primary" onclick="applyJsonImport()" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="xsd_btn_generate_tree">Сгенерировать дерево</button>
+        <div style="text-align:right; margin-top:20px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn secondary" onclick="$('#modal-import-json').fadeOut(150)" data-i18n="btn_cancel">Отмена</button>
+            <button class="btn primary" onclick="applyJsonImport()" style="background:#8b5cf6; border-color:#8b5cf6;" data-i18n="xsd_btn_generate_tree">Сгенерировать дерево</button>
         </div>
     </div>
 </div>
 
 <script>
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
+    // Универсальный локализатор
+    const getStr = (k, d) => typeof window.t === 'function' ? window.t(k, d) : d;
 
     const TYPE_MAP = {
         'string':'xsd:string', 'str':'xsd:string',
@@ -212,7 +218,7 @@
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
         if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        $('#save-name').attr('placeholder', t('xsd_ph_schema_name', 'Имя схемы...'));
+        $('#save-name').attr('placeholder', getStr('xsd_ph_schema_name', 'Имя схемы...'));
 
         // Инициализация CodeMirror
         editorOutput = CodeMirror.fromTextArea(document.getElementById('output'), {
@@ -253,21 +259,21 @@
                     const items = {};
 
                     if (type === 'schema') {
-                        items.addRoot = { label: t('xsd_ctx_add_root', "Добавить корневой элемент"), action: () => createElement(node, 'string') };
-                        items.refresh = { label: t('xsd_ctx_refresh', "Обновить код"), separator_before: true, action: generateXSD };
+                        items.addRoot = { label: getStr('xsd_ctx_add_root', "Добавить корневой элемент"), action: () => createElement(node, 'string') };
+                        items.refresh = { label: getStr('xsd_ctx_refresh', "Обновить код"), separator_before: true, action: generateXSD };
                     }
 
                     if (type === 'sequence' || type === 'schema') {
-                        items.addString = { label: t('xsd_ctx_add_str', "Добавить: String"), action: () => createElement(node, 'string') };
-                        items.addInt    = { label: t('xsd_ctx_add_int', "Добавить: Int"),    action: () => createElement(node, 'int') };
-                        items.addBool   = { label: t('xsd_ctx_add_bool', "Добавить: Boolean"), action: () => createElement(node, 'bool') };
-                        items.addDate   = { label: t('xsd_ctx_add_date', "Добавить: Date"),    action: () => createElement(node, 'date') };
-                        items.addCustom = { label: t('xsd_ctx_add_custom', "Добавить: Другой..."), separator_before: true, action: () => createElement(node, 'string') };
+                        items.addString = { label: getStr('xsd_ctx_add_str', "Добавить: String"), action: () => createElement(node, 'string') };
+                        items.addInt    = { label: getStr('xsd_ctx_add_int', "Добавить: Int"),    action: () => createElement(node, 'int') };
+                        items.addBool   = { label: getStr('xsd_ctx_add_bool', "Добавить: Boolean"), action: () => createElement(node, 'bool') };
+                        items.addDate   = { label: getStr('xsd_ctx_add_date', "Добавить: Date"),    action: () => createElement(node, 'date') };
+                        items.addCustom = { label: getStr('xsd_ctx_add_custom', "Добавить: Другой..."), separator_before: true, action: () => createElement(node, 'string') };
                     }
 
                     if (type === 'element' || type === 'sequence') {
                         items.cardinality = {
-                            label: t('xsd_ctx_card', "Повторяемость (Card)"),
+                            label: getStr('xsd_ctx_card', "Повторяемость (Card)"),
                             submenu: {
                                 c11: { label: "1..1 (Default)", action: () => setCardinality(node, 1, 1) },
                                 c01: { label: "0..1 (Optional)", action: () => setCardinality(node, 0, 1) },
@@ -279,7 +285,7 @@
 
                     if (type === 'element') {
                         items.makeComplex = {
-                            label: t('xsd_ctx_make_complex', "Сделать Структурой"), separator_before: true,
+                            label: getStr('xsd_ctx_make_complex', "Сделать Структурой"), separator_before: true,
                             action: function() {
                                 if(node.data) node.data.type = null;
                                 let t = $('#tree').jstree(true);
@@ -291,12 +297,12 @@
                                 generateXSD();
                             }
                         };
-                        items.rename = { label: t('btn_rename', "Переименовать"), separator_before: true, action: () => $("#tree").jstree(true).edit(node) };
-                        items.remove = { label: t('btn_delete', "Удалить"), separator_before: true, action: () => $("#tree").jstree(true).delete_node(node) };
+                        items.rename = { label: getStr('btn_rename', "Переименовать"), separator_before: true, action: () => $("#tree").jstree(true).edit(node) };
+                        items.remove = { label: getStr('btn_delete', "Удалить"), separator_before: true, action: () => $("#tree").jstree(true).delete_node(node) };
                     }
 
                     if(type === 'complex' || type === 'sequence') {
-                        items.removeBlock = { label: t('xsd_ctx_del_block', "Удалить блок"), action: () => $("#tree").jstree(true).delete_node(node) };
+                        items.removeBlock = { label: getStr('xsd_ctx_del_block', "Удалить блок"), action: () => $("#tree").jstree(true).delete_node(node) };
                     }
                     return items;
                 }
@@ -384,7 +390,10 @@
         if (!editorOutput) return;
         const text = editorOutput.getValue();
         if (!text) return;
-        navigator.clipboard.writeText(text).then(() => showToast(t('msg_xml_copied', 'XML Скопирован')));
+        navigator.clipboard.writeText(text).then(() => {
+            if(typeof window.showNotification === 'function') window.showNotification(getStr('msg_xml_copied', 'XML Скопирован'));
+            else showToast(getStr('msg_xml_copied', 'XML Скопирован'));
+        });
     };
 
     function createNode(parent, text, type, data={}) {
@@ -482,12 +491,12 @@
 
     function saveToDB(){
         let n = $('#save-name').val();
-        if(!n) return alert(t('xsd_err_no_name', "Введите имя"));
+        if(!n) return alert(getStr('xsd_err_no_name', "Введите имя"));
         let js = $('#tree').jstree(true).get_json('#', {no_state:false, flat:false});
         $.ajax({
             url:'/api/xsd', type:'POST', contentType:'application/json',
             data: JSON.stringify({name:n, content:JSON.stringify(js)}),
-            success:()=>{showToast(t('msg_saved', 'Сохранено')); loadSavedList()}
+            success:()=>{showToast(getStr('msg_saved', 'Сохранено')); loadSavedList()}
         });
     }
 
@@ -497,7 +506,7 @@
             type: 'GET',
             cache: false,
             success: (l) => {
-                let s = $('#load-select').empty().append('<option value="">' + t('opt_select', '-- Выбрать --') + '</option>');
+                let s = $('#load-select').empty().append('<option value="">' + getStr('opt_select', '-- Выбрать --') + '</option>');
                 if(l) l.forEach(x => s.append(`<option value="${x.id}">${escapeHtml(x.name)}</option>`));
             }
         });
@@ -518,9 +527,9 @@
                     $('#tree').jstree(true).refresh();
                     $('#save-name').val($('#load-select option:selected').text());
                     setTimeout(generateXSD, 500);
-                    showToast(t('msg_loaded', 'Загружено'));
+                    showToast(getStr('msg_loaded', 'Загружено'));
                 } catch(e) {
-                    alert(t('err_load_corrupt', 'Ошибка загрузки. Возможно данные повреждены.'));
+                    alert(getStr('err_load_corrupt', 'Ошибка загрузки. Возможно данные повреждены.'));
                 }
             }
         });
@@ -528,16 +537,16 @@
 
     function deleteFromDB() {
         let id = $('#load-select').val();
-        if (!id) return alert(t('xsd_err_select_del', 'Сначала выберите схему из списка для удаления!'));
+        if (!id) return alert(getStr('xsd_err_select_del', 'Сначала выберите схему из списка для удаления!'));
 
-        if (confirm(t('xsd_conf_del', 'Точно удалить эту схему из базы данных?'))) {
+        if (confirm(getStr('xsd_conf_del', 'Точно удалить эту схему из базы данных?'))) {
             $.ajax({
                 url: '/api/xsd',
                 type: 'DELETE',
                 contentType: 'application/json',
                 data: JSON.stringify({ id: parseInt(id) }),
                 success: () => {
-                    showToast(t('msg_deleted', 'Схема удалена!'));
+                    showToast(getStr('msg_deleted', 'Схема удалена!'));
                     loadSavedList();
                     $('#save-name').val('');
                 }
@@ -547,7 +556,7 @@
 
     window.applyJsonImport = function() {
         const text = $('#json-import-text').val().trim();
-        if (!text) return alert(t('xsd_err_empty_json', "Вставьте JSON код!"));
+        if (!text) return alert(getStr('xsd_err_empty_json', "Вставьте JSON код!"));
 
         try {
             const obj = JSON.parse(text);
@@ -572,10 +581,10 @@
             tree.open_all();
             generateXSD();
 
-            showToast(t('xsd_msg_tree_gen', 'Дерево успешно сгенерировано!'));
+            showToast(getStr('xsd_msg_tree_gen', 'Дерево успешно сгенерировано!'));
 
         } catch(e) {
-            alert(t('xsd_err_json_parse', "Ошибка парсинга JSON: Проверьте синтаксис. (") + e.message + ")");
+            alert(getStr('xsd_err_json_parse', "Ошибка парсинга JSON: Проверьте синтаксис. (") + e.message + ")");
         }
     };
 
@@ -648,7 +657,7 @@
             const xmlDoc = parser.parseFromString(xmlString, "text/xml");
 
             if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
-                alert(t('xsd_err_invalid_xml', "❌ Ошибка: Невалидный XML/XSD файл"));
+                alert(getStr('xsd_err_invalid_xml', "❌ Ошибка: Невалидный XML/XSD файл"));
                 return;
             }
 
@@ -661,10 +670,10 @@
                 tree.open_all();
                 generateXSD();
 
-                showToast(t('xsd_msg_xsd_loaded', 'XSD успешно загружен!'));
+                showToast(getStr('xsd_msg_xsd_loaded', 'XSD успешно загружен!'));
             } catch (err) {
                 console.error(err);
-                alert(t('xsd_err_xsd_parse', "❌ Ошибка при чтении структуры XSD: ") + err.message);
+                alert(getStr('xsd_err_xsd_parse', "❌ Ошибка при чтении структуры XSD: ") + err.message);
             } finally {
                 event.target.value = '';
             }

@@ -1,101 +1,148 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>JSON Schema to Excel</title>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="style.css">
+    <title data-i18n="js2e_page_title">JSON Schema to Excel</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/javascript.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
     <style>
-        .editor-wrapper {
-            display: flex;
-            height: 70vh;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-sec-bg: #e2e8f0;
+            --btn-sec-hover: #cbd5e1;
         }
-        .line-numbers {
-            background: #f8f9fa;
-            color: #999;
-            padding: 10px 5px;
-            text-align: right;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 21px;
-            overflow: hidden;
-            border-right: 1px solid #ddd;
-            user-select: none;
-            min-width: 35px;
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-sec-bg: #334155;
+            --btn-sec-hover: #475569;
         }
-        .line-numbers div { height: 21px; }
-        .error-line {
-            color: #c62828;
-            font-weight: bold;
-            background: #ffcdd2;
-            border-radius: 2px;
-            display: block;
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
         }
-        textarea {
-            width: 100%;
-            height: 100%;
-            padding: 10px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 21px;
-            box-sizing: border-box;
-            border: none;
-            resize: none;
-            outline: none;
-            white-space: pre;
-            overflow: auto;
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
         }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); transition: 0.3s; margin: 0; font-size: 22px; }
+        .header p { color: var(--text-muted); transition: 0.3s; margin: 4px 0 0 0; font-size: 12px; }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        .workspace {
+            flex: 1; display: flex; flex-direction: column; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            overflow: hidden; transition: background 0.3s, border-color 0.3s; min-height: 0;
+        }
+
+        .panel-head {
+            background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color);
+            font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        /* CodeMirror на всю высоту */
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 14px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; }
+
+        /* Блок ошибок */
+        .error-box { display: none; padding: 12px 15px; background: rgba(220, 38, 38, 0.1); color: #ef4444; font-family: 'Consolas', monospace; font-size: 13px; border-bottom: 1px solid rgba(220, 38, 38, 0.3); word-break: break-all; }
+        .error-line-bg { background-color: rgba(220, 38, 38, 0.2) !important; }
+
+        /* Скроллбары */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
-<div class="main-content">
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
-        <h2 style="margin: 0; border: none;">Экспорт JSON Schema в Excel</h2>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 data-i18n="js2e_title">Экспорт JSON Schema в Excel</h2>
+            <p data-i18n="js2e_desc">Парсер читает блок required, определяет массивы items и переносит description прямо в таблицу.</p>
+        </div>
     </div>
-
-    <p>Парсер читает блок <code>required</code>, определяет массивы <code>items</code> и переносит <code>description</code> прямо в таблицу.</p>
-
-    <button id="exportBtn" style="padding: 10px 15px; cursor: pointer; margin-bottom: 10px; background: #007bff; color: white; border: none; border-radius: 4px;">Скачать структуру в Excel</button>
-
-    <div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; border-radius: 4px; font-family: monospace;"></div>
-
-    <div class="editor-wrapper">
-        <div class="line-numbers" id="line-numbers"></div>
-        <textarea id="json-input" placeholder="Вставьте сюда вашу JSON Schema..."></textarea>
+    <div>
+        <button class="btn primary" id="exportBtn" style="background: #0ea5e9; border-color: #0ea5e9;" data-i18n="js2e_btn_export">📥 Скачать структуру (Excel)</button>
     </div>
 </div>
 
-<script src="libs/jquery-3.6.0.min.js"></script>
+<div class="workspace">
+    <div class="panel-head">
+        <span data-i18n="js2e_lbl_editor">JSON Schema Payload</span>
+    </div>
+    <div id="error-panel" class="error-box"></div>
+    <textarea id="json-input"></textarea>
+</div>
+
 <script>
+    let editor;
+    let errorLineHandle = null;
+
     $(function () {
-        const errorPanel = $('#error-panel');
-        const textarea = $('#json-input');
-        const gutter = $('#line-numbers');
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        function updateLineNumbers(errorLine = -1) {
-            const linesCount = textarea.val().split('\n').length;
-            let html = '';
-            for (let i = 1; i <= linesCount; i++) {
-                html += `<div class="${i === errorLine ? 'error-line' : ''}">${i}</div>`;
-            }
-            gutter.html(html);
-        }
+        const cmTheme = isDark ? "dracula" : "default";
 
-        textarea.on('input', function() {
-            errorPanel.hide();
-            updateLineNumbers();
+        editor = CodeMirror.fromTextArea(document.getElementById('json-input'), {
+            mode: "application/json",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: cmTheme
         });
 
-        textarea.on('scroll', function() {
-            gutter.scrollTop(textarea.scrollTop());
+        window.addEventListener('themeChanged', function(e) {
+            editor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
         });
 
-        // Загружаем твой рабочий пример со льготами
+        editor.on('change', clearError);
+
+        // Загружаем рабочий пример со льготами
         const exampleSchema = `{
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Схема заявки на льготы",
@@ -151,14 +198,12 @@
     "signatureAgreementDeduction"
   ]
 }`;
-        textarea.val(exampleSchema);
-        updateLineNumbers();
+        editor.setValue(exampleSchema);
 
         $('#exportBtn').on('click', function() {
-            errorPanel.hide();
-            updateLineNumbers();
+            clearError();
 
-            let jsonText = textarea.val();
+            let jsonText = editor.getValue();
 
             // МАГИЯ: Меняем ВСЕ вордовские кавычки на одинарные ('), чтобы они не ломали структуру JSON!
             jsonText = jsonText.replace(/[\u201C\u201D\u00AB\u00BB\u2018\u2019]/g, "'");
@@ -169,23 +214,27 @@
             // Автоматически убираем висячие запятые перед закрывающими скобками
             jsonText = jsonText.replace(/,\s*([}\]])/g, '$1');
 
-            textarea.val(jsonText);
+            if (jsonText !== editor.getValue()) {
+                editor.setValue(jsonText);
+            }
 
             if (!jsonText.trim()) {
-                errorPanel.text("Пожалуйста, вставьте JSON Schema.").show();
+                const msg = typeof t === 'function' ? t('js2e_err_empty', "Пожалуйста, вставьте JSON Schema.") : "Пожалуйста, вставьте JSON Schema.";
+                $('#error-panel').text(`❌ ${msg}`).show();
                 return;
             }
 
             try {
                 JSON.parse(jsonText);
             } catch (e) {
-                const match = e.message.match(/line\s+(\d+)/i);
-                if (match) {
-                    const lineNum = parseInt(match[1], 10);
-                    updateLineNumbers(lineNum);
-                    textarea.scrollTop((lineNum - 1) * 21 - 60);
+                const match = e.message.match(/line\s+(\d+)/i) || e.message.match(/position\s+(\d+)/i);
+                if (match && e.message.includes("line")) {
+                    const lineNum = parseInt(match[1], 10) - 1;
+                    errorLineHandle = editor.addLineClass(lineNum, 'background', 'error-line-bg');
+                    editor.scrollIntoView({line: lineNum, ch: 0}, 60);
                 }
-                errorPanel.text("Ошибка синтаксиса JSON: " + e.message).show();
+                const msg = typeof t === 'function' ? t('js2e_err_parse', "Ошибка синтаксиса JSON: ") : "Ошибка синтаксиса JSON: ";
+                $('#error-panel').text(`❌ ${msg}${e.message}`).show();
                 return;
             }
 
@@ -194,6 +243,24 @@
             form.appendTo('body').submit().remove();
         });
     });
+
+    function clearError() {
+        $('#error-panel').hide();
+        if (errorLineHandle !== null) {
+            editor.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+            errorLineHandle = null;
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

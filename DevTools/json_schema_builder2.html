@@ -77,11 +77,8 @@
 <script type="text/babel" data-type="module">
     const { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback } = React;
 
-    // Локальная обертка для перевода внутри React
-    const t = (key, defaultStr) => {
-        if (window.t) return window.t(key, defaultStr);
-        return defaultStr;
-    };
+    // Глобальная функция перевода из utils.js
+    const t = window.t;
 
     // Добавлена пустая строка для выбора "Без типа"
     const JSON_TYPES = ['', 'object', 'array', 'string', 'number', 'integer', 'boolean'];

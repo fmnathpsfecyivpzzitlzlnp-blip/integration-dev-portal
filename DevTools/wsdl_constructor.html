@@ -5,13 +5,13 @@
     <title data-i18n="wc_page_title">WSDL Конструктор</title>
 
     <script src="libs/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css"/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+    <link rel="stylesheet" href="libs/jstree-style.min.css"/>
+    <script src="libs/jstree.min.js"></script>
 
     <link rel="stylesheet" href="libs/codemirror.min.css">
     <link rel="stylesheet" href="libs/dracula.min.css">
     <script src="libs/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="libs/xml.min.js"></script>
     <script src="utils.js"></script>
 
     <link rel="stylesheet" href="style.css">
@@ -169,6 +169,7 @@
         <textarea id="editor-out"></textarea>
     </div>
 </div>
+
 <!-- ВКЛАДКА: SOAP ГЕНЕРАТОР -->
 <div id="tab-tester" class="tab-content">
     <div style="padding: 15px; background: var(--bg-main); border-bottom: 1px solid var(--border-color); display:flex; gap: 15px; align-items:flex-end;">
@@ -196,18 +197,8 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
+    // Глобальный хелпер локализации для скриптов
+    const t = (key, def) => typeof window.t === 'function' ? window.t(key, def) : def;
 
     let editorIn, editorOut, editorSoap;
     let wsdlDoc = null;
@@ -297,7 +288,9 @@
         // 1. ПАРСИНГ WSDL В ДОМ
         $('#btn-parse').on('click', function() {
             let xmlText = editorIn.getValue().trim();
-            if(!xmlText) return alert(t('wc_err_no_wsdl', 'Вставьте WSDL код'));
+            if(!xmlText) {
+                return alert(t('wc_err_no_wsdl', 'Вставьте WSDL код'));
+            }
 
             const parser = new DOMParser();
             wsdlDoc = parser.parseFromString(xmlText, "text/xml");
@@ -678,8 +671,11 @@
 
     window.copyResult = function() {
         navigator.clipboard.writeText(editorOut.getValue());
-        if(typeof showNotification === 'function') showNotification(t('wc_msg_copied', "Код скопирован!"));
-        else alert(t('wc_msg_copied', "Код скопирован!"));
+        if(typeof window.showNotification === 'function') {
+            window.showNotification(t('wc_msg_copied', "Код скопирован!"));
+        } else {
+            alert(t('wc_msg_copied', "Код скопирован!"));
+        }
     }
 
     // =====================================
@@ -687,7 +683,9 @@
     // =====================================
     window.mergeWsdlTypes = function() {
         let xmlText = $('#import-wsdl-text').val().trim();
-        if (!xmlText) return alert(t('wc_err_no_import', "Вставьте код для импорта!"));
+        if (!xmlText) {
+            return alert(t('wc_err_no_import', "Вставьте код для импорта!"));
+        }
 
         xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
 
@@ -717,8 +715,11 @@
         Array.from(typesNode.children).forEach(schemaNode => {
             if (schemaNode.localName === 'schema') {
                 let jstreeChildren = parseXmlNodeToJstree(schemaNode);
+
+                const txtSchema = t('wc_imp_schema_title', "ИМПОРТИРОВАННАЯ СХЕМА (Перетащите элементы)");
+
                 let newSchemaData = {
-                    text: t('wc_imp_schema_title', "ИМПОРТИРОВАННАЯ СХЕМА (Перетащите элементы)"),
+                    text: txtSchema,
                     type: "schema",
                     state: { opened: true },
                     data: { nodeName: 'schema', attributes: getAttrs(schemaNode) },
@@ -763,17 +764,23 @@
         // 1. Ищем input сообщение для выбранной операции
         const op = wsdlDoc.querySelector(`portType operation[name="${opName}"]`);
         const input = op.querySelector('input');
-        if(!input) return alert(t('wc_err_no_in', 'У операции нет входящего сообщения (input)!'));
+        if(!input) {
+            return alert(t('wc_err_no_in', 'У операции нет входящего сообщения (input)!'));
+        }
 
         let msgName = input.getAttribute('message');
         if(msgName && msgName.includes(':')) msgName = msgName.split(':')[1];
 
         // 2. Ищем message и его part
         const msg = wsdlDoc.querySelector(`message[name="${msgName}"]`);
-        if(!msg) return alert(t('wc_err_no_msg', 'Не найдено сообщение: ') + msgName);
+        if(!msg) {
+            return alert(t('wc_err_no_msg', 'Не найдено сообщение: ') + msgName);
+        }
 
         const part = msg.querySelector('part');
-        if(!part) return alert(t('wc_err_no_part', 'У сообщения нет параметра (part)!'));
+        if(!part) {
+            return alert(t('wc_err_no_part', 'У сообщения нет параметра (part)!'));
+        }
 
         // Поддержка как element="", так и type="" атрибутов
         let elName = part.getAttribute('element') || part.getAttribute('type');
@@ -808,9 +815,11 @@
             // Если структура найдена локально, строим полное дерево
             xmlBody = buildMockNode(rootEl, activeSchema, "      ");
         } else {
-            // ГЛАВНЫЙ ФИКС: Если структура во внешнем XSD (import), делаем красивую заглушку
-            xmlBody = `      <api:${elName}>\n         <!-- Детальная структура скрыта во внешнем файле (xsd:import) -->\n         <!-- Подставьте необходимые поля вручную -->\n      </api:${elName}>\n`;
-            }
+            // ГЛАВНЫЙ ФИКС: Если структура во внешнем XSD (import), делаем красивую заглушку с переводом
+            const cmtHidden = t('wc_soap_comment_hidden', "<!-- Детальная структура скрыта во внешнем файле (xsd:import) -->");
+            const cmtManual = t('wc_soap_comment_manual', "<!-- Подставьте необходимые поля вручную -->");
+            xmlBody = `      <api:${elName}>\n         ${cmtHidden}\n         ${cmtManual}\n      </api:${elName}>\n`;
+        }
 
         // 6. Финальная сборка конверта
         let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -881,8 +890,11 @@
 
     window.copySoapMock = function() {
         navigator.clipboard.writeText(editorSoap.getValue());
-        if(typeof showNotification === 'function') showNotification(t('wc_msg_copied', "Код скопирован!"));
-        else alert(t('wc_msg_copied', "Код скопирован!"));
+        if(typeof window.showNotification === 'function') {
+            window.showNotification(t('wc_msg_copied', "Код скопирован!"));
+        } else {
+            alert(t('wc_msg_copied', "Код скопирован!"));
+        }
     }
 </script>
 </body>

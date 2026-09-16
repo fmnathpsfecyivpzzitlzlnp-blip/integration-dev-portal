@@ -1,103 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>WSDL to Excel Structure</title>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="style.css">
+    <title data-i18n="w2e_page_title">WSDL to Excel Structure</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
     <style>
-        .editor-wrapper {
-            display: flex;
-            height: 70vh;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-sec-bg: #e2e8f0;
+            --btn-sec-hover: #cbd5e1;
         }
-        .line-numbers {
-            background: #f8f9fa;
-            color: #999;
-            padding: 10px 5px;
-            text-align: right;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 21px;
-            overflow: hidden;
-            border-right: 1px solid #ddd;
-            user-select: none;
-            min-width: 35px;
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-sec-bg: #334155;
+            --btn-sec-hover: #475569;
         }
-        .line-numbers div { height: 21px; }
-        .error-line {
-            color: #c62828;
-            font-weight: bold;
-            background: #ffcdd2;
-            border-radius: 2px;
-            display: block;
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
         }
-        textarea {
-            width: 100%;
-            height: 100%;
-            padding: 10px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 21px;
-            box-sizing: border-box;
-            border: none;
-            resize: none;
-            outline: none;
-            white-space: pre;
-            overflow: auto;
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
         }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); transition: 0.3s; margin: 0; font-size: 22px; }
+        .header p { color: var(--text-muted); transition: 0.3s; margin: 4px 0 0 0; font-size: 12px; max-width: 700px; line-height: 1.4; }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        .workspace {
+            flex: 1; display: flex; flex-direction: column; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            overflow: hidden; transition: background 0.3s, border-color 0.3s; min-height: 0;
+        }
+
+        .panel-head {
+            background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color);
+            font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        /* CodeMirror на всю высоту */
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; }
+
+        /* Блок ошибок */
+        .error-box { display: none; padding: 12px 15px; background: rgba(220, 38, 38, 0.1); color: #ef4444; font-family: 'Consolas', monospace; font-size: 13px; border-bottom: 1px solid rgba(220, 38, 38, 0.3); word-break: break-all; }
+        .error-line-bg { background-color: rgba(220, 38, 38, 0.2) !important; }
+
+        /* Скроллбары */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
-<div class="main-content">
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
-        <h2 style="margin: 0; border: none;">Экспорт структуры WSDL в Excel</h2>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 data-i18n="w2e_title">Экспорт структуры WSDL в Excel</h2>
+            <p data-i18n="w2e_desc">Вставьте ваш код WSDL (или XSD схемы) в поле ниже и нажмите кнопку. Система извлечет все структуры (ComplexTypes), поля, типы данных, кардинальность и документацию!</p>
+        </div>
     </div>
-
-    <p>Вставьте ваш код WSDL (или XSD схемы) в поле ниже и нажмите кнопку. Система извлечет все структуры (ComplexTypes), поля, типы данных, кардинальность и документацию!</p>
-
-    <button id="exportBtn" style="padding: 10px 15px; cursor: pointer; margin-bottom: 10px; background: #007bff; color: white; border: none; border-radius: 4px;">Скачать структуру в Excel</button>
-
-    <div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; border-radius: 4px; font-family: monospace;"></div>
-
-    <div class="editor-wrapper">
-        <div class="line-numbers" id="line-numbers"></div>
-        <textarea id="xml-input" placeholder="Вставьте сюда ваш WSDL или XSD код..."></textarea>
+    <div>
+        <button class="btn primary" id="exportBtn" style="background: #8b5cf6; border-color: #8b5cf6;" data-i18n="w2e_btn_export">📥 Скачать структуру (Excel)</button>
     </div>
 </div>
 
-<script src="libs/jquery-3.6.0.min.js"></script>
+<div class="workspace">
+    <div class="panel-head">
+        <span data-i18n="w2e_lbl_editor">WSDL / XSD Payload</span>
+    </div>
+    <div id="error-panel" class="error-box"></div>
+    <textarea id="xml-input"></textarea>
+</div>
+
 <script>
+    let editor;
+    let errorLineHandle = null;
+
     $(function () {
-        const errorPanel = $('#error-panel');
-        const textarea = $('#xml-input');
-        const gutter = $('#line-numbers');
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        function updateLineNumbers(errorLine = -1) {
-            const linesCount = textarea.val().split('\n').length;
-            let html = '';
-            for (let i = 1; i <= linesCount; i++) {
-                if (i === errorLine) {
-                    html += `<div class="error-line">${i}</div>`;
-                } else {
-                    html += `<div>${i}</div>`;
-                }
-            }
-            gutter.html(html);
-        }
+        const cmTheme = isDark ? "dracula" : "default";
 
-        textarea.on('input', function() {
-            errorPanel.hide();
-            updateLineNumbers();
+        editor = CodeMirror.fromTextArea(document.getElementById('xml-input'), {
+            mode: "xml",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: cmTheme
         });
 
-        textarea.on('scroll', function() {
-            gutter.scrollTop(textarea.scrollTop());
+        window.addEventListener('themeChanged', function(e) {
+            editor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
         });
+
+        editor.on('change', clearError);
 
         const exampleWsdl = `<?xml version="1.0" encoding="UTF-8"?>
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
@@ -118,20 +161,23 @@
       </xsd:schema>
    </wsdl:types>
 </wsdl:definitions>`;
-
-        textarea.val(exampleWsdl);
-        updateLineNumbers();
+        editor.setValue(exampleWsdl);
 
         $('#exportBtn').on('click', function() {
-            errorPanel.hide();
-            updateLineNumbers();
+            clearError();
 
-            let xmlText = textarea.val().trim();
+            let xmlText = editor.getValue().trim();
+
+            // Заменяем "кривые" кавычки из Word/PDF на нормальные двойные
             xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
-            textarea.val(xmlText);
+
+            if (xmlText !== editor.getValue()) {
+                editor.setValue(xmlText);
+            }
 
             if (!xmlText) {
-                errorPanel.text("Пожалуйста, вставьте WSDL-код.").show();
+                const msg = typeof window.t === 'function' ? window.t('w2e_err_empty', "Пожалуйста, вставьте WSDL-код.") : "Пожалуйста, вставьте WSDL-код.";
+                $('#error-panel').text(`❌ ${msg}`).show();
                 return;
             }
 
@@ -143,13 +189,14 @@
             if (errorNode) {
                 const errorMsg = errorNode.textContent;
                 // Пытаемся выцепить номер строки из нативной ошибки браузера
-                const match = errorMsg.match(/line number (\d+)/i);
+                const match = errorMsg.match(/line number (\d+)/i) || errorMsg.match(/line\s+(\d+)/i);
                 if (match) {
-                    const lineNum = parseInt(match[1], 10);
-                    updateLineNumbers(lineNum);
-                    textarea.scrollTop((lineNum - 1) * 21 - 60);
+                    const lineNum = parseInt(match[1], 10) - 1;
+                    errorLineHandle = editor.addLineClass(lineNum, 'background', 'error-line-bg');
+                    editor.scrollIntoView({line: lineNum, ch: 0}, 60);
                 }
-                errorPanel.text("Ошибка синтаксиса XML: " + errorMsg).show();
+                const msgErrPrefix = typeof window.t === 'function' ? window.t('w2e_err_syntax', "Ошибка синтаксиса XML: ") : "Ошибка синтаксиса XML: ";
+                $('#error-panel').text(`❌ ${msgErrPrefix}${errorMsg}`).show();
                 return;
             }
 
@@ -159,6 +206,24 @@
             form.appendTo('body').submit().remove();
         });
     });
+
+    function clearError() {
+        $('#error-panel').hide();
+        if (errorLineHandle !== null) {
+            editor.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
+            errorLineHandle = null;
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

@@ -1,46 +1,147 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>XML to Excel Structure</title>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; height: calc(100vh - 40px); }
-        h2 { margin-top: 0; }
-        textarea { width: 100%; flex-grow: 1; font-family: monospace; font-size: 14px; box-sizing: border-box; margin-top: 10px; }
-        button { padding: 10px 15px; cursor: pointer; margin-bottom: 10px; }
-    </style>
+    <title data-i18n="x2e_page_title">XML to Excel Structure</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
+
+    <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
+    <script src="libs/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-sec-bg: #e2e8f0;
+            --btn-sec-hover: #cbd5e1;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-sec-bg: #334155;
+            --btn-sec-hover: #475569;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { color: var(--text-main); transition: 0.3s; margin: 0; font-size: 22px; }
+        .header p { color: var(--text-muted); transition: 0.3s; margin: 4px 0 0 0; font-size: 12px; max-width: 700px; line-height: 1.4; }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        .workspace {
+            flex: 1; display: flex; flex-direction: column; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            overflow: hidden; transition: background 0.3s, border-color 0.3s; min-height: 0;
+        }
+
+        .panel-head {
+            background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color);
+            font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        /* CodeMirror на всю высоту */
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; }
+
+        /* Блок ошибок */
+        .error-box { display: none; padding: 12px 15px; background: rgba(220, 38, 38, 0.1); color: #ef4444; font-family: 'Consolas', monospace; font-size: 13px; border-bottom: 1px solid rgba(220, 38, 38, 0.3); word-break: break-all; }
+
+        /* Скроллбары */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
 </head>
 <body>
 
-<h2>Экспорт структуры XML в Excel</h2>
-<p>Вставьте ваш XML в поле ниже и нажмите кнопку, чтобы скачать `.xlsx` файл со структурой данных.</p>
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <div>
+            <h2 data-i18n="x2e_title">Экспорт структуры XML в Excel</h2>
+            <p data-i18n="x2e_desc">Вставьте ваш XML в поле ниже и нажмите кнопку, чтобы скачать `.xlsx` файл со структурой данных.</p>
+        </div>
+    </div>
+    <div>
+        <button class="btn primary" id="exportBtn" style="background: #10b981; border-color: #10b981;" data-i18n="x2e_btn_export">📥 Скачать структуру (Excel)</button>
+    </div>
+</div>
 
-<button id="exportBtn">Скачать структуру в Excel</button>
-<div id="error-panel" style="display: none; padding: 10px; background: #ffebee; color: #c62828; border: 1px solid #c62828; margin-top: 10px;"></div>
+<div class="workspace">
+    <div class="panel-head">
+        <span data-i18n="x2e_lbl_editor">XML Payload</span>
+    </div>
+    <div id="error-panel" class="error-box"></div>
+    <textarea id="xml-input"></textarea>
+</div>
 
-<textarea id="xml-input" placeholder="Вставьте сюда ваш XML..."></textarea>
-
-<script src="libs/jquery-3.6.0.min.js"></script>
 <script>
+    let editor;
+
     $(function () {
-        const errorPanel = $('#error-panel');
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        $('#exportBtn').on('click', function() {
-            errorPanel.hide();
-            const xmlText = $('#xml-input').val();
-            if (!xmlText.trim()) {
-                alert("Пожалуйста, вставьте XML-данные.");
-                return;
-            }
+        const cmTheme = isDark ? "dracula" : "default";
 
-            // Создаем форму и отправляем POST-запрос для скачивания файла
-            var form = $('<form></form>').attr('action', '/api/xml-to-excel').attr('method', 'post');
-            form.append($('<input></input>').attr('type', 'hidden').attr('name', 'xml').attr('value', xmlText));
-            form.appendTo('body').submit().remove();
+        editor = CodeMirror.fromTextArea(document.getElementById('xml-input'), {
+            mode: "xml",
+            lineNumbers: true,
+            matchBrackets: true,
+            theme: cmTheme
         });
 
-        // Пример XML для удобства
+        window.addEventListener('themeChanged', function(e) {
+            editor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+        });
+
+        editor.on('change', function() {
+            $('#error-panel').hide();
+        });
+
         const exampleXml = `<accountListResponse>
     <ids>
         <id>
@@ -64,8 +165,25 @@
         </account>
     </accounts>
 </accountListResponse>`;
-        $('#xml-input').val(exampleXml);
+        editor.setValue(exampleXml);
+
+        $('#exportBtn').on('click', function() {
+            $('#error-panel').hide();
+            let xmlText = editor.getValue();
+
+            if (!xmlText.trim()) {
+                const msg = typeof window.t === 'function' ? window.t('x2e_err_empty', "Пожалуйста, вставьте XML-данные.") : "Пожалуйста, вставьте XML-данные.";
+                $('#error-panel').text(`❌ ${msg}`).show();
+                return;
+            }
+
+            // Создаем форму и отправляем POST-запрос для скачивания файла[cite: 20]
+            var form = $('<form></form>').attr('action', '/api/xml-to-excel').attr('method', 'post');
+            form.append($('<input></input>').attr('type', 'hidden').attr('name', 'xml').attr('value', xmlText));
+            form.appendTo('body').submit().remove();
+        });
     });
+
     function escapeHtml(text) {
         if (!text) return "";
         return String(text)
@@ -76,6 +194,5 @@
             .replace(/'/g, "&#039;");
     }
 </script>
-
 </body>
 </html>

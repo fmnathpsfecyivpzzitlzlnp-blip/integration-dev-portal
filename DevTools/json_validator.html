@@ -2,138 +2,194 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>JSON Schema Validator</title>
+    <title data-i18n="jv_page_title">JSON Schema Validator</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
 
     <link rel="stylesheet" href="libs/codemirror.min.css">
     <link rel="stylesheet" href="libs/dracula.min.css">
-    <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="libs/codemirror.min.js"></script>
     <script src="libs/javascript.min.js"></script>
     <script src="libs/ajv7.min.js"></script>
-    <script src="utils.js"></script>
+
     <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --success-bg: #dcfce7;
+            --success-border: #86efac;
+            --success-text: #166534;
+            --error-bg: #fef2f2;
+            --error-border: #fca5a5;
+            --error-text: #991b1b;
+        }
 
-    /* Обертка для редактора, чтобы он занимал нужную высоту */
-    .editor-wrapper {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        height: 55vh;
-        min-height: 350px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        overflow: hidden;
-        background: #fff;
-    }
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --success-bg: rgba(22, 163, 74, 0.1);
+            --success-border: #15803d;
+            --success-text: #4ade80;
+            --error-bg: rgba(220, 38, 38, 0.1);
+            --error-border: #b91c1c;
+            --error-text: #f87171;
+        }
 
-    /* Сам редактор на 100% высоты обертки */
-    .CodeMirror {
-        height: 100% !important;
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 13px;
-    }
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
 
-    /* Красная подсветка строки с ошибкой */
-    .error-line-bg {
-        background-color: #ffcdd2 !important;
-    }
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
 
-    .generator-panel {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-    }
-    .generator-panel label {
-        font-weight: 600;
-        margin-bottom: 8px;
-        display: inline-block;
-        color: #333;
-    }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); }
 
-    /* Панели результатов валидации */
-    #results-panel {
-        padding: 20px;
-        border-radius: 6px;
-        font-family: 'Consolas', monospace;
-        display: none;
-        margin-top: 15px;
-    }
-    .success-panel { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-    .error-panel { background: #fff5f5; border: 1px solid #ffcdd2; color: #c62828; }
-    .error-item {
-        background: #fff; border: 1px solid #ffcdd2; padding: 15px;
-        margin-top: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .error-item strong { display: inline-block; width: 120px; color: #555; }
-</style>
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; min-height: 0; }
+
+        .col { flex: 1; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: 0.3s; min-width: 0; }
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; transition: 0.3s; }
+
+        /* CodeMirror */
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; }
+
+        /* Панели результатов валидации */
+        #results-panel {
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            display: none;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .success-panel { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success-text); }
+        .error-panel { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
+
+        .error-item {
+            background: var(--bg-card); border: 1px solid var(--error-border); padding: 12px 15px;
+            margin-top: 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            color: var(--text-main);
+        }
+        .error-item strong { display: inline-block; width: 120px; color: var(--text-muted); }
+
+        .error-line-bg { background-color: rgba(220, 38, 38, 0.2) !important; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
 </head>
 <body>
-<div class="main-content generator-page-container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0; border: none;">JSON Schema Validator</h2>
-        <div class="generator-controls" style="display: flex; gap: 10px;">
-            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
-            <button id="validateBtn" class="primary" style="padding: 8px 15px;">⚡ Проверить (Validate)</button>
+
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <h2 data-i18n="jv_title">JSON Schema Validator</h2>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button id="clearBtn" class="btn secondary" data-i18n="jv_btn_clear">🧹 Очистить</button>
+        <button id="validateBtn" class="btn primary" style="background: #8b5cf6; border-color: #8b5cf6;" data-i18n="jv_btn_validate">⚡ Проверить (Validate)</button>
+    </div>
+</div>
+
+<div id="results-panel"></div>
+
+<div class="workspace">
+    <div class="col">
+        <div class="panel-head">
+            <span data-i18n="jv_lbl_schema">JSON Schema:</span>
         </div>
+        <textarea id="schema-input"></textarea>
     </div>
 
-    <div id="results-panel"></div>
-
-    <div class="generator-columns-container" style="display: flex; gap: 20px;">
-        <div class="generator-panel">
-            <label for="schema-input">JSON Schema:</label>
-            <div class="editor-wrapper">
-                <textarea id="schema-input"></textarea>
-            </div>
+    <div class="col">
+        <div class="panel-head">
+            <span data-i18n="jv_lbl_json">Input JSON (Данные):</span>
         </div>
-
-        <div class="generator-panel">
-            <label for="json-input">Input JSON (Данные):</label>
-            <div class="editor-wrapper">
-                <textarea id="json-input"></textarea>
-            </div>
-        </div>
+        <textarea id="json-input"></textarea>
     </div>
 </div>
 
 <script>
+    let editorSchema, editorJson;
+    let schemaErrorLine = null;
+    let jsonErrorLine = null;
+
     $(function () {
-        const resultsPanel = $('#results-panel');
-        let schemaErrorLine = null;
-        let jsonErrorLine = null;
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        // 1. Инициализация CodeMirror для Схемы
-        const editorSchema = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
+        const cmTheme = isDark ? "dracula" : "default";
+
+        editorSchema = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
             mode: "application/json",
             lineNumbers: true,
             matchBrackets: true,
-            theme: "default",
+            theme: cmTheme,
             lineWrapping: true
         });
 
-        // 2. Инициализация CodeMirror для Данных
-        const editorJson = CodeMirror.fromTextArea(document.getElementById('json-input'), {
+        editorJson = CodeMirror.fromTextArea(document.getElementById('json-input'), {
             mode: "application/json",
             lineNumbers: true,
             matchBrackets: true,
-            theme: "default",
+            theme: cmTheme,
             lineWrapping: true
         });
 
-        // 3. Восстановление из памяти браузера
+        window.addEventListener('themeChanged', function(e) {
+            const newTheme = e.detail.isDark ? 'dracula' : 'default';
+            editorSchema.setOption('theme', newTheme);
+            editorJson.setOption('theme', newTheme);
+        });
+
         if (localStorage.getItem('validator_schema')) editorSchema.setValue(localStorage.getItem('validator_schema'));
         if (localStorage.getItem('validator_json')) editorJson.setValue(localStorage.getItem('validator_json'));
 
-        // 4. Автосохранение и сброс ошибок при вводе
         editorSchema.on('change', function() {
             localStorage.setItem('validator_schema', editorSchema.getValue());
             if (schemaErrorLine) {
                 editorSchema.removeLineClass(schemaErrorLine, 'background', 'error-line-bg');
                 schemaErrorLine = null;
             }
-            resultsPanel.hide();
+            $('#results-panel').hide();
         });
 
         editorJson.on('change', function() {
@@ -142,30 +198,32 @@
                 editorJson.removeLineClass(jsonErrorLine, 'background', 'error-line-bg');
                 jsonErrorLine = null;
             }
-            resultsPanel.hide();
+            $('#results-panel').hide();
         });
 
-        // 5. Очистка полей
         $('#clearBtn').on('click', function() {
-            if(confirm('Очистить оба поля?')) {
+            const msg = typeof t === 'function' ? t('jv_conf_clear', 'Очистить оба поля?') : 'Очистить оба поля?';
+            if(confirm(msg)) {
                 editorSchema.setValue('');
                 editorJson.setValue('');
                 localStorage.removeItem('validator_schema');
                 localStorage.removeItem('validator_json');
-                resultsPanel.hide();
+                $('#results-panel').hide();
             }
         });
 
-        // 6. ЛОГИКА ВАЛИДАЦИИ
         $('#validateBtn').on('click', function() {
+            const resultsPanel = $('#results-panel');
             resultsPanel.removeClass('success-panel error-panel').empty().hide();
 
             const schemaTxt = editorSchema.getValue().trim();
             const jsonTxt = editorJson.getValue().trim();
 
-            if (!schemaTxt || !jsonTxt) return alert("Заполните оба поля!");
+            if (!schemaTxt || !jsonTxt) {
+                const msg = typeof t === 'function' ? t('jv_err_empty', 'Заполните оба поля!') : 'Заполните оба поля!';
+                return alert(msg);
+            }
 
-            // Шаг А: Проверка синтаксиса (ловли сломанных запятых и скобок)
             let schemaObj, jsonObj;
 
             try {
@@ -177,35 +235,48 @@
             try {
                 jsonObj = JSON.parse(jsonTxt);
             } catch (e) {
-                return showParseError(e, "Input JSON (Данные)", editorJson, false);
+                return showParseError(e, typeof t === 'function' ? t('jv_lbl_json', 'Input JSON (Данные)') : "Input JSON (Данные)", editorJson, false);
             }
 
-            // Проверка библиотеки AJV
             if (typeof window.ajv7 === 'undefined') {
-                return alert("Ошибка: Библиотека Ajv не загружена. Проверьте файл libs/ajv7.min.js");
+                const msg = typeof t === 'function' ? t('jv_err_lib', 'Ошибка: Библиотека Ajv не загружена.') : "Ошибка: Библиотека Ajv не загружена.";
+                return alert(msg);
             }
 
-            // Шаг Б: Валидация данных по схеме
             try {
                 const ajv = new window.ajv7({ allErrors: true });
                 const validate = ajv.compile(schemaObj);
                 const valid = validate(jsonObj);
 
                 if (valid) {
-                    resultsPanel.addClass('success-panel').html('<h3 style="margin:0;">✅ JSON полностью соответствует схеме!</h3>').slideDown();
+                    const msg = typeof t === 'function' ? t('jv_msg_success', '✅ JSON полностью соответствует схеме!') : '✅ JSON полностью соответствует схеме!';
+                    resultsPanel.addClass('success-panel').html(`<h3 style="margin:0;">${msg}</h3>`).slideDown();
                 } else {
-                    let errorHtml = `<h3 style="margin-top:0;">❌ Найдено ошибок: ${validate.errors.length}</h3>`;
+                    const msgErr = typeof t === 'function' ? t('jv_msg_errors', '❌ Найдено ошибок: ') : '❌ Найдено ошибок: ';
+                    let errorHtml = `<h3 style="margin-top:0; margin-bottom: 15px;">${msgErr}${validate.errors.length}</h3>`;
 
                     validate.errors.forEach(err => {
                         let msg = err.message;
-                        if (err.keyword === 'additionalProperties') msg = `Свойство '${err.params.additionalProperty}' не определено (запрещены дополнительные свойства)`;
-                        if (err.keyword === 'required') msg = `Отсутствует обязательное поле: '${err.params.missingProperty}'`;
+                        if (err.keyword === 'additionalProperties') {
+                            msg = typeof t === 'function'
+                                ? t('jv_err_add_prop', "Свойство '{0}' не определено (запрещены дополнительные свойства)").replace('{0}', err.params.additionalProperty)
+                                : `Свойство '${err.params.additionalProperty}' не определено (запрещены дополнительные свойства)`;
+                        }
+                        if (err.keyword === 'required') {
+                            msg = typeof t === 'function'
+                                ? t('jv_err_req', "Отсутствует обязательное поле: '{0}'").replace('{0}', err.params.missingProperty)
+                                : `Отсутствует обязательное поле: '${err.params.missingProperty}'`;
+                        }
+
+                        const lblPath = typeof t === 'function' ? t('jv_lbl_path', 'Поле (Path):') : 'Поле (Path):';
+                        const lblErr = typeof t === 'function' ? t('jv_lbl_err', 'Ошибка:') : 'Ошибка:';
+                        const lblSchema = typeof t === 'function' ? t('jv_lbl_schema_path', 'Схема:') : 'Схема:';
 
                         errorHtml += `
                             <div class="error-item">
-                                <div><strong>Поле (Path):</strong> <span style="color:#d32f2f; font-weight:bold;">${err.instancePath || '/ (Root)'}</span></div>
-                                <div><strong>Ошибка:</strong> ${msg}</div>
-                                <div style="font-size: 11px; color: #888; margin-top: 5px;"><strong>Схема:</strong> ${err.schemaPath}</div>
+                                <div><strong>${lblPath}</strong> <span style="color:var(--error-text); font-weight:bold; font-family: monospace;">${err.instancePath || '/ (Root)'}</span></div>
+                                <div><strong>${lblErr}</strong> ${escapeHtml(msg)}</div>
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 5px;"><strong>${lblSchema}</strong> <span style="font-family: monospace;">${err.schemaPath}</span></div>
                             </div>
                         `;
                     });
@@ -213,33 +284,30 @@
                     resultsPanel.addClass('error-panel').html(errorHtml).slideDown();
                 }
             } catch (e) {
-                // Ошибка в самой структуре схемы (например, неверный $ref)
-                resultsPanel.addClass('error-panel').html(`<h3 style="margin-top:0;">⚠️ Ошибка в структуре JSON Schema:</h3><p>${e.message}</p>`).slideDown();
+                const msg = typeof t === 'function' ? t('jv_err_struct', '⚠️ Ошибка в структуре JSON Schema:') : '⚠️ Ошибка в структуре JSON Schema:';
+                resultsPanel.addClass('error-panel').html(`<h3 style="margin-top:0;">${msg}</h3><p>${escapeHtml(e.message)}</p>`).slideDown();
             }
         });
-
-        // Функция обработки сломанного текста с подсветкой строки
-        function showParseError(e, title, editorInstance, isSchema) {
-            const match = e.message.match(/line\s+(\d+)/i) || e.message.match(/position\s+(\d+)/i);
-            if (match) {
-                const lineNum = parseInt(match[1], 10);
-                if(e.message.includes('line')) {
-                    const handle = editorInstance.addLineClass(lineNum - 1, 'background', 'error-line-bg');
-                    if (isSchema) schemaErrorLine = handle; else jsonErrorLine = handle;
-                    editorInstance.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
-                }
-            }
-            resultsPanel.addClass('error-panel').html(`<h3 style="margin-top:0;">❌ Ошибка синтаксиса в ${title}</h3><p>${e.message}</p>`).slideDown();
-        }
     });
+
+    function showParseError(e, title, editorInstance, isSchema) {
+        const resultsPanel = $('#results-panel');
+        const match = e.message.match(/line\s+(\d+)/i) || e.message.match(/position\s+(\d+)/i);
+        if (match) {
+            const lineNum = parseInt(match[1], 10);
+            if(e.message.includes('line')) {
+                const handle = editorInstance.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                if (isSchema) schemaErrorLine = handle; else jsonErrorLine = handle;
+                editorInstance.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+            }
+        }
+        const msg = typeof t === 'function' ? t('jv_err_syntax', '❌ Ошибка синтаксиса в ') : '❌ Ошибка синтаксиса в ';
+        resultsPanel.addClass('error-panel').html(`<h3 style="margin-top:0;">${msg}${title}</h3><p>${escapeHtml(e.message)}</p>`).slideDown();
+    }
+
     function escapeHtml(text) {
         if (!text) return "";
-        return String(text)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 </script>
 </body>

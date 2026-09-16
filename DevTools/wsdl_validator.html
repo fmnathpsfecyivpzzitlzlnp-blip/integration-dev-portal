@@ -2,90 +2,189 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>XML / WSDL Validator</title>
-    <link rel="stylesheet" href="style.css">
+    <title data-i18n="wv_page_title">XML / WSDL Validator</title>
+
+    <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
 
     <link rel="stylesheet" href="libs/codemirror.min.css">
-    <script src="libs/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="libs/dracula.min.css">
     <script src="libs/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
 
     <style>
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --success-bg: #dcfce7;
+            --success-border: #86efac;
+            --success-text: #166534;
+            --warning-bg: #fef9c3;
+            --warning-border: #fde047;
+            --warning-text: #854d0e;
+            --error-bg: #fef2f2;
+            --error-border: #fca5a5;
+            --error-text: #991b1b;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --success-bg: rgba(22, 163, 74, 0.1);
+            --success-border: #15803d;
+            --success-text: #4ade80;
+            --warning-bg: rgba(202, 138, 4, 0.1);
+            --warning-border: #a16207;
+            --warning-text: #facc15;
+            --error-bg: rgba(220, 38, 38, 0.1);
+            --error-border: #b91c1c;
+            --error-text: #f87171;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; border: 1px solid #3b82f6; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+
+        .workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+
         .editor-wrapper {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            height: 65vh;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             overflow: hidden;
-            background: #fff;
-            margin-top: 15px;
+            background: var(--bg-card);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            transition: 0.3s;
         }
 
         .CodeMirror {
             height: 100% !important;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
+            background: var(--input-bg);
+            color: var(--text-main);
         }
 
-        .error-line-bg { background-color: #ffcdd2 !important; }
+        .error-line-bg { background-color: rgba(220, 38, 38, 0.2) !important; }
 
         #results-panel {
-            padding: 20px;
-            border-radius: 6px;
+            padding: 15px 20px;
+            border-radius: 8px;
             font-family: 'Consolas', monospace;
             display: none;
-            margin-top: 15px;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+            max-height: 250px;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: 0.3s;
         }
-        .success-panel { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-        .warning-panel { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
-        .error-panel { background: #fff5f5; border: 1px solid #ffcdd2; color: #c62828; }
 
-        .check-list { margin-top: 10px; padding-left: 20px; }
-        .check-list li { margin-bottom: 5px; font-weight: bold; }
-        .check-ok { color: #155724; }
-        .check-fail { color: #c62828; }
+        .success-panel { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success-text); }
+        .warning-panel { background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); }
+        .error-panel { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
+
+        .check-list { margin-top: 10px; padding-left: 20px; color: var(--text-main); }
+        .check-list li { margin-bottom: 6px; font-weight: bold; }
+        .check-ok { color: var(--success-text); }
+        .check-fail { color: var(--error-text); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
-<div class="main-content">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <div style="display: flex; gap: 15px; align-items: center;">
-            <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
-            <h2 style="margin: 0; border: none;">XML / WSDL Validator</h2>
-        </div>
-        <div style="display: flex; gap: 10px;">
-            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
-            <button id="validateBtn" class="primary" style="padding: 8px 15px;">⚡ Проверить WSDL</button>
-        </div>
-    </div>
 
+<div class="header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+        <h2 data-i18n="wv_title">XML / WSDL Validator</h2>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button id="clearBtn" class="btn secondary" data-i18n="wv_btn_clear">🧹 Очистить</button>
+        <button id="validateBtn" class="btn primary" style="background: #8b5cf6; border-color: #8b5cf6;" data-i18n="wv_btn_validate">⚡ Проверить WSDL</button>
+    </div>
+</div>
+
+<div class="workspace">
     <div id="results-panel"></div>
 
     <div class="editor-wrapper">
-        <textarea id="xml-input" placeholder="Вставьте сюда ваш код XML или WSDL..."></textarea>
+        <textarea id="xml-input"></textarea>
     </div>
 </div>
 
 <script>
     $(function () {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
         const resultsPanel = $('#results-panel');
         let errorLineHandle = null;
 
-        // Инициализация редактора
         const editor = CodeMirror.fromTextArea(document.getElementById('xml-input'), {
             mode: "xml",
             lineNumbers: true,
             matchBrackets: true,
-            lineWrapping: true
+            lineWrapping: true,
+            theme: cmTheme
         });
 
-        // Восстановление из кэша
+        window.addEventListener('themeChanged', function(e) {
+            editor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
+        });
+
+        if (typeof window.t === 'function') {
+            $('#xml-input').attr('placeholder', window.t('wv_ph_input', 'Вставьте сюда ваш код XML или WSDL...'));
+        }
+
         if (localStorage.getItem('validator_wsdl')) {
             editor.setValue(localStorage.getItem('validator_wsdl'));
         }
 
-        // Автосохранение и очистка ошибок
         editor.on('change', function() {
             localStorage.setItem('validator_wsdl', editor.getValue());
             if (errorLineHandle) {
@@ -96,19 +195,22 @@
         });
 
         $('#clearBtn').on('click', function() {
-            if(confirm('Очистить редактор?')) {
+            const msg = typeof window.t === 'function' ? window.t('wv_conf_clear', 'Очистить редактор?') : 'Очистить редактор?';
+            if(confirm(msg)) {
                 editor.setValue('');
                 localStorage.removeItem('validator_wsdl');
                 resultsPanel.hide();
             }
         });
 
-        // ЛОГИКА ПРОВЕРКИ
         $('#validateBtn').on('click', function() {
             resultsPanel.removeClass('success-panel warning-panel error-panel').empty().hide();
 
             let xmlText = editor.getValue().trim();
-            if (!xmlText) return alert("Пожалуйста, вставьте XML/WSDL код.");
+            if (!xmlText) {
+                const msg = typeof window.t === 'function' ? window.t('wv_err_empty', 'Пожалуйста, вставьте XML/WSDL код.') : 'Пожалуйста, вставьте XML/WSDL код.';
+                return alert(msg);
+            }
 
             // Авто-исправление "кривых" кавычек
             xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
@@ -123,8 +225,6 @@
 
             if (errorNode) {
                 const errorMsg = errorNode.textContent;
-
-                // Ищем номер строки в ошибке (Chrome пишет "line number XX")
                 const match = errorMsg.match(/line number (\d+)/i) || errorMsg.match(/line (\d+)/i);
                 if (match) {
                     const lineNum = parseInt(match[1], 10);
@@ -132,8 +232,9 @@
                     editor.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
                 }
 
+                const titleErr = typeof window.t === 'function' ? window.t('wv_err_syntax', '❌ Критическая ошибка синтаксиса XML:') : '❌ Критическая ошибка синтаксиса XML:';
                 resultsPanel.addClass('error-panel')
-                    .html(`<h3 style="margin-top:0;">❌ Критическая ошибка синтаксиса XML:</h3><p style="white-space: pre-wrap;">${errorMsg}</p>`)
+                    .html(`<h3 style="margin-top:0;">${titleErr}</h3><p style="white-space: pre-wrap;">${escapeHtml(errorMsg)}</p>`)
                     .slideDown();
                 return;
             }
@@ -141,15 +242,16 @@
             // ШАГ 2: Семантическая проверка WSDL
             const rootName = xmlDoc.documentElement.localName;
 
-            // Если это не WSDL, а просто XML или XSD
+            const titleXmlOk = typeof window.t === 'function' ? window.t('wv_msg_xml_ok', '✅ XML синтаксис корректен!') : '✅ XML синтаксис корректен!';
+
             if (rootName !== 'definitions' && !xmlText.includes('wsdl:definitions')) {
+                const msgNotWsdl = typeof window.t === 'function' ? window.t('wv_msg_not_wsdl', 'Но это не похоже на WSDL-файл (отсутствует корневой тег &lt;wsdl:definitions&gt;).') : 'Но это не похоже на WSDL-файл (отсутствует корневой тег &lt;wsdl:definitions&gt;).';
                 resultsPanel.addClass('warning-panel')
-                    .html(`<h3 style="margin-top:0;">✅ XML синтаксис корректен!</h3><p>Но это не похоже на WSDL-файл (отсутствует корневой тег &lt;wsdl:definitions&gt;).</p>`)
+                    .html(`<h3 style="margin-top:0;">${titleXmlOk}</h3><p>${msgNotWsdl}</p>`)
                     .slideDown();
                 return;
             }
 
-            // Проверяем наличие ключевых блоков WSDL
             const hasTypes = xmlDoc.querySelector("types") || xmlText.includes(':types');
             const hasMessage = xmlDoc.querySelector("message") || xmlText.includes(':message');
             const hasPortType = xmlDoc.querySelector("portType") || xmlText.includes(':portType');
@@ -158,27 +260,41 @@
 
             const allValid = hasTypes && hasMessage && hasPortType && hasBinding && hasService;
 
-            let html = `<h3 style="margin-top:0;">✅ XML синтаксис корректен!</h3>`;
-            html += `<p>Анализ структуры WSDL-документа:</p><ul class="check-list">`;
+            const lblAnalysis = typeof window.t === 'function' ? window.t('wv_msg_analysis', 'Анализ структуры WSDL-документа:') : 'Анализ структуры WSDL-документа:';
+            const lblTypes = typeof window.t === 'function' ? window.t('wv_chk_types', 'Блок &lt;wsdl:types&gt; (Структуры данных)') : 'Блок &lt;wsdl:types&gt; (Структуры данных)';
+            const lblMsgs = typeof window.t === 'function' ? window.t('wv_chk_msgs', 'Блок &lt;wsdl:message&gt; (Сообщения)') : 'Блок &lt;wsdl:message&gt; (Сообщения)';
+            const lblPorts = typeof window.t === 'function' ? window.t('wv_chk_ports', 'Блок &lt;wsdl:portType&gt; (Операции)') : 'Блок &lt;wsdl:portType&gt; (Операции)';
+            const lblBinds = typeof window.t === 'function' ? window.t('wv_chk_binds', 'Блок &lt;wsdl:binding&gt; (Привязки SOAP)') : 'Блок &lt;wsdl:binding&gt; (Привязки SOAP)';
+            const lblServs = typeof window.t === 'function' ? window.t('wv_chk_servs', 'Блок &lt;wsdl:service&gt; (Эндпоинты)') : 'Блок &lt;wsdl:service&gt; (Эндпоинты)';
 
-            html += `<li class="${hasTypes ? 'check-ok' : 'check-fail'}">${hasTypes ? '✔' : '✖'} Блок &lt;wsdl:types&gt; (Структуры данных)</li>`;
-            html += `<li class="${hasMessage ? 'check-ok' : 'check-fail'}">${hasMessage ? '✔' : '✖'} Блок &lt;wsdl:message&gt; (Сообщения)</li>`;
-            html += `<li class="${hasPortType ? 'check-ok' : 'check-fail'}">${hasPortType ? '✔' : '✖'} Блок &lt;wsdl:portType&gt; (Операции)</li>`;
-            html += `<li class="${hasBinding ? 'check-ok' : 'check-fail'}">${hasBinding ? '✔' : '✖'} Блок &lt;wsdl:binding&gt; (Привязки SOAP)</li>`;
-            html += `<li class="${hasService ? 'check-ok' : 'check-fail'}">${hasService ? '✔' : '✖'} Блок &lt;wsdl:service&gt; (Эндпоинты)</li>`;
+            let html = `<h3 style="margin-top:0;">${titleXmlOk}</h3>`;
+            html += `<p style="color: var(--text-muted);">${lblAnalysis}</p><ul class="check-list">`;
+
+            html += `<li class="${hasTypes ? 'check-ok' : 'check-fail'}">${hasTypes ? '✔' : '✖'} ${lblTypes}</li>`;
+            html += `<li class="${hasMessage ? 'check-ok' : 'check-fail'}">${hasMessage ? '✔' : '✖'} ${lblMsgs}</li>`;
+            html += `<li class="${hasPortType ? 'check-ok' : 'check-fail'}">${hasPortType ? '✔' : '✖'} ${lblPorts}</li>`;
+            html += `<li class="${hasBinding ? 'check-ok' : 'check-fail'}">${hasBinding ? '✔' : '✖'} ${lblBinds}</li>`;
+            html += `<li class="${hasService ? 'check-ok' : 'check-fail'}">${hasService ? '✔' : '✖'} ${lblServs}</li>`;
             html += `</ul>`;
 
             if (allValid) {
-                html += `<div style="margin-top:15px; font-weight:bold; color:#155724;">🎉 Это полностью валидный WSDL документ!</div>`;
+                const msgValid = typeof window.t === 'function' ? window.t('wv_res_valid', '🎉 Это полностью валидный WSDL документ!') : '🎉 Это полностью валидный WSDL документ!';
+                html += `<div style="margin-top:15px; font-weight:bold; color:var(--success-text);">${msgValid}</div>`;
                 resultsPanel.addClass('success-panel');
             } else {
-                html += `<div style="margin-top:15px; font-weight:bold; color:#c62828;">⚠️ Документ содержит не все необходимые для WSDL блоки.</div>`;
+                const msgInvalid = typeof window.t === 'function' ? window.t('wv_res_invalid', '⚠️ Документ содержит не все необходимые для WSDL блоки.') : '⚠️ Документ содержит не все необходимые для WSDL блоки.';
+                html += `<div style="margin-top:15px; font-weight:bold; color:var(--error-text);">${msgInvalid}</div>`;
                 resultsPanel.addClass('warning-panel');
             }
 
             resultsPanel.html(html).slideDown();
         });
     });
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

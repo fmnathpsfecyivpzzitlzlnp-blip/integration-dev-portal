@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>JSON Schema Инспектор</title>
+    <title data-i18n="sa_page_title">JSON Schema Экстрактор</title>
 
     <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
@@ -16,54 +16,120 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        body { background: #f4f7f9; margin: 0; padding: 20px; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #f8fafc;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --tr-hover: #f8fafc;
+
+            --badge-req-bg: #fee2e2;
+            --badge-req-text: #991b1b;
+            --badge-opt-bg: #e0f2fe;
+            --badge-opt-text: #0369a1;
+            --badge-type-bg: #f1f5f9;
+            --badge-type-text: #475569;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --tr-hover: #334155;
+
+            --badge-req-bg: rgba(220, 38, 38, 0.2);
+            --badge-req-text: #f87171;
+            --badge-opt-bg: rgba(2, 132, 199, 0.2);
+            --badge-opt-text: #38bdf8;
+            --badge-type-bg: rgba(71, 85, 105, 0.2);
+            --badge-type-text: #94a3b8;
+        }
+
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        body {
+            background: var(--bg-main) !important;
+            padding: 20px !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+        }
+
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 22px; color: var(--text-main); }
+        .header p { margin: 2px 0 0 0; color: var(--text-muted); font-size: 12px; }
+
+        .btn-icon { background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
+        .btn-icon:hover { color: #ef4444; }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; border: 1px solid #3b82f6; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
 
         .workspace { flex: 1; display: flex; gap: 20px; overflow: hidden; }
 
         /* Левая колонка - Редактор */
-        .col-left { flex: 0.8; display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; }
-        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; }
+        .col-left { flex: 0.8; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); overflow: hidden; transition: 0.3s; }
+        .CodeMirror { flex: 1; font-family: 'Consolas', monospace; font-size: 13px; height: 100% !important; background: var(--input-bg); color: var(--text-main); border-top: none; }
 
         /* Правая колонка - Фильтры и Результат */
         .col-right { flex: 1.2; display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
 
-        .panel-head { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #334155; display: flex; justify-content: space-between; align-items: center; }
+        .panel-head { background: var(--bg-header); padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: 0.3s; }
 
         /* Блок фильтров */
-        .filters-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); flex-shrink: 0;}
+        .filters-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); flex-shrink: 0; transition: 0.3s; }
         .filter-row { display: flex; gap: 20px; align-items: center; margin-bottom: 10px; }
         .filter-row:last-child { margin-bottom: 0; }
 
-        .filter-group-title { font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .filter-group-title { font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; display: block; }
 
-        .cb-label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #334155; cursor: pointer; user-select: none; }
+        .cb-label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-main); cursor: pointer; user-select: none; }
         .cb-label input { cursor: pointer; }
 
         /* Таблица результатов */
-        .results-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; flex: 1; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .results-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; flex: 1; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.3s; }
         .table-wrap { flex: 1; overflow-y: auto; }
 
         .res-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .res-table th { position: sticky; top: 0; background: #f8fafc; padding: 10px 15px; text-align: left; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: bold; z-index: 10; }
-        .res-table td { padding: 8px 15px; border-bottom: 1px solid #f1f5f9; color: #334155; font-family: 'Consolas', monospace; }
-        .res-table tr:hover { background: #f8fafc; }
+        .res-table th { position: sticky; top: 0; background: var(--bg-header); padding: 10px 15px; text-align: left; color: var(--text-muted); border-bottom: 2px solid var(--border-color); font-weight: bold; z-index: 10; transition: 0.3s; }
+        .res-table td { padding: 8px 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-family: 'Consolas', monospace; transition: 0.3s; }
+        .res-table tr:hover { background: var(--tr-hover); }
 
-        .req-badge { background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .opt-badge { background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .type-badge { background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #e2e8f0; }
+        .req-badge { background: var(--badge-req-bg); color: var(--badge-req-text); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; transition: 0.3s; }
+        .opt-badge { background: var(--badge-opt-bg); color: var(--badge-opt-text); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; transition: 0.3s; }
+        .type-badge { background: var(--badge-type-bg); color: var(--badge-type-text); padding: 2px 6px; border-radius: 4px; font-size: 11px; border: 1px solid var(--border-color); transition: 0.3s; }
 
-        .empty-state { padding: 40px; text-align: center; color: #94a3b8; font-size: 14px; }
+        .empty-state { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
+        <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
         <div>
-            <h2 style="margin: 0; font-size: 22px; color: #1e293b;">🕵️‍♂️ JSON Schema Экстрактор</h2>
-            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Умный фильтр для извлечения нужных полей из больших спецификаций</p>
+            <h2 data-i18n="sa_title">🕵️‍♂️ JSON Schema Экстрактор</h2>
+            <p data-i18n="sa_subtitle">Умный фильтр для извлечения нужных полей из больших спецификаций</p>
         </div>
     </div>
 </div>
@@ -72,8 +138,8 @@
     <!-- ЛЕВАЯ КОЛОНКА: Ввод -->
     <div class="col-left">
         <div class="panel-head">
-            <span>Входная JSON Schema</span>
-            <button class="btn-icon" onclick="editor.setValue('')" title="Очистить">🗑</button>
+            <span data-i18n="sa_lbl_input">Входная JSON Schema</span>
+            <button class="btn-icon" onclick="editor.setValue('')" title="Очистить" data-i18n="btn_clear">🗑</button>
         </div>
         <textarea id="schema-input"></textarea>
     </div>
@@ -85,57 +151,57 @@
         <div class="filters-box">
             <div class="filter-row">
                 <div style="flex: 1;">
-                    <span class="filter-group-title">Обязательность</span>
+                    <span class="filter-group-title" data-i18n="sa_filter_req">Обязательность</span>
                     <div style="display: flex; gap: 15px;">
-                        <label class="cb-label"><input type="checkbox" id="f-req" checked onchange="applyFilters()"> Обязательные</label>
-                        <label class="cb-label"><input type="checkbox" id="f-opt" checked onchange="applyFilters()"> Необязательные</label>
+                        <label class="cb-label"><input type="checkbox" id="f-req" checked onchange="applyFilters()"> <span data-i18n="sa_lbl_req_only">Обязательные</span></label>
+                        <label class="cb-label"><input type="checkbox" id="f-opt" checked onchange="applyFilters()"> <span data-i18n="sa_lbl_opt_only">Необязательные</span></label>
                     </div>
                 </div>
                 <div style="flex: 1;">
-                    <span class="filter-group-title">Сортировка</span>
+                    <span class="filter-group-title" data-i18n="sa_filter_sort">Сортировка</span>
                     <div style="display: flex; gap: 15px;">
-                        <label class="cb-label"><input type="radio" name="f-sort" value="orig" checked onchange="applyFilters()"> Исходная</label>
-                        <label class="cb-label"><input type="radio" name="f-sort" value="az" onchange="applyFilters()"> А-Я (По алфавиту)</label>
+                        <label class="cb-label"><input type="radio" name="f-sort" value="orig" checked onchange="applyFilters()"> <span data-i18n="sa_sort_orig">Исходная</span></label>
+                        <label class="cb-label"><input type="radio" name="f-sort" value="az" onchange="applyFilters()"> <span data-i18n="sa_sort_az">А-Я (По алфавиту)</span></label>
                     </div>
                 </div>
             </div>
 
-            <hr style="border:0; border-top: 1px solid #e2e8f0; margin: 10px 0;">
+            <hr style="border:0; border-top: 1px solid var(--border-color); margin: 10px 0;">
 
             <div class="filter-row">
                 <div style="flex: 1;">
-                    <span class="filter-group-title">Типы данных</span>
+                    <span class="filter-group-title" data-i18n="sa_filter_types">Типы данных</span>
                     <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                         <label class="cb-label"><input type="checkbox" class="f-type" value="string" checked onchange="applyFilters()"> String</label>
                         <label class="cb-label"><input type="checkbox" class="f-type" value="integer" checked onchange="applyFilters()"> Integer/Number</label>
                         <label class="cb-label"><input type="checkbox" class="f-type" value="boolean" checked onchange="applyFilters()"> Boolean</label>
-                        <label class="cb-label"><input type="checkbox" class="f-type" value="array" checked onchange="applyFilters()"> Array (Массивы)</label>
+                        <label class="cb-label"><input type="checkbox" class="f-type" value="array" checked onchange="applyFilters()"> <span data-i18n="sa_type_arr">Array (Массивы)</span></label>
                         <label class="cb-label"><input type="checkbox" class="f-type" value="object" checked onchange="applyFilters()"> Object</label>
                     </div>
                 </div>
-                <button class="primary" style="background: #3b82f6; border-color: #3b82f6; padding: 8px 20px;" onclick="copyResults()">📋 Копировать список</button>
+                <button class="btn primary" onclick="copyResults()" data-i18n="sa_btn_copy">📋 Копировать список</button>
             </div>
         </div>
 
         <!-- ТАБЛИЦА РЕЗУЛЬТАТОВ -->
         <div class="results-box">
-            <div class="panel-head" style="background: #f8fafc;">
-                <span>Результат извлечения</span>
-                <span id="res-count" style="font-size: 12px; color: #64748b; font-weight: bold;">Найдено: 0</span>
+            <div class="panel-head">
+                <span data-i18n="sa_lbl_res">Результат извлечения</span>
+                <span id="res-count" style="font-size: 12px; color: var(--text-muted); font-weight: bold;" data-i18n="sa_lbl_found">Найдено: 0</span>
             </div>
             <div class="table-wrap">
                 <table class="res-table" id="res-table" style="display: none;">
                     <thead>
                     <tr>
-                        <th width="35%">Поле (Path)</th>
-                        <th width="15%">Тип</th>
-                        <th width="15%">Статус</th>
-                        <th width="35%">Описание</th>
+                        <th width="35%" data-i18n="sa_th_path">Поле (Path)</th>
+                        <th width="15%" data-i18n="sa_th_type">Тип</th>
+                        <th width="15%" data-i18n="sa_th_status">Статус</th>
+                        <th width="35%" data-i18n="sa_th_desc">Описание</th>
                     </tr>
                     </thead>
                     <tbody id="res-body"></tbody>
                 </table>
-                <div id="empty-state" class="empty-state">
+                <div id="empty-state" class="empty-state" data-i18n="sa_empty_start">
                     Вставьте JSON Schema слева для начала работы
                 </div>
             </div>
@@ -150,8 +216,18 @@
     let filteredFields = [];  // Хранит отфильтрованный список
 
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
+        const cmTheme = isDark ? "dracula" : "default";
+
         editor = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
-            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: "default"
+            mode: "application/json", lineNumbers: true, matchBrackets: true, theme: cmTheme
+        });
+
+        window.addEventListener('themeChanged', function(e) {
+            editor.setOption('theme', e.detail.isDark ? 'dracula' : 'default');
         });
 
         editor.on('change', () => {
@@ -188,8 +264,10 @@
 
         if (!txt) {
             $('#res-table').hide();
-            $('#empty-state').html('Вставьте JSON Schema слева для начала работы').show();
-            $('#res-count').text('Найдено: 0');
+            const msgEmpty = typeof window.t === 'function' ? window.t('sa_empty_start', 'Вставьте JSON Schema слева для начала работы') : 'Вставьте JSON Schema слева для начала работы';
+            $('#empty-state').html(msgEmpty).show();
+            const msgFound = typeof window.t === 'function' ? window.t('sa_lbl_found', 'Найдено: 0') : 'Найдено: 0';
+            $('#res-count').text(msgFound);
             return;
         }
 
@@ -201,8 +279,10 @@
             applyFilters(); // Сразу применяем текущие фильтры
         } catch (e) {
             $('#res-table').hide();
-            $('#empty-state').html(`<span style="color:#ef4444; font-weight:bold;">❌ Ошибка парсинга: Невалидный JSON</span><br><br>${e.message}`).show();
-            $('#res-count').text('Ошибка');
+            const msgErr = typeof window.t === 'function' ? window.t('sa_err_invalid', '❌ Ошибка парсинга: Невалидный JSON') : '❌ Ошибка парсинга: Невалидный JSON';
+            $('#empty-state').html(`<span style="color:#ef4444; font-weight:bold;">${msgErr}</span><br><br>${escapeHtml(e.message)}`).show();
+            const msgErrorState = typeof window.t === 'function' ? window.t('sa_msg_error', 'Ошибка') : 'Ошибка';
+            $('#res-count').text(msgErrorState);
         }
     }
 
@@ -278,20 +358,28 @@
     // === ОТРИСОВКА ===
     function renderTable() {
         const tbody = $('#res-body').empty();
-        $('#res-count').text(`Найдено: ${filteredFields.length} из ${allParsedFields.length}`);
+
+        let prefixFound = typeof window.t === 'function' ? window.t('sa_lbl_found', 'Найдено: ') : 'Найдено: ';
+        // Удаляем " 0" из конца, если ключ вернул "Найдено: 0"
+        prefixFound = prefixFound.replace(/:\s*0$/, ': ');
+        $('#res-count').text(`${prefixFound}${filteredFields.length} из ${allParsedFields.length}`);
 
         if (filteredFields.length === 0) {
-            tbody.html('<tr><td colspan="4" style="text-align:center; padding: 20px; color:#94a3b8;">По вашим фильтрам ничего не найдено</td></tr>');
+            const msgEmptyFilter = typeof window.t === 'function' ? window.t('sa_empty_filter', 'По вашим фильтрам ничего не найдено') : 'По вашим фильтрам ничего не найдено';
+            tbody.html(`<tr><td colspan="4" style="text-align:center; padding: 20px; color:var(--text-muted);">${msgEmptyFilter}</td></tr>`);
             return;
         }
 
+        const reqLbl = typeof window.t === 'function' ? window.t('sa_badge_req', 'Обязательное') : 'Обязательное';
+        const optLbl = typeof window.t === 'function' ? window.t('sa_badge_opt', 'Опционально') : 'Опционально';
+
         filteredFields.forEach(f => {
-            const reqBadge = f.required ? '<span class="req-badge">Обязательное</span>' : '<span class="opt-badge">Опционально</span>';
+            const reqBadge = f.required ? `<span class="req-badge">${reqLbl}</span>` : `<span class="opt-badge">${optLbl}</span>`;
             const typeBadge = `<span class="type-badge">${escapeHtml(f.type)}</span>`;
 
             tbody.append(`
                 <tr>
-                    <td style="color: #1e40af; font-weight: bold;">${escapeHtml(f.path)}</td>
+                    <td style="color: #3b82f6; font-weight: bold;">${escapeHtml(f.path)}</td>
                     <td>${typeBadge}</td>
                     <td>${reqBadge}</td>
                     <td style="font-family: 'Segoe UI', sans-serif; font-size: 12px;">${escapeHtml(f.description)}</td>
@@ -302,7 +390,10 @@
 
     // === ЭКСПОРТ (КОПИРОВАНИЕ В БУФЕР) ===
     function copyResults() {
-        if (filteredFields.length === 0) return alert('Нечего копировать!');
+        if (filteredFields.length === 0) {
+            const msgNothing = typeof window.t === 'function' ? window.t('sa_msg_nothing_copy', 'Нечего копировать!') : 'Нечего копировать!';
+            return alert(msgNothing);
+        }
 
         // Формируем красивый текст (TSV - отлично вставляется в Excel и Jira)
         let text = "Path\tType\tRequired\tDescription\n";
@@ -312,8 +403,12 @@
         });
 
         navigator.clipboard.writeText(text).then(() => {
-            if(typeof showNotification === 'function') showNotification('Список скопирован в буфер обмена (TSV формат)');
-            else alert('Скопировано!');
+            if(typeof window.showNotification === 'function') {
+                const msgCopied = typeof window.t === 'function' ? window.t('sa_msg_copied', 'Список скопирован в буфер обмена (TSV формат)') : 'Список скопирован в буфер обмена (TSV формат)';
+                window.showNotification(msgCopied);
+            } else {
+                alert('Скопировано!');
+            }
         });
     }
 

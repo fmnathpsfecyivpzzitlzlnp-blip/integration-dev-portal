@@ -169,18 +169,8 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
+    // Глобальный хелпер локализации для скриптов
+    const t = (key, def) => typeof window.t === 'function' ? window.t(key, def) : def;
 
     let DATA_ENV = [];
     let DATA_SYS = [];
@@ -281,12 +271,21 @@
             return;
         }
         keys.forEach(stage => {
-            const statuses = DATA_STAGES[stage].join(', ');
+            // Переводим названия этапов и статусов, если они есть в словаре,
+            // но в input'ы кладем сырые данные (чтобы при сохранении не поломать ключи БД)
+            const translatedStage = typeof window.t === 'function' ? window.t(stage, stage) : stage;
+            const statuses = DATA_STAGES[stage].map(s => typeof window.t === 'function' ? window.t(s, s) : s).join(', ');
+
+            // Внимание: мы показываем переведенные значения, но сохранять нужно оригинальные (сырые).
+            // Для упрощения UI в данном справочнике редактируются именно "сырые" ключи.
+            // Поэтому в input value мы передаем stage (оригинал), а не translatedStage.
+
             c.append(`
                 <div class="stage-box">
+                    <div style="font-size:10px; color:#3b82f6; margin-bottom:4px;">${escapeHtml(translatedStage)}</div>
                     <button class="btn-rem" onclick="deleteStage('${escapeHtml(stage)}')" style="position:absolute; top:8px; right:5px;" title="${t('btn_delete', 'Удалить')}">&times;</button>
-                    <input value="${escapeHtml(stage)}" class="stage-name-input" onchange="updateStageName('${escapeHtml(stage)}', this.value)">
-                    <textarea class="stage-statuses-input" rows="2" onchange="updateStatuses('${escapeHtml(stage)}', this.value)">${escapeHtml(statuses)}</textarea>
+                    <input value="${escapeHtml(stage)}" class="stage-name-input" onchange="updateStageName('${escapeHtml(stage)}', this.value)" title="Ключ этапа в БД">
+                    <textarea class="stage-statuses-input" rows="2" onchange="updateStatuses('${escapeHtml(stage)}', this.value)" title="Ключи статусов в БД (через запятую)">${escapeHtml(DATA_STAGES[stage].join(', '))}</textarea>
                 </div>
             `);
         });

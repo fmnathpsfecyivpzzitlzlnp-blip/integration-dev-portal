@@ -419,19 +419,6 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     // === INIT & PARAMS ===
     const p = new URLSearchParams(location.search);
     const TASK_ID = p.get('task_id');

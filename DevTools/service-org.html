@@ -2,37 +2,76 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Организация сервиса</title>
+    <title data-i18n="so_page_title">Организация сервиса</title>
     <script src="libs/jquery-3.6.0.min.js"></script>
-    <script src="sidebar.js"></script>
     <script src="utils.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* === ЛОКАЛЬНЫЕ СТИЛИ СТРАНИЦЫ === */
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --bg-header: #2c3e50;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --hint-bg: #f0f9ff;
+            --hint-border: #bae6fd;
+            --badge-bg: #f8fafc;
+            --row-drag-bg: #eef2ff;
+            --header-text: #ffffff;
+        }
+
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-header: #0b1120;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --hint-bg: rgba(2, 132, 199, 0.1);
+            --hint-border: rgba(2, 132, 199, 0.3);
+            --badge-bg: #0f172a;
+            --row-drag-bg: #334155;
+            --header-text: #f8fafc;
+        }
+
+        /* === ГЛОБАЛЬНЫЕ СТИЛИ === */
+        html, body { margin: 0 !important; padding: 0 !important; height: 100vh !important; overflow: hidden !important; }
+
+        body {
+            background-color: var(--bg-main) !important;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            display: flex !important;
+            flex-direction: column !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
+            box-sizing: border-box !important;
+        }
 
         /* Переключение режимов (View / Edit) */
         .mode-view { display: block; }
         .mode-edit { display: none; width: 100%; gap: 10px; align-items: center; }
 
-        /* Класс редактирования на body */
         body.editing .mode-view { display: none; }
         body.editing .mode-edit { display: flex; }
 
-        /* Drag & Drop ручка (скрыта в режиме просмотра) */
+        /* Drag & Drop ручка */
         .drag-handle {
             display: none;
             cursor: grab;
             font-size: 18px;
-            color: #ccc;
+            color: var(--text-muted);
             margin-right: 8px;
             user-select: none;
         }
         body.editing .drag-handle { display: inline-block; }
 
-        /* Стиль перетаскиваемой строки */
         .draggable-row.dragging {
             opacity: 0.5;
-            background: #eef2ff;
+            background: var(--row-drag-bg);
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
@@ -40,91 +79,108 @@
         .sys-select {
             width: 45%;
             padding: 8px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
-            background: #fff;
+            background: var(--input-bg);
+            color: var(--text-main);
             font-size: 13px;
             font-weight: 500;
+            transition: 0.3s;
         }
+        .sys-select:focus { border-color: #3b82f6; outline: none; }
 
-        /* Бейджи для режима просмотра */
+        /* Бейджи */
         .sys-view-badge {
             padding: 6px 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: var(--badge-bg);
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             font-weight: 600;
-            color: #334155;
+            color: var(--text-main);
+            transition: 0.3s;
         }
-        .arrow { font-weight:bold; color:#cbd5e1; font-size:1.2em; padding: 0 10px; }
+        .arrow { font-weight:bold; color:var(--text-muted); font-size:1.2em; padding: 0 10px; }
 
-        /* Фикс обрезания выпадающих списков в таблице */
-        .task-table, .task-table tbody, .task-table tr, .task-table td {
-            overflow: visible !important;
-        }
+        /* Таблица */
+        .task-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .task-table th { background: var(--bg-main); padding: 12px 15px; text-align: left; color: var(--text-muted); font-size: 13px; font-weight: 700; border-bottom: 2px solid var(--border-color); transition: 0.3s; }
+        .task-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-size: 14px; transition: 0.3s; }
+
+        .task-table, .task-table tbody, .task-table tr, .task-table td { overflow: visible !important; }
         .table-wrapper { min-height: 300px; padding-bottom: 100px; }
 
         /* Кнопки в хедере */
         .header-btn {
             background: rgba(255,255,255,0.1);
             border: 1px solid rgba(255,255,255,0.3);
-            color: #fff;
+            color: var(--header-text);
             padding: 5px 10px;
             border-radius: 4px;
             font-size: 12px;
             cursor: pointer;
+            transition: 0.2s;
         }
         .header-btn:hover { background: rgba(255,255,255,0.2); }
+
+        .btn { padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn.primary { background: #3b82f6; color: white; }
+        .btn.primary:hover { background: #2563eb; }
+        .btn.secondary { background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { filter: brightness(0.95); }
+        .btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 6px 10px;}
+        .btn.danger:hover { background: #ef4444; color: white; }
+
+        .form-section { background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-color); padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.3s; }
     </style>
 </head>
 <body>
 
-<div class="main-content scroll-y" style="padding: 0;">
-    <div style="height:60px; background:#2c3e50; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0;">
+<div class="main-content scroll-y" style="padding: 0; flex: 1; overflow-y: auto;">
+    <div style="height:60px; background:var(--bg-header); color:var(--header-text); display:flex; align-items:center; justify-content:space-between; padding:0 20px; flex-shrink:0; transition: 0.3s;">
         <div style="display:flex; align-items:center; gap:15px;">
-            <button onclick="window.location.href='task_tracker.html'" class="header-btn">← К задачам</button>
-            <h3 style="margin:0; color: #fff; border: none;">Интеграционные потоки</h3>
+            <button onclick="window.location.href='task_tracker.html'" class="header-btn" data-i18n="so_btn_back">← К задачам</button>
+            <h3 style="margin:0; color: var(--header-text); border: none;" data-i18n="so_title">Интеграционные потоки</h3>
 
-            <div style="font-size:13px; color:#94a3b8; background: rgba(0,0,0,0.2); padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); margin-left: 10px;">
-                <span id="task-id-display" style="color:#cbd5e1; font-weight: bold; margin-right: 8px; padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.2);">ID: ...</span>
-                <span id="task-name-display" style="color:#60a5fa; font-weight: bold;">Загрузка контекста...</span>
+            <div style="font-size:13px; color:#cbd5e1; background: rgba(0,0,0,0.2); padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); margin-left: 10px;">
+                <span id="task-id-display" style="font-weight: bold; margin-right: 8px; padding-right: 8px; border-right: 1px solid rgba(255,255,255,0.2);">ID: ...</span>
+                <span id="task-name-display" style="color:#60a5fa; font-weight: bold;" data-i18n="so_loading_ctx">Загрузка контекста...</span>
             </div>
 
         </div>
-        <div id="success-msg" style="color:#4ade80; font-weight:bold; display:none;">Изменения сохранены!</div>
+        <div id="success-msg" style="color:#10b981; font-weight:bold; display:none;" data-i18n="so_msg_saved">Изменения сохранены!</div>
     </div>
 
     <div style="padding: 20px;">
         <div class="form-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:15px;">
-                <h2 style="margin:0; border:none;">🧩 Структура потоков</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:15px; transition: 0.3s;">
+                <h2 style="margin:0; border:none; color: var(--text-main);" data-i18n="so_struct_title">🧩 Структура потоков</h2>
                 <div style="display:flex; gap:10px;">
-                    <button id="btn-toggle" class="secondary" onclick="toggleEdit()">Редактировать структуру</button>
-                    <button id="btn-save" onclick="saveAll()" style="background:#27ae60; color:white; display:none; font-weight:bold; padding:8px 20px;">💾 Сохранить изменения</button>
+                    <button id="btn-toggle" class="btn secondary" onclick="toggleEdit()" data-i18n="so_btn_edit">Редактировать структуру</button>
+                    <button id="btn-save" class="btn" onclick="saveAll()" style="background:#10b981; color:white; display:none; border: none;" data-i18n="so_btn_save">💾 Сохранить изменения</button>
                 </div>
             </div>
 
-            <div id="edit-controls" style="margin-bottom:15px; display:none; background: #f0f9ff; padding: 10px; border-radius: 4px; border: 1px solid #bae6fd;">
-                <button onclick="addNewRow()" style="background:#3b82f6; color:white;">+ Добавить поток</button>
-                <span style="font-size:12px; color:#0f172a; margin-left:10px;">Перетаскивайте строки за иконку <b>☰</b> для смены порядка. Нажмите "Сохранить изменения" для записи в базу.</span>
+            <div id="edit-controls" style="margin-bottom:15px; display:none; background: var(--hint-bg); padding: 12px 15px; border-radius: 6px; border: 1px solid var(--hint-border); align-items: center; transition: 0.3s;">
+                <button class="btn primary" onclick="addNewRow()" data-i18n="so_btn_add_flow">+ Добавить поток</button>
+                <span style="font-size:12px; color:var(--text-main); margin-left:15px;" data-i18n="so_hint_drag">Перетаскивайте строки за иконку <b>☰</b> для смены порядка. Нажмите "Сохранить изменения" для записи в базу.</span>
             </div>
 
             <div class="table-wrapper">
                 <table class="task-table" id="flows_table">
                     <thead>
                     <tr>
-                        <th width="60">#</th>
-                        <th>Отправитель &rarr; Получатель</th>
-                        <th width="180" style="text-align:right;">Действия</th>
+                        <th width="60" data-i18n="so_th_num">#</th>
+                        <th data-i18n="so_th_flow">Отправитель &rarr; Получатель</th>
+                        <th width="180" style="text-align:right;" data-i18n="so_th_actions">Действия</th>
                     </tr>
                     </thead>
                     <tbody id="flows_body">
                     </tbody>
                 </table>
 
-                <div id="empty_state" style="padding:50px; text-align:center; color:#94a3b8; display:none;">
+                <div id="empty_state" style="padding:50px; text-align:center; color:var(--text-muted); display:none; transition: 0.3s;">
                     <div style="font-size:40px; margin-bottom:10px;">📭</div>
-                    <p>Потоков нет. Нажмите «Редактировать структуру», чтобы добавить.</p>
+                    <p data-i18n="so_empty_desc">Потоков нет. Нажмите «Редактировать структуру», чтобы добавить.</p>
                 </div>
             </div>
 
@@ -137,13 +193,20 @@
     const URL_PARAMS = new URLSearchParams(window.location.search);
     const TASK_ID = URL_PARAMS.get('id');
 
+    // Безопасная функция перевода с фоллбеком
+    function t(key, defaultStr) {
+        return typeof window.t === 'function' ? window.t(key, defaultStr) : defaultStr;
+    }
+
     // Проверка ID
     if (!TASK_ID) {
-        document.body.innerHTML = '<div style="padding:40px; text-align:center; color: #333;"><h2>Ошибка: ID задачи не передан.</h2><br><button onclick="window.location.href=\'task_tracker.html\'">Вернуться в список задач</button></div>';
+        const errTitle = t('so_err_task_id', 'Ошибка: ID задачи не передан.');
+        const btnBack = t('so_btn_back_list', 'Вернуться в список задач');
+        document.body.innerHTML = `<div style="padding:40px; text-align:center; color: var(--text-main);"><h2>${errTitle}</h2><br><button class="btn primary" onclick="window.location.href='task_tracker.html'">${btnBack}</button></div>`;
         throw new Error("No Task ID provided");
     }
 
-    $('#task-id-display').text('ID: ' + TASK_ID);
+    $('#task-id-display').text(t('so_lbl_id', 'ID: ') + TASK_ID);
 
     // Глобальное состояние
     let flows = [];
@@ -152,21 +215,25 @@
 
     // === STARTUP ===
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+
         loadTaskContext(); // Загружаем шапку
         loadReferenceData(); // Загружаем системы и потоки
     });
 
-    // === 0. ЗАГРУЗКА КОНТЕКСТА ЗАДАЧИ (НОВОЕ) ===
+    // === 0. ЗАГРУЗКА КОНТЕКСТА ЗАДАЧИ ===
     function loadTaskContext() {
         $.get('/api/tasks', function(tasks) {
-            const currentTask = tasks.find(t => t.id == TASK_ID);
+            const currentTask = tasks.find(task => task.id == TASK_ID);
             if (currentTask) {
-                // Поле user у нас теперь хранит "Систему и Интерфейс"
-                const taskSystemInfo = currentTask.user || 'Неизвестная система/интерфейс';
+                const unknownSys = t('so_unknown_sys', 'Неизвестная система/интерфейс');
+                const taskSystemInfo = currentTask.user || unknownSys;
                 const taskNum = currentTask.task_number || 'No-Key';
                 $('#task-name-display').text(`[${taskNum}] ${taskSystemInfo}`);
             } else {
-                $('#task-name-display').text('Задача не найдена').css('color', '#ef4444');
+                $('#task-name-display').text(t('so_task_not_found', 'Задача не найдена')).css('color', '#ef4444');
             }
         });
     }
@@ -182,7 +249,7 @@
             },
             error: function(xhr) {
                 console.error("Ошибка загрузки систем", xhr);
-                alert("Не удалось загрузить справочник систем. Проверьте соединение с сервером.");
+                alert(t('so_err_load_sys', "Не удалось загрузить справочник систем. Проверьте соединение с сервером."));
             }
         });
     }
@@ -197,7 +264,8 @@
             },
             error: function(xhr) {
                 console.error("Ошибка загрузки потоков", xhr);
-                $('#flows_body').html('<tr><td colspan="3" style="color:red; text-align:center;">Ошибка загрузки данных</td></tr>');
+                const errMsg = t('so_err_load_data', "Ошибка загрузки данных");
+                $('#flows_body').html(`<tr><td colspan="3" style="color:#ef4444; text-align:center;">${errMsg}</td></tr>`);
             }
         });
     }
@@ -214,6 +282,11 @@
             $('#flows_table').show();
         }
 
+        const notSpec = `<span style="color:#ef4444;font-size:0.9em;">(${t('so_not_specified', 'не указано')})</span>`;
+        const hintParams = t('so_hint_params', 'Настройка протоколов и маппинга');
+        const hintDel = t('so_hint_del_row', 'Удалить строку');
+        const btnParamsTxt = t('so_btn_params', 'Параметры');
+
         flows.forEach((f, i) => {
             const num = i + 1;
             const sOpts = getOptionsHtml(f.sender);
@@ -222,15 +295,15 @@
             const tr = $(`
                 <tr class="draggable-row" data-idx="${i}" draggable="${isEditing}">
                     <td style="vertical-align: middle;">
-                        <span class="drag-handle" title="Потяните для перемещения">☰</span>
-                        <b style="font-size:14px; color:#555;">${num}</b>
+                        <span class="drag-handle" title="${t('so_hint_drag_row', 'Потяните для перемещения')}">☰</span>
+                        <b style="font-size:14px; color:var(--text-muted);">${num}</b>
                     </td>
 
                     <td>
                         <div class="mode-view">
-                            <span class="sys-view-badge">${escapeHtml(f.sender) || '<span style="color:red;font-size:0.9em;">(не указано)</span>'}</span>
+                            <span class="sys-view-badge">${escapeHtml(f.sender) || notSpec}</span>
                             <span class="arrow">&rarr;</span>
-                            <span class="sys-view-badge">${escapeHtml(f.receiver) || '<span style="color:red;font-size:0.9em;">(не указано)</span>'}</span>
+                            <span class="sys-view-badge">${escapeHtml(f.receiver) || notSpec}</span>
                         </div>
 
                         <div class="mode-edit">
@@ -245,9 +318,9 @@
                     </td>
 
                     <td style="text-align:right;">
-                         <button class="secondary btn-details" onclick="goDetails(${num})" ${isEditing ? 'disabled style="opacity:0.5;"' : ''} title="Настройка протоколов и маппинга">⚙ Параметры</button>
+                         <button class="btn secondary btn-details" onclick="goDetails(${num})" ${isEditing ? 'disabled style="opacity:0.5;"' : ''} title="${hintParams}">⚙ ${btnParamsTxt}</button>
                          <span class="mode-edit" style="display:none; margin-left: 10px;">
-                             <button class="danger" onclick="removeRow(${i})" title="Удалить строку">🗑</button>
+                             <button class="btn danger" onclick="removeRow(${i})" title="${hintDel}">🗑</button>
                          </span>
                     </td>
                 </tr>
@@ -273,7 +346,8 @@
         if (currentValue && !list.includes(currentValue)) {
             list.unshift(currentValue);
         }
-        let html = '<option value="">-- Выберите --</option>';
+        const optSel = t('so_opt_select', 'Выберите');
+        let html = `<option value="">-- ${optSel} --</option>`;
         list.forEach(sid => {
             const selected = (sid === currentValue) ? 'selected' : '';
             html += `<option value="${escapeHtml(sid)}" ${selected}>${escapeHtml(sid)}</option>`;
@@ -284,7 +358,7 @@
     // === 3. УПРАВЛЕНИЕ UI ===
     window.toggleEdit = function() {
         if (isEditing) {
-            if (confirm("Выйти без сохранения? Все несохраненные изменения будут потеряны.")) {
+            if (confirm(t('so_conf_exit', "Выйти без сохранения? Все несохраненные изменения будут потеряны."))) {
                 isEditing = false;
                 loadFlows();
             }
@@ -297,12 +371,12 @@
     function updateUIState() {
         if (isEditing) {
             $('body').addClass('editing');
-            $('#btn-toggle').text('Отмена').addClass('secondary');
+            $('#btn-toggle').text(t('btn_cancel', 'Отмена')).addClass('secondary').css('background', 'var(--bg-main)');
             $('#btn-save').show();
             $('#edit-controls').slideDown(200);
         } else {
             $('body').removeClass('editing');
-            $('#btn-toggle').text('✏️ Редактировать структуру').removeClass('secondary');
+            $('#btn-toggle').text('✏️ ' + t('so_btn_edit', 'Редактировать структуру')).removeClass('secondary').css('background', '');
             $('#btn-save').hide();
             $('#edit-controls').slideUp(200);
         }
@@ -321,7 +395,7 @@
         const payload = { task_id: parseInt(TASK_ID), flows: flowsToSave };
         const btn = $('#btn-save');
         const originalText = btn.text();
-        btn.text('Сохранение...').prop('disabled', true);
+        btn.text(t('so_msg_saving', 'Сохранение...')).prop('disabled', true);
 
         $.ajax({
             url: '/api/flows',
@@ -329,12 +403,13 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(response) {
-                $('#success-msg').text(`Успешно сохранено (${response.saved} записей)`).fadeIn().delay(2000).fadeOut();
+                const msgSuccess = t('so_msg_saved_count', 'Успешно сохранено ({0} записей)').replace('{0}', response.saved);
+                $('#success-msg').text(msgSuccess).fadeIn().delay(2000).fadeOut();
                 isEditing = false;
                 loadFlows();
             },
             error: function(xhr) {
-                alert('Ошибка при сохранении: ' + xhr.responseText);
+                alert(t('so_err_save', 'Ошибка при сохранении: ') + xhr.responseText);
             },
             complete: function() {
                 btn.text(originalText).prop('disabled', false);
@@ -346,11 +421,11 @@
         syncInputsToState();
         flows.push({ sender: '', receiver: '' });
         render();
-        $('html, body').animate({ scrollTop: $(document).height() }, 'fast');
+        $('.main-content').animate({ scrollTop: $('#flows_table').height() }, 'fast');
     };
 
     window.removeRow = function(index) {
-        if(!confirm("Удалить этот поток?")) return;
+        if(!confirm(t('so_conf_del_flow', "Удалить этот поток?"))) return;
         syncInputsToState();
         flows.splice(index, 1);
         render();
@@ -425,14 +500,10 @@
             $(this).find('td:first b').text(index++);
         });
     }
+
     function escapeHtml(text) {
         if (!text) return "";
-        return String(text)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 </script>
 

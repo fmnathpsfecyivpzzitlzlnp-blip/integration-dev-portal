@@ -78,19 +78,23 @@
         .btn-gen:hover { background: #059669; }
 
         .error-msg { background: rgba(220, 38, 38, 0.1); color: #ef4444; padding: 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; margin-bottom: 10px; border: 1px solid rgba(220, 38, 38, 0.3); }
+
+        /* Кнопка на главную */
+        .btn-secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-secondary:hover { filter: brightness(0.95); }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <button onclick="window.location.href='index.html'" class="secondary" data-i18n="btn_home">🏠 Домой</button>
+        <button onclick="window.location.href='index.html'" class="btn-secondary" data-i18n="btn_home">🏠 Домой</button>
         <div>
             <h2 style="margin: 0; font-size: 22px;" data-i18n="sw_title">Генератор Swagger (OpenAPI 3.0)</h2>
             <p style="margin: 2px 0 0 0; font-size: 12px;" data-i18n="sw_subtitle">Конвертация JSON в YAML спецификацию</p>
         </div>
     </div>
-    <button class="secondary" onclick="copyYaml()" data-i18n="sw_btn_copy">📋 Копировать YAML</button>
+    <button class="btn-secondary" onclick="copyYaml()" data-i18n="sw_btn_copy">📋 Копировать YAML</button>
 </div>
 
 <div class="workspace">
@@ -143,19 +147,6 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     let editorReq, editorRes, editorYaml;
 
     $(function() {
@@ -234,7 +225,8 @@
             const resTxt = editorRes.getValue().trim();
             resObj = resTxt ? JSON.parse(resTxt) : null;
         } catch(e) {
-            return $('#json-error').text(t('sw_err_json', "Ошибка синтаксиса JSON: ") + e.message).show();
+            const errMsg = typeof window.t === 'function' ? window.t('sw_err_json', "Ошибка синтаксиса JSON: ") : "Ошибка синтаксиса JSON: ";
+            return $('#json-error').text(errMsg + e.message).show();
         }
 
         // СБОРКА YAML
@@ -269,7 +261,10 @@
         }
 
         editorYaml.setValue(yaml);
-        if(typeof showNotification === 'function') showNotification(t('sw_msg_gen_ok', "OpenAPI спецификация сгенерирована!"));
+        if(typeof window.showNotification === 'function') {
+            const msg = typeof window.t === 'function' ? window.t('sw_msg_gen_ok', "OpenAPI спецификация сгенерирована!") : "OpenAPI спецификация сгенерирована!";
+            window.showNotification(msg);
+        }
     }
 
     // Движок конвертации JSON в OpenAPI Schema (YAML)
@@ -312,8 +307,9 @@
 
     window.copyYaml = function() {
         navigator.clipboard.writeText(editorYaml.getValue());
-        if(typeof showNotification === 'function') showNotification(t('sw_msg_copied', "YAML скопирован в буфер!"));
-        else alert(t('sw_msg_copied', "YAML скопирован в буфер!"));
+        const msg = typeof window.t === 'function' ? window.t('sw_msg_copied', "YAML скопирован в буфер!") : "YAML скопирован в буфер!";
+        if(typeof window.showNotification === 'function') window.showNotification(msg);
+        else alert(msg);
     }
 </script>
 </body>

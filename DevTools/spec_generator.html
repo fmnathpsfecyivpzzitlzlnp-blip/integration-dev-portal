@@ -234,7 +234,7 @@
             </div>
 
             <label style="margin-top:10px;" data-i18n="sg_modal_comm_lbl">Комментарий к версии (отобразится в истории):</label>
-            <textarea id="ver_comment" style="height:80px;" placeholder="Опишите, что изменилось..." data-i18n="sg_modal_comm_ph"></textarea>
+            <textarea id="ver_comment" style="height:80px;"></textarea>
         </div>
 
         <div class="modal-footer">
@@ -245,18 +245,8 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
+    // Глобальный хелпер локализации для удобства
+    const t = (key, def) => typeof window.t === 'function' ? window.t(key, def) : def;
 
     // ==========================================
     // 1. INIT & CONFIG
@@ -273,7 +263,11 @@
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
         if(typeof applyTheme === 'function') applyTheme(isDark);
 
-        if(!TASK_ID) return alert(t('sg_err_no_task', "Ошибка: Нет ID задачи. Откройте страницу через список задач."));
+        $('#ver_comment').attr('placeholder', t('sg_modal_comm_ph', 'Опишите, что изменилось...'));
+
+        if(!TASK_ID) {
+            return alert(t('sg_err_no_task', "Ошибка: Нет ID задачи. Откройте страницу через список задач."));
+        }
         if(window.mermaid) mermaid.initialize({startOnLoad:false, theme:'default'}); // Mermaid в A4 всегда светлый для экспорта
 
         loadTemplatesDict(function(){
@@ -330,7 +324,8 @@
         const mode = $('#in_mode').val() || 'sync';
         state.mode = mode;
         state.sys = {s:'SENDER', r:'RECEIVER'};
-        state.history = [{ver:'0.1', date:new Date().toLocaleDateString(), author:'System', comment: t('sg_tag_draft', 'Создание черновика')}];
+
+        state.history = [{ver:'0.1', date:new Date().toLocaleDateString(), author:'System', comment: t('sg_tag_draft', 'Создание черновика') }];
         state.content = {};
 
         const struct = (LOADED_TEMPLATES[mode] && LOADED_TEMPLATES[mode].length > 0) ? LOADED_TEMPLATES[mode] : getFallbackStruct();
@@ -370,7 +365,9 @@
         try {
             const tasks = await $.get('/api/tasks');
             const taskData = tasks.find(t => t.id == TASK_ID);
-            if(!taskData) return alert(t('sg_err_task_db', 'Задача не найдена в БД.'));
+            if(!taskData) {
+                return alert(t('sg_err_task_db', 'Задача не найдена в БД.'));
+            }
 
             state.sys.s = taskData.sender_sys || t('sg_def_sender', 'Система Отправитель');
             state.sys.r = taskData.receiver_sys || t('sg_def_receiver', 'Система Получатель');
@@ -517,6 +514,7 @@
     // ==========================================
     function renderList() {
         const c = $('#list_area').empty();
+
         state.sections.forEach((sec, idx) => {
             const uid = sec.uid;
             const type = (sec.type||'text').toUpperCase();

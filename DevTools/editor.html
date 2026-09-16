@@ -211,21 +211,8 @@
 <div id="notification"></div>
 
 <script src="libs/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>H
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-         try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';

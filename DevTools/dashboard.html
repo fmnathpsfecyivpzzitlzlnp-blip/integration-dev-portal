@@ -6,7 +6,7 @@
 
     <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="libs/chart.js"></script>
     <link rel="stylesheet" href="style.css">
 
     <style>
@@ -417,7 +417,7 @@
             $.ajaxSetup({ headers: { 'X-User-Id': user.id, 'X-User-Role': user.role } });
             loadDashboardData();
         } else {
-            alert(window.t ? window.t('err_auth_req', 'Для просмотра дашборда необходимо авторизоваться в Реестре задач.') : 'Для просмотра дашборда необходимо авторизоваться в Реестре задач.');
+            alert(t('err_auth_req', 'Для просмотра дашборда необходимо авторизоваться в Реестре задач.'));
             window.location.href = "task_tracker.html";
         }
 
@@ -443,8 +443,8 @@
         const totalTasks = $('#' + groupId + ' .task-card').length;
         const noLinks = totalTasks - links.length;
 
-        if (links.length === 0) return alert((window.t ? window.t('err_no_links', 'В этой группе нет ссылок на ALM.') : 'В этой группе нет ссылок на ALM.') + '\n(' + (window.t ? window.t('lbl_tasks_no_links', 'Задач без ссылок:') : 'Задач без ссылок:') + ' ' + totalTasks + ')');
-        if (!confirm((window.t ? window.t('confirm_open_tabs', 'Готовим к открытию:') : 'Готовим к открытию:') + ' ' + links.length + ' ' + (window.t ? window.t('lbl_tabs', 'вкладок.') : 'вкладок.') + '\n' + (window.t ? window.t('msg_allow_popups', 'Разрешите всплывающие окна в браузере.\nПродолжить?') : 'Разрешите всплывающие окна в браузере.\nПродолжить?'))) return;
+        if (links.length === 0) return alert(t('err_no_links', 'В этой группе нет ссылок на ALM.') + '\n(' + t('lbl_tasks_no_links', 'Задач без ссылок:') + ' ' + totalTasks + ')');
+        if (!confirm(t('confirm_open_tabs', 'Готовим к открытию:') + ' ' + links.length + ' ' + t('lbl_tabs', 'вкладок.') + '\n' + t('msg_allow_popups', 'Разрешите всплывающие окна в браузере.\nПродолжить?'))) return;
 
         links.forEach(url => window.open(url, '_blank'));
     };
@@ -473,19 +473,19 @@
             if (!allTasks) allTasks = [];
             window.allTasksGlobal = allTasks;
 
-            plannedTasksData = allTasks.filter(t =>
-                (t.start_dev_date && t.start_dev_date.trim() !== '') ||
-                (t.planned_dev_date && t.planned_dev_date.trim() !== '') ||
-                (t.test_deployment_date && t.test_deployment_date.trim() !== '') ||
-                (t.deployment_date && t.deployment_date.trim() !== '')
+            plannedTasksData = allTasks.filter(tobj =>
+                (tobj.start_dev_date && tobj.start_dev_date.trim() !== '') ||
+                (tobj.planned_dev_date && tobj.planned_dev_date.trim() !== '') ||
+                (tobj.test_deployment_date && tobj.test_deployment_date.trim() !== '') ||
+                (tobj.deployment_date && tobj.deployment_date.trim() !== '')
             );
 
             processKPIAndCharts(allTasks);
             buildCalendar(window.allTasksGlobal);
             sortTable('last_updated', true);
         }).fail(function() {
-            alert(window.t ? window.t('err_load_dash', 'Ошибка загрузки данных для дашборда.') : 'Ошибка загрузки данных для дашборда.');
-            $('#msg_loading').text(window.t ? window.t('err_load_dash', 'Ошибка загрузки данных') : 'Ошибка загрузки данных');
+            alert(t('err_load_dash', 'Ошибка загрузки данных для дашборда.'));
+            $('#msg_loading').text(t('err_load_dash', 'Ошибка загрузки данных'));
         });
     }
 
@@ -526,7 +526,7 @@
         const tbody = $('#main-tbody').empty();
 
         if (plannedTasksData.length === 0) {
-            tbody.html(`<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">${window.t ? window.t('msg_no_data', 'Нет данных') : 'Нет данных'}</td></tr>`);
+            tbody.html(`<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">${t('msg_no_data', 'Нет данных')}</td></tr>`);
             return;
         }
 
@@ -536,7 +536,7 @@
                 <div><b style="color:var(--text-main); font-size:14px;">${escapeHtml(tobj.task_number)}</b></div>
                 ${contactText}
                 <div class="task-action-menu" style="margin-top:6px;">
-                    <a href="task_tracker.html?edit=${tobj.id}" class="btn-local" style="color:#3b82f6; text-decoration:none; font-size:11px; border:1px solid #bfdbfe; padding:2px 6px; border-radius:4px;">📝 ${window.t ? window.t('btn_open', 'Открыть') : 'Открыть'}</a>
+                    <a href="task_tracker.html?edit=${tobj.id}" class="btn-local" style="color:#3b82f6; text-decoration:none; font-size:11px; border:1px solid #bfdbfe; padding:2px 6px; border-radius:4px;">📝 ${t('btn_open', 'Открыть')}</a>
                 </div>
             `;
 
@@ -549,7 +549,7 @@
             const testHtml = tobj.test_deployment_date ? `<span class="date-cell date-test">${escapeHtml(formatDateStr(tobj.test_deployment_date))}</span>` : `<span class="date-empty">—</span>`;
             const prodHtml = tobj.deployment_date ? `<span class="date-cell date-prod">${escapeHtml(formatDateStr(tobj.deployment_date))}</span>` : `<span class="date-empty">—</span>`;
 
-            let notesHtml = `<span class="date-empty">${window.t ? window.t('lbl_none', 'Нет') : 'Нет'}</span>`;
+            let notesHtml = `<span class="date-empty">${t('lbl_none', 'Нет')}</span>`;
             if (tobj.user_notes) {
                 const notesArr = escapeHtml(tobj.user_notes).split('\n').filter(n => n.trim() !== '');
                 notesHtml = `<div class="compact-notes">${notesArr.map(n => `• ${n}`).join('<br>')}</div>`;
@@ -644,7 +644,6 @@
                 const trackerLink = `task_tracker.html?edit=${tobj.id}`;
                 const jiraBtn = tobj.task_url ? `<a href="${escapeHtml(tobj.task_url)}" target="_blank" class="card-btn btn-jira" style="color:var(--text-main)">🌐 Jira</a>` : '';
 
-                // Отрисовка контактного лица и интерфейса
                 const contactText = tobj.contact_person ? `<span style="font-weight:normal; font-size:10px; color:var(--text-muted); float:right;">👤 ${escapeHtml(tobj.contact_person)}</span>` : '';
                 const interfaceText = tobj.interface_name ? `<div style="font-size:11px; color:#0284c7; font-family:monospace; margin-bottom:5px; word-break:break-all;">${escapeHtml(tobj.interface_name)}</div>` : '';
 
@@ -658,9 +657,9 @@
 
                 if (tobj._calLabel) html += `<div class="t-date">${tobj._calLabel}</div>`;
 
-                html += `<div class="status-badge-inline" style="font-size:11px; padding:3px 6px;">${escapeHtml(tobj.status || (window.t ? window.t('lbl_no_status', 'Без статуса') : 'Без статуса'))}</div>
+                html += `<div class="status-badge-inline" style="font-size:11px; padding:3px 6px;">${escapeHtml(tobj.status || t('lbl_no_status', 'Без статуса'))}</div>
                     <div class="card-btn-group" style="margin-top:8px;">
-                        <a href="${trackerLink}" class="card-btn btn-edit" style="color:#1d4ed8">✏️ ${window.t ? window.t('btn_open', 'Открыть') : 'Открыть'}</a>
+                        <a href="${trackerLink}" class="card-btn btn-edit" style="color:#1d4ed8">✏️ ${t('btn_open', 'Открыть')}</a>
                         ${jiraBtn}
                     </div>
                 </div>`;
@@ -735,7 +734,7 @@
     window.openReleaseManager = function() {
         const tInfo = getNextThursday();
         $('#rn_date').val(tInfo.dateStr);
-        if (tInfo.isLast) $('#rn_warning').text(window.t ? window.t('rm_warn_last', '⚠️ Это последний четверг месяца!') : '⚠️ Это последний четверг месяца!').show(); else $('#rn_warning').hide();
+        if (tInfo.isLast) $('#rn_warning').text(t('rm_warn_last', '⚠️ Это последний четверг месяца!')).show(); else $('#rn_warning').hide();
         $('#rn_search').val('');
         renderReleaseTasksList();
         $('#releaseModal').css('display', 'flex').hide().fadeIn(200);
@@ -754,7 +753,7 @@
             else if (statusFilter === 'ready_test') relTasks = relTasks.filter(tobj => (tobj.status || '').toLowerCase().includes('test') && ((tobj.status || '').toLowerCase().includes('готов') || (tobj.status || '').toLowerCase().includes('установл')));
         }
 
-        if (relTasks.length === 0) return tbody.html(`<tr><td colspan="3" style="text-align:center; padding:15px; color:#999;">${window.t ? window.t('rm_no_tasks', 'Нет подходящих задач') : 'Нет подходящих задач'}</td></tr>`);
+        if (relTasks.length === 0) return tbody.html(`<tr><td colspan="3" style="text-align:center; padding:15px; color:#999;">${t('rm_no_tasks', 'Нет подходящих задач')}</td></tr>`);
 
         relTasks.forEach(tobj => {
             let isChecked = (savedDraftIds.length > 0) ? (savedDraftIds.includes(tobj.id.toString()) ? 'checked' : '') : (statusFilter !== 'all_active' && tobj.status.toLowerCase().includes('готов') ? 'checked' : '');
@@ -782,7 +781,7 @@
     };
 
     window.clearReleaseDraft = function() {
-        if(confirm(window.t ? window.t('confirm_clear_draft', 'Очистить черновик?') : 'Очистить черновик?')) { localStorage.removeItem('release_draft_ids'); $('.rel-cb').prop('checked', false); generateEmailText(); }
+        if(confirm(t('confirm_clear_draft', 'Очистить черновик?'))) { localStorage.removeItem('release_draft_ids'); $('.rel-cb').prop('checked', false); generateEmailText(); }
     };
 
     window.filterReleaseTasks = function() {
@@ -795,13 +794,13 @@
 
     window.generateEmailText = function() {
         const dateStr = $('#rn_date').val();
-        let html = `<div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 14px; color: #000000;"><p>${window.t ? window.t('rm_email_hi', 'Добрый день!') : 'Добрый день!'}</p><p>${window.t ? window.t('rm_email_req', 'Прошу взять в Релиз следующие задачи на') : 'Прошу взять в Релиз следующие задачи на'} <strong>${escapeHtml(dateStr)}</strong>:</p>`;
+        let html = `<div style="font-family: Calibri, 'Segoe UI', sans-serif; font-size: 14px; color: #000000;"><p>${t('rm_email_hi', 'Добрый день!')}</p><p>${t('rm_email_req', 'Прошу взять в Релиз следующие задачи на')} <strong>${escapeHtml(dateStr)}</strong>:</p>`;
         let hasTasks = false; let rows = '';
 
         $('.rel-cb:checked').each(function() {
             hasTasks = true; const tobj = window.allTasksGlobal.find(x => x.id == $(this).val());
             if(tobj) {
-                let sysOut = (tobj.sender_sys && tobj.receiver_sys) ? `${escapeHtml(tobj.sender_sys)} ➔ ${escapeHtml(tobj.receiver_sys)}` : escapeHtml(tobj.sender_sys || tobj.receiver_sys || (window.t ? window.t('lbl_integration', 'Интеграция') : 'Интеграция'));
+                let sysOut = (tobj.sender_sys && tobj.receiver_sys) ? `${escapeHtml(tobj.sender_sys)} ➔ ${escapeHtml(tobj.receiver_sys)}` : escapeHtml(tobj.sender_sys || tobj.receiver_sys || t('lbl_integration', 'Интеграция'));
 
                 rows += `<tr>
                             <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold;">${escapeHtml(tobj.task_number)}</td>
@@ -823,7 +822,7 @@
                         <tbody>${rows}</tbody>
                      </table>`;
         } else {
-            html += `<p style="color: #999;">(${window.t ? window.t('rm_email_none', 'Задачи не выбраны') : 'Задачи не выбраны'})</p>`;
+            html += `<p style="color: #999;">(${t('rm_email_none', 'Задачи не выбраны')})</p>`;
         }
 
         $('#email_preview').html(html + `</div>`);
@@ -833,7 +832,7 @@
         const emailDiv = document.getElementById('email_preview');
         const range = document.createRange(); range.selectNodeContents(emailDiv);
         const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-        try { document.execCommand('copy'); alert(window.t ? window.t('msg_copied_outlook', 'Скопировано для Outlook.') : 'Скопировано для Outlook.'); } catch(err) { alert(window.t ? window.t('err_copy', 'Ошибка копирования.') : 'Ошибка копирования.'); }
+        try { document.execCommand('copy'); alert(t('msg_copied_outlook', 'Скопировано для Outlook.')); } catch(err) { alert(t('err_copy', 'Ошибка копирования.')); }
         selection.removeAllRanges();
     };
 

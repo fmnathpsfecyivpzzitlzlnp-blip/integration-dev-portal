@@ -311,19 +311,6 @@
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
@@ -409,17 +396,22 @@
     function renderTabs() {
         const cont = document.getElementById('tabs-container');
         cont.innerHTML = '';
+        const renameHint = typeof window.t === 'function' ? window.t('me_tab_rename_hint', 'Двойной клик/Фокус для переименования') : 'Двойной клик/Фокус для переименования';
+        const delHint = typeof window.t === 'function' ? window.t('me_tab_del_hint', 'Удалить схему') : 'Удалить схему';
+
         tabsData.forEach(tab => {
             const isActive = tab.id === activeTabId ? 'active' : '';
             const isEdit = isActive ? 'true' : 'false';
             cont.innerHTML += `
                 <div class="api-tab ${isActive}" data-id="${tab.id}">
-                    <span class="tab-name" contenteditable="${isEdit}" spellcheck="false" title="${t('me_tab_rename_hint', 'Двойной клик/Фокус для переименования')}" onblur="saveTabName(this, '${tab.id}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${escapeHtml(tab.name)}</span>
-                    <span class="tab-close" title="${t('me_tab_del_hint', 'Удалить схему')}" onclick="event.stopPropagation(); closeTab('${tab.id}')">&times;</span>
+                    <span class="tab-name" contenteditable="${isEdit}" spellcheck="false" title="${renameHint}" onblur="saveTabName(this, '${tab.id}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${escapeHtml(tab.name)}</span>
+                    <span class="tab-close" title="${delHint}" onclick="event.stopPropagation(); closeTab('${tab.id}')">&times;</span>
                 </div>
             `;
         });
-        cont.innerHTML += `<button class="add-tab-btn" onclick="addNewTab()" title="${t('me_tab_add_hint', 'Добавить новую схему')}">+</button>`;
+
+        const addHint = typeof window.t === 'function' ? window.t('me_tab_add_hint', 'Добавить новую схему') : 'Добавить новую схему';
+        cont.innerHTML += `<button class="add-tab-btn" onclick="addNewTab()" title="${addHint}">+</button>`;
 
         document.querySelectorAll('.api-tab').forEach(el => {
             el.addEventListener('click', function(e) {
@@ -457,13 +449,13 @@
 
     function showDbStatus() {
         const indicator = document.getElementById('db-status');
-        indicator.innerText = t('me_db_saved', '💾 Сохранено в БД');
+        indicator.innerText = typeof window.t === 'function' ? window.t('me_db_saved', '💾 Сохранено в БД') : '💾 Сохранено в БД';
         indicator.style.opacity = '1';
         setTimeout(() => indicator.style.opacity = '0', 2000);
     }
 
     window.saveTabName = function(el, id) {
-        let newName = el.innerText.trim() || t('me_new_schema', 'Новая схема');
+        let newName = el.innerText.trim() || (typeof window.t === 'function' ? window.t('me_new_schema', 'Новая схема') : 'Новая схема');
         let tab = tabsData.find(t => t.id === id);
         if (tab) {
             tab.name = newName;
@@ -478,10 +470,10 @@
         let newTab = {
             db_id: null,
             id: newId,
-            name: t('me_new_schema', 'Новая схема'),
+            name: typeof window.t === 'function' ? window.t('me_new_schema', 'Новая схема') : 'Новая схема',
             systems: [
-                { id:'s1', alias:'System_A', name: t('me_sys_a', 'Система А') },
-                { id:'s2', alias:'System_B', name: t('me_sys_b', 'Система Б') }
+                { id:'s1', alias:'System_A', name: typeof window.t === 'function' ? window.t('me_sys_a', 'Система А') : 'Система А' },
+                { id:'s2', alias:'System_B', name: typeof window.t === 'function' ? window.t('me_sys_b', 'Система Б') : 'Система Б' }
             ],
             steps: []
         };
@@ -491,8 +483,11 @@
     }
 
     window.closeTab = function(id) {
-        if (tabsData.length === 1) return alert(t('me_err_last_tab', 'Нельзя закрыть последнюю вкладку!'));
-        if (!confirm(t('me_conf_del_tab', 'Вы уверены, что хотите удалить эту схему? (Она будет удалена из базы данных)'))) return;
+        const msgLast = typeof window.t === 'function' ? window.t('me_err_last_tab', 'Нельзя закрыть последнюю вкладку!') : 'Нельзя закрыть последнюю вкладку!';
+        const msgDel = typeof window.t === 'function' ? window.t('me_conf_del_tab', 'Вы уверены, что хотите удалить эту схему? (Она будет удалена из базы данных)') : 'Вы уверены, что хотите удалить эту схему?';
+
+        if (tabsData.length === 1) return alert(msgLast);
+        if (!confirm(msgDel)) return;
 
         let idx = tabsData.findIndex(t => t.id === id);
         if (idx > -1) {
@@ -578,12 +573,13 @@
     window.renderSys = function() {
         const div = document.getElementById('list-sys');
         let html = '';
+        const hintAlias = typeof window.t === 'function' ? window.t('me_sys_id_hint', 'Короткий ID') : 'Короткий ID';
         systems.forEach((s, i) => {
             let safeAlias = escapeHtml(s.alias);
             let safeName = escapeHtml(s.name);
             html += `
             <div class="participant-item">
-                <input class="alias" value="${safeAlias}" oninput="updSys(${i},'alias',this.value)" title="${t('me_sys_id_hint', 'Короткий ID')}">
+                <input class="alias" value="${safeAlias}" oninput="updSys(${i},'alias',this.value)" title="${hintAlias}">
                 <input class="name" value="${safeName}" oninput="updSys(${i},'name',this.value)">
                 <button class="btn-ctrl btn-del-sys" onclick="delSys(${i})">×</button>
             </div>`;
@@ -593,11 +589,13 @@
 
     window.addSys = function() {
         sysCounter++;
-        systems.push({ id: 's' + Date.now(), alias: 'SYS' + sysCounter, name: t('me_def_sys', 'System') });
+        const defSys = typeof window.t === 'function' ? window.t('me_def_sys', 'System') : 'System';
+        systems.push({ id: 's' + Date.now(), alias: 'SYS' + sysCounter, name: defSys });
         renderSys(); renderSteps(); redraw();
     }
     window.delSys = function(i) {
-        if (!confirm(t('me_conf_del_sys', "Удалить систему? (Шаги с ней могут сломаться)"))) return;
+        const msg = typeof window.t === 'function' ? window.t('me_conf_del_sys', "Удалить систему? (Шаги с ней могут сломаться)") : "Удалить систему? (Шаги с ней могут сломаться)";
+        if (!confirm(msg)) return;
         systems.splice(i, 1);
         renderSys(); renderSteps(); redraw();
     }
@@ -611,6 +609,20 @@
         const chkNum = document.getElementById('chkNum').checked;
         let html = '';
         let msgNum = 0;
+
+        const syncLbl = typeof window.t === 'function' ? window.t('me_opt_sync', 'Sync') : 'Sync';
+        const asyncLbl = typeof window.t === 'function' ? window.t('me_opt_async', 'Async') : 'Async';
+        const retLbl = typeof window.t === 'function' ? window.t('me_opt_ret', 'Ret') : 'Ret';
+        const dotLbl = typeof window.t === 'function' ? window.t('me_opt_dot', 'Dotted') : 'Dotted';
+
+        const phText = typeof window.t === 'function' ? window.t('me_ph_text', 'Текст...') : 'Текст...';
+        const actHint = typeof window.t === 'function' ? window.t('me_act_hint', 'Авто-активация получателя') : 'Авто-активация получателя';
+        const phElse = typeof window.t === 'function' ? window.t('me_ph_else', 'Условие альтернативного потока...') : 'Условие альтернативного потока...';
+        const phNote = typeof window.t === 'function' ? window.t('me_ph_note', 'Текст заметки...') : 'Текст заметки...';
+
+        const optRight = typeof window.t === 'function' ? window.t('me_opt_right', 'Справа (Right of)') : 'Справа (Right of)';
+        const optLeft = typeof window.t === 'function' ? window.t('me_opt_left', 'Слева (Left of)') : 'Слева (Left of)';
+        const optOver = typeof window.t === 'function' ? window.t('me_opt_over', 'Поверх (Over)') : 'Поверх (Over)';
 
         steps.forEach((s, i) => {
             let badge = `<div style="width:26px;"></div>`;
@@ -627,16 +639,16 @@
                         <div class="row">
                             <select onchange="updStep(${i},'f',this.value)">${opts(s.f)}</select>
                             <select style="width:85px; font-weight:bold;" onchange="updStep(${i},'arr',this.value)">
-                                 <option value="->>" ${s.arr=='->>'?'selected':''}>->> (${t('me_opt_sync', 'Sync')})</option>
-                                 <option value="-)"  ${s.arr=='-)' ?'selected':''}>-) (${t('me_opt_async', 'Async')})</option>
-                                 <option value="-->>" ${s.arr=='-->>'?'selected':''}>-->> (${t('me_opt_ret', 'Ret')})</option>
-                                 <option value="--)" ${s.arr=='--)'?'selected':''}>--) (${t('me_opt_dot', 'Dotted')})</option>
+                                 <option value="->>" ${s.arr=='->>'?'selected':''}>->> (${syncLbl})</option>
+                                 <option value="-)"  ${s.arr=='-)' ?'selected':''}>-) (${asyncLbl})</option>
+                                 <option value="-->>" ${s.arr=='-->>'?'selected':''}>-->> (${retLbl})</option>
+                                 <option value="--)" ${s.arr=='--)'?'selected':''}>--) (${dotLbl})</option>
                             </select>
                             <select onchange="updStep(${i},'t',this.value)">${opts(s.t)}</select>
                         </div>
                         <div class="row">
-                            <input style="flex:2" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)" placeholder="${t('me_ph_text', 'Текст...')}">
-                            <select class="act-select" style="flex:1" onchange="updStep(${i},'act',this.value)" title="${t('me_act_hint', 'Авто-активация получателя')}">
+                            <input style="flex:2" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)" placeholder="${phText}">
+                            <select class="act-select" style="flex:1" onchange="updStep(${i},'act',this.value)" title="${actHint}">
                                 <option value="" ${s.act==''?'selected':''}>-</option>
                                 <option value="+" ${s.act=='+'?'selected':''}>[+] On (Target)</option>
                                 <option value="-" ${s.act=='-'?'selected':''}>[-] Off (Source)</option>
@@ -681,7 +693,7 @@
                     <div class="step-card" style="border-left-color:#e74c3c; background:var(--bg-main);">
                         <div class="row">
                             <span style="font-weight:bold; color:#e74c3c; width:50px; text-align:center;">ELSE</span>
-                            <input style="flex:1" value="${safeText}" oninput="updStep(${i},'text',this.value)" placeholder="${t('me_ph_else', 'Условие альтернативного потока...')}">
+                            <input style="flex:1" value="${safeText}" oninput="updStep(${i},'text',this.value)" placeholder="${phElse}">
                         </div>
                         ${ctrl(i)}
                     </div>
@@ -693,14 +705,14 @@
                     <div class="step-card" style="border-left-color:#9b59b6; background:var(--bg-main);">
                         <div class="row">
                             <select style="width:140px; font-weight:bold" onchange="updStep(${i},'placement',this.value)">
-                                <option value="right of" ${s.placement=='right of'?'selected':''}>${t('me_opt_right', 'Справа (Right of)')}</option>
-                                <option value="left of"  ${s.placement=='left of'?'selected':''}>${t('me_opt_left', 'Слева (Left of)')}</option>
-                                <option value="over"     ${s.placement=='over'?'selected':''}>${t('me_opt_over', 'Поверх (Over)')}</option>
+                                <option value="right of" ${s.placement=='right of'?'selected':''}>${optRight}</option>
+                                <option value="left of"  ${s.placement=='left of'?'selected':''}>${optLeft}</option>
+                                <option value="over"     ${s.placement=='over'?'selected':''}>${optOver}</option>
                             </select>
                             <select onchange="updStep(${i},'f',this.value)">${opts(s.f)}</select>
                         </div>
                         <div class="row">
-                            <input style="flex:1" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)" placeholder="${t('me_ph_note', 'Текст заметки...')}">
+                            <input style="flex:1" value="${safeTxt}" oninput="updStep(${i},'txt',this.value)" placeholder="${phNote}">
                         </div>
                         ${ctrl(i)}
                     </div>
@@ -722,7 +734,8 @@
     }
 
     window.addMsg = function() {
-        if(!systems.length) return alert(t('me_err_no_sys', 'Создайте системы!'));
+        const msg = typeof window.t === 'function' ? window.t('me_err_no_sys', 'Создайте системы!') : 'Создайте системы!';
+        if(!systems.length) return alert(msg);
         steps.push({ type: 'msg', f: systems[0].id, t: (systems[1] ? systems[1].id : systems[0].id), arr: '->>', act: '', txt: 'Msg' });
         renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
     }
@@ -732,12 +745,15 @@
         renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
     }
     window.addElse = function() {
-        steps.push({ type: 'else', text: t('me_def_else', 'Альтернативный поток') });
+        const defElse = typeof window.t === 'function' ? window.t('me_def_else', 'Альтернативный поток') : 'Альтернативный поток';
+        steps.push({ type: 'else', text: defElse });
         renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
     }
     window.addNote = function() {
-        if(!systems.length) return alert(t('me_err_no_sys', 'Создайте системы!'));
-        steps.push({ type: 'note', f: systems[0].id, placement: 'right of', txt: t('me_def_note', 'Пояснение к процессу') });
+        const msg = typeof window.t === 'function' ? window.t('me_err_no_sys', 'Создайте системы!') : 'Создайте системы!';
+        const defNote = typeof window.t === 'function' ? window.t('me_def_note', 'Пояснение к процессу') : 'Пояснение к процессу';
+        if(!systems.length) return alert(msg);
+        steps.push({ type: 'note', f: systems[0].id, placement: 'right of', txt: defNote });
         renderSteps(); redraw(); setTimeout(()=>document.getElementById('list-steps').scrollTop=9999,50);
     }
     window.delStep = function(i) { steps.splice(i,1); renderSteps(); redraw(); }
@@ -859,9 +875,15 @@
                 console.error(e);
                 box.innerHTML = '';
                 let msg = e.message.split('\n')[0];
-                if(msg.includes('Parse error')) msg = t('me_err_syntax', "Ошибка синтаксиса (проверьте циклы/скобки)");
-                if(msg.includes('destroy')) msg = t('me_err_destroy', "Логическая ошибка в mermaid destroy");
-                err.innerText = t('me_err_render', "Ошибка отрисовки: ") + msg;
+                if(msg.includes('Parse error')) {
+                    msg = typeof window.t === 'function' ? window.t('me_err_syntax', "Ошибка синтаксиса (проверьте циклы/скобки)") : "Ошибка синтаксиса (проверьте циклы/скобки)";
+                }
+                if(msg.includes('destroy')) {
+                    msg = typeof window.t === 'function' ? window.t('me_err_destroy', "Логическая ошибка в mermaid destroy") : "Логическая ошибка в mermaid destroy";
+                }
+
+                const renderErr = typeof window.t === 'function' ? window.t('me_err_render', "Ошибка отрисовки: ") : "Ошибка отрисовки: ";
+                err.innerText = renderErr + msg;
                 err.style.height = '40px';
             }
             saveCurrentTabState();
@@ -872,7 +894,8 @@
         const txt = document.getElementById('code-text');
         txt.select();
         document.execCommand('copy');
-        alert(t('me_msg_copied', 'Код скопирован в буфер обмена!'));
+        const msg = typeof window.t === 'function' ? window.t('me_msg_copied', 'Код скопирован в буфер обмена!') : 'Код скопирован в буфер обмена!';
+        alert(msg);
     }
 
     window.applyCode = function() {
@@ -881,7 +904,8 @@
         const parsed = parseMermaid(rawCode);
 
         if (parsed.systems.length === 0 && parsed.steps.length === 0) {
-            alert(t('me_err_parse', "Не удалось распознать код. Убедитесь, что это корректный sequenceDiagram."));
+            const msg = typeof window.t === 'function' ? window.t('me_err_parse', "Не удалось распознать код. Убедитесь, что это корректный sequenceDiagram.") : "Не удалось распознать код. Убедитесь, что это корректный sequenceDiagram.";
+            alert(msg);
             return;
         }
 
@@ -980,7 +1004,10 @@
 
     window.massRenameInterfaces = function() {
         const baseName = document.getElementById('massRenameInput').value.trim();
-        if (!baseName) return alert(t('me_err_rename', "Введите базовое имя, например: ProductInsuranceGet"));
+        if (!baseName) {
+            const msg = typeof window.t === 'function' ? window.t('me_err_rename', "Введите базовое имя, например: ProductInsuranceGet") : "Введите базовое имя, например: ProductInsuranceGet";
+            return alert(msg);
+        }
 
         const regex = /(si_so_|si_si_|si_ao_|si_ai_|so_si_)([A-Za-z0-9_]+)/g;
         let changed = 0;
@@ -995,9 +1022,11 @@
         if (changed > 0) {
             renderSteps();
             redraw();
-            alert(t('me_msg_renamed', "Успешно! Обновлено имен интерфейсов: ") + changed);
+            const msg = typeof window.t === 'function' ? window.t('me_msg_renamed', "Успешно! Обновлено имен интерфейсов: ") : "Успешно! Обновлено имен интерфейсов: ";
+            alert(msg + changed);
         } else {
-            alert(t('me_msg_no_rename', 'Не найдено подходящих интерфейсов для замены.'));
+            const msg = typeof window.t === 'function' ? window.t('me_msg_no_rename', 'Не найдено подходящих интерфейсов для замены.') : 'Не найдено подходящих интерфейсов для замены.';
+            alert(msg);
         }
     }
 </script>

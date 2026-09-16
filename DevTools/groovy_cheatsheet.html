@@ -485,18 +485,6 @@ println process.in.text</code></pre>
 </div>
 
 <script>
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';

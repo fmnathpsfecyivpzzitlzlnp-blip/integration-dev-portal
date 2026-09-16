@@ -312,19 +312,6 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     // --- PARAMS & STATE ---
     const urlParams = new URLSearchParams(location.search);
     let TASK_ID = urlParams.get('task_id');
@@ -348,7 +335,9 @@
             loadFromDB();
         } else {
             loadFromLocalStorage();
-            $('#db-status').text(t('mp_msg_local', "Режим LocalStorage (Демо)"));
+            if (typeof window.t === 'function') {
+                $('#db-status').text(window.t('mp_msg_local', "Режим LocalStorage (Демо)"));
+            }
         }
 
         window.addEventListener('resize', drawAll);
@@ -366,18 +355,24 @@
     });
 
     function loadFromDB() {
-        $('#db-status').text(t('mp_msg_loading', "Загрузка..."));
-        $('#btn-save-db').text(t('mp_btn_saving', "Сохранение..."));
+        if (typeof window.t === 'function') {
+            $('#db-status').text(window.t('mp_msg_loading', "Загрузка..."));
+            $('#btn-save-db').text(window.t('mp_btn_saving', "Сохранение..."));
+        }
 
         $.get(`/api/flow-details?task_id=${TASK_ID}&flow_order=${FLOW_ORDER}`, function(data) {
             if(!data || !data.id) {
-                alert(t('mp_err_not_found', "Поток не найден в БД"));
+                const msg = typeof window.t === 'function' ? window.t('mp_err_not_found', "Поток не найден в БД") : "Поток не найден в БД";
+                alert(msg);
                 return;
             }
 
             flowDetailsRecord = data;
-            $('#db-status').text(t('mp_lbl_task', "Задача: ") + TASK_ID + t('mp_lbl_flow', " | Поток: ") + FLOW_ORDER);
-            $('#btn-save-db').text(t('mp_btn_save', "💾 Сохранить в БД"));
+
+            if (typeof window.t === 'function') {
+                $('#db-status').text(window.t('mp_lbl_task', "Задача: ") + TASK_ID + window.t('mp_lbl_flow', " | Поток: ") + FLOW_ORDER);
+                $('#btn-save-db').text(window.t('mp_btn_save', "💾 Сохранить в БД"));
+            }
 
             if(data.service_description) $('#json-source').val(data.service_description);
             if(data.target_description)  $('#json-target').val(data.target_description);
@@ -390,8 +385,9 @@
             parseJson('source', false);
             parseJson('target', false);
         }).fail(function() {
-            $('#db-status').text(t('mp_err_load', "Ошибка загрузки данных потока."));
-            alert(t('mp_err_load', "Ошибка загрузки данных потока."));
+            const msg = typeof window.t === 'function' ? window.t('mp_err_load', "Ошибка загрузки данных потока.") : "Ошибка загрузки данных потока.";
+            $('#db-status').text(msg);
+            alert(msg);
         });
     }
 
@@ -449,7 +445,11 @@
 
     function renderColumn(side, list) {
         const c = $(`#list-${side}`).empty();
-        if(list.length === 0) { c.html('<div class="empty-state">' + t('mp_lbl_empty', 'Пусто') + '</div>'); return; }
+        if(list.length === 0) {
+            const msg = typeof window.t === 'function' ? window.t('mp_lbl_empty', 'Пусто') : 'Пусто';
+            c.html('<div class="empty-state">' + msg + '</div>');
+            return;
+        }
 
         list.forEach((item, idx) => {
             const uid = `${side}_${idx}`;
@@ -632,7 +632,10 @@
     }
 
     window.saveToDB = function() {
-        if(!isDbMode) return alert(t('mp_msg_demo_save', "Режим без БД (Демо). Данные сохранены локально."));
+        if(!isDbMode) {
+            const msg = typeof window.t === 'function' ? window.t('mp_msg_demo_save', "Режим без БД (Демо). Данные сохранены локально.") : "Режим без БД (Демо). Данные сохранены локально.";
+            return alert(msg);
+        }
 
         const payload = {
             task_id: parseInt(TASK_ID),
@@ -649,7 +652,8 @@
         };
 
         const btn = $('#btn-save-db');
-        btn.prop('disabled', true).text(t('mp_btn_saving', 'Сохранение...'));
+        const savingTxt = typeof window.t === 'function' ? window.t('mp_btn_saving', 'Сохранение...') : 'Сохранение...';
+        btn.prop('disabled', true).text(savingTxt);
 
         $.ajax({
             url: '/api/flow-details',
@@ -657,13 +661,16 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function() {
-                btn.prop('disabled', false).text(t('mp_btn_saved', '✅ Сохранено')).addClass('btn-success');
+                const savedTxt = typeof window.t === 'function' ? window.t('mp_btn_saved', '✅ Сохранено') : '✅ Сохранено';
+                btn.prop('disabled', false).text(savedTxt).addClass('btn-success');
                 setTimeout(()=> {
-                    btn.removeClass('btn-success').text(t('mp_btn_save', '💾 Сохранить в БД'));
+                    const saveTxt = typeof window.t === 'function' ? window.t('mp_btn_save', '💾 Сохранить в БД') : '💾 Сохранить в БД';
+                    btn.removeClass('btn-success').text(saveTxt);
                 }, 2000);
             },
             error: function(x) {
-                alert(t('mp_err_save', 'Ошибка сохранения: ') + x.responseText);
+                const errTxt = typeof window.t === 'function' ? window.t('mp_err_save', 'Ошибка сохранения: ') : 'Ошибка сохранения: ';
+                alert(errTxt + x.responseText);
                 btn.prop('disabled', false).text('Ошибка');
             }
         });
@@ -687,8 +694,17 @@
                 }
             });
         });
-        if(count) { updateMappedStatus(); drawAll(); save(); alert(t('mp_msg_found', 'Найдено: ') + count); }
-        else alert(t('mp_msg_no_match', 'Нет совпадений'));
+
+        if(count) {
+            updateMappedStatus();
+            drawAll();
+            save();
+            const msg = typeof window.t === 'function' ? window.t('mp_msg_found', 'Найдено: ') : 'Найдено: ';
+            alert(msg + count);
+        } else {
+            const msg = typeof window.t === 'function' ? window.t('mp_msg_no_match', 'Нет совпадений') : 'Нет совпадений';
+            alert(msg);
+        }
     }
 
     window.exportTable = function() {
@@ -703,7 +719,8 @@
     }
 
     window.clearAll = function() {
-        if(confirm(t('mp_confirm_clear', 'Очистить?'))) {
+        const msg = typeof window.t === 'function' ? window.t('mp_confirm_clear', 'Очистить?') : 'Очистить?';
+        if(confirm(msg)) {
             mappings=[]; updateMappedStatus(); drawAll(); save();
         }
     }
@@ -737,7 +754,8 @@
 
     window.openCodeGenModal = function() {
         if(mappings.length === 0) {
-            return alert(t('mp_err_no_map', "Сначала создайте хотя бы одну связь (маппинг)!"));
+            const msg = typeof window.t === 'function' ? window.t('mp_err_no_map', "Сначала создайте хотя бы одну связь (маппинг)!") : "Сначала создайте хотя бы одну связь (маппинг)!";
+            return alert(msg);
         }
 
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
@@ -949,10 +967,12 @@
     window.copyGeneratedCode = function() {
         if(codeGenEditor) {
             navigator.clipboard.writeText(codeGenEditor.getValue());
-            if(typeof showNotification === 'function') {
-                showNotification(t('mp_msg_copied', "Код успешно скопирован в буфер обмена!"));
+            if(typeof window.showNotification === 'function') {
+                const msg = typeof window.t === 'function' ? window.t('mp_msg_copied', "Код успешно скопирован в буфер обмена!") : "Код успешно скопирован в буфер обмена!";
+                window.showNotification(msg);
             } else {
-                alert(t('mp_msg_copied_short', "Скопировано!"));
+                const msg = typeof window.t === 'function' ? window.t('mp_msg_copied_short', "Скопировано!") : "Скопировано!";
+                alert(msg);
             }
         }
     }
@@ -961,7 +981,10 @@
         const lang = $('#cg-lang').val();
         const outArea = $('#testGenOutput');
 
-        if (lang !== 'groovy') return alert(t('mp_err_groovy_only', "Тестирование на лету сейчас поддерживается только для Groovy!"));
+        if (lang !== 'groovy') {
+            const msg = typeof window.t === 'function' ? window.t('mp_err_groovy_only', "Тестирование на лету сейчас поддерживается только для Groovy!") : "Тестирование на лету сейчас поддерживается только для Groovy!";
+            return alert(msg);
+        }
 
         const code = codeGenEditor ? codeGenEditor.getValue() : $('#cg-output').val();
         const sourceJson = $('#json-source').val() || '{}';

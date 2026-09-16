@@ -169,18 +169,6 @@
 <div id="toast"></div>
 
 <script>
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     let editorJson;
     let schemaData = {
         id: 'root',
@@ -575,7 +563,7 @@
         if (parent) {
             if (parent.type === 'array') {
                 if (parent.children.length > 0) {
-                    alert('Массив может содержать только один корневой элемент (узел items). Пожалуйста, редактируйте существующий items или его дочерние узлы.');
+                    alert('Массив может содержать только один корневой элемент (узел items). Пожалуйста, редактируйте существу items или его дочерние узлы.');
                     return;
                 }
                 parent.children.push({

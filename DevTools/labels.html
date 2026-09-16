@@ -489,19 +489,6 @@
 <div id="notification" style="position:fixed; bottom:20px; right:20px; padding:12px 24px; background:#10b981; color:#fff; border-radius:6px; font-weight:bold; display:none; z-index:9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
 
 <script>
-  // Безопасная функция перевода (без рекурсии)
-  function t(key, defaultStr) {
-    try {
-      const lang = localStorage.getItem('app_lang') || 'ru';
-      const dictStr = localStorage.getItem('portal_dictionary');
-      if (dictStr) {
-        const dict = JSON.parse(dictStr)[lang];
-        if (dict && dict[key]) return dict[key];
-      }
-    } catch(e) {}
-    return defaultStr;
-  }
-
   // Фикс ошибки ReferenceError: debounce is not defined
   function debounce(func, wait) {
     let timeout;
@@ -511,6 +498,9 @@
       timeout = setTimeout(() => func.apply(context, args), wait);
     };
   }
+
+  // ВАЖНО: Добавляем хелпер t() для перевода строк внутри JS
+  const t = (key, def) => typeof window.t === 'function' ? window.t(key, def) : def;
 
   let allCategories = [];
   let allLabels = [];
@@ -559,12 +549,13 @@
       const btn = $('#btn-auto-create');
       btn.prop('disabled', true).text('⏳ ' + t('lbl_creating', 'Создание...'));
 
+      // Используем локализацию для дефолтных категорий
       const standardCats = [
-        "01. Регламенты и Коммуникации",
-        "02. Аналитика и Архитектура",
-        "03. Разработка (Сниппеты)",
-        "04. Тестирование (QA & Mocks)",
-        "05. Инфраструктура и Прод"
+        t('lbl_cat_1', "01. Регламенты и Коммуникации"),
+        t('lbl_cat_2', "02. Аналитика и Архитектура"),
+        t('lbl_cat_3', "03. Разработка (Сниппеты)"),
+        t('lbl_cat_4', "04. Тестирование (QA & Mocks)"),
+        t('lbl_cat_5', "05. Инфраструктура и Прод")
       ];
 
       try {

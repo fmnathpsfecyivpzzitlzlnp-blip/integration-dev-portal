@@ -2,89 +2,195 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>XSD / WSDL в XML Генератор</title>
+    <title data-i18n="x2x_page_title">XSD / WSDL в XML (SOAP Генератор)</title>
     <link rel="stylesheet" href="style.css">
 
     <link rel="stylesheet" href="libs/codemirror.min.css">
+    <link rel="stylesheet" href="libs/dracula.min.css">
     <script src="libs/jquery-3.6.0.min.js"></script>
     <script src="libs/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="libs/xml.min.js"></script>
+    <script src="utils.js"></script>
 
     <style>
-        .generator-columns-container {
-            display: flex;
-            gap: 20px;
-            height: 60vh;
-            min-height: 400px;
-            margin-top: 15px;
+        /* === ПЕРЕМЕННЫЕ ДЛЯ ТЕМНОЙ ТЕМЫ === */
+        :root {
+            --bg-main: #f4f7f9;
+            --bg-card: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --btn-sec-bg: #e2e8f0;
+            --btn-sec-hover: #cbd5e1;
+            --success-bg: #d4edda;
+            --success-border: #c3e6cb;
+            --success-text: #155724;
+            --error-bg: #fff5f5;
+            --error-border: #ffcdd2;
+            --error-text: #c62828;
+            --error-line: #ffcdd2;
+            --tab-bg: #e2e8f0;
+            --tab-active: #ffffff;
         }
 
-        .generator-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
+        body.dark-theme {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+            --btn-sec-bg: #334155;
+            --btn-sec-hover: #475569;
+            --success-bg: rgba(22, 163, 74, 0.1);
+            --success-border: #15803d;
+            --success-text: #4ade80;
+            --error-bg: rgba(220, 38, 38, 0.1);
+            --error-border: #b91c1c;
+            --error-text: #f87171;
+            --error-line: rgba(220, 38, 38, 0.2);
+            --tab-bg: #0b1120;
+            --tab-active: #1e293b;
         }
 
-        .generator-panel label {
-            font-weight: 600;
-            margin-bottom: 8px;
-            display: inline-block;
-            color: #333;
+        /* === БРОНЕБОЙНАЯ ИЗОЛЯЦИЯ ОТ style.css === */
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
         }
 
-        .editor-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            overflow: hidden;
-            background: #fff;
+        body {
+            background: var(--bg-main) !important;
+            font-family: 'Inter', 'Segoe UI', sans-serif !important;
+            box-sizing: border-box !important;
+            color: var(--text-main) !important;
+            transition: background 0.3s, color 0.3s;
         }
 
-        .CodeMirror {
-            height: 100% !important;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 13px;
+        .header-wrapper { padding: 15px 20px 0 20px; flex-shrink: 0; }
+        .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+
+        .btn { padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn.secondary { background: var(--btn-sec-bg); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn.secondary:hover { background: var(--btn-sec-hover); }
+        .btn.primary { background: #3b82f6; color: white; border: 1px solid #3b82f6;}
+        .btn.primary:hover { background: #2563eb; }
+
+        /* Вкладки (Tabs) */
+        .tabs-container { display: flex; background: var(--tab-bg); border-bottom: 1px solid var(--border-color); overflow-x: auto; padding: 0 20px; flex-shrink: 0; transition: 0.3s; }
+        .tab { padding: 8px 16px; font-size: 13px; color: var(--text-muted); border-right: 1px solid var(--border-color); border-left: 1px solid transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; border-bottom: 2px solid transparent; user-select: none; transition: 0.2s; font-weight: 600; }
+        .tab:hover { background: var(--btn-sec-hover); color: var(--text-main); }
+        .tab.active { background: var(--tab-active); color: #3b82f6; border-bottom-color: #3b82f6; border-left-color: var(--border-color); }
+        .tab-close { opacity: 0.5; padding: 2px; border-radius: 4px; transition: 0.2s; margin-left: 5px; font-size: 14px; line-height: 1;}
+        .tab-close:hover { opacity: 1; background: #ef4444; color: white; }
+
+        /* Панель настроек генерации */
+        .settings-bar {
+            display: flex; gap: 15px; align-items: center; background: var(--bg-card); padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color); flex-shrink: 0; flex-wrap: wrap; transition: 0.3s;
         }
 
-        /* Красная подсветка строки с ошибкой */
-        .error-line-bg { background-color: #ffcdd2 !important; }
+        .settings-group { display: flex; align-items: center; gap: 8px; }
+        .settings-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 
-        #results-panel {
-            padding: 15px;
-            border-radius: 6px;
-            font-family: 'Consolas', monospace;
-            display: none;
-            margin-top: 15px;
-        }
-        .error-panel { background: #fff5f5; border: 1px solid #ffcdd2; color: #c62828; }
-        .success-panel { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .custom-select { padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s; min-width: 200px; max-width: 300px; }
+        .custom-select:focus { border-color: #3b82f6; }
+
+        .radio-group { display: flex; gap: 10px; background: var(--bg-main); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .radio-label { font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--text-main); }
+        .checkbox-label { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--text-main); }
+
+        .workspace { flex: 1; display: flex; flex-direction: column; padding: 15px 20px; overflow: hidden; }
+
+        .generator-columns-container { display: flex; gap: 20px; flex: 1; min-height: 0; }
+        .generator-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .generator-panel label { font-weight: 600; margin-bottom: 8px; display: inline-block; color: var(--text-main); transition: 0.3s; font-size: 13px; }
+
+        .editor-wrapper { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--bg-card); transition: 0.3s; }
+        .CodeMirror { height: 100% !important; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; background: var(--input-bg); color: var(--text-main); transition: 0.3s; }
+
+        .error-line-bg { background-color: var(--error-line) !important; }
+
+        #results-panel { padding: 10px 15px; border-radius: 6px; font-family: 'Consolas', monospace; display: none; margin-bottom: 15px; flex-shrink: 0; transition: 0.3s; font-size: 13px; }
+        .error-panel { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
+        .success-panel { background: var(--success-bg); border: 1px solid var(--success-border); color: var(--success-text); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
-<div class="main-content">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+<div class="header-wrapper">
+    <div class="header-controls">
         <div style="display: flex; gap: 15px; align-items: center;">
-            <button onclick="window.location.href='index.html'" class="secondary">🏠 Домой</button>
-            <h2 style="margin: 0; border: none;">Генератор XML из WSDL / XSD</h2>
+            <button onclick="window.location.href='index.html'" class="btn secondary">🏠 Домой</button>
+            <div>
+                <h2 style="margin: 0; border: none; color: var(--text-main);">Генератор SOAP/XML из WSDL/XSD</h2>
+                <p style="margin: 2px 0 0 0; color: var(--text-muted); font-size: 12px;">Мультивкладочный мок-генератор: история сохраняется в браузере.</p>
+            </div>
         </div>
         <div style="display: flex; gap: 10px;">
-            <button id="clearBtn" class="secondary" style="padding: 8px 15px;">🧹 Очистить</button>
-            <button id="generateBtn" class="primary" style="padding: 8px 15px;">⚡ Сгенерировать XML</button>
+            <button class="btn secondary" onclick="loadExample('simple')" style="background: #f59e0b; border-color: #f59e0b; color: white;">📄 Легкий пример</button>
+            <button class="btn secondary" onclick="loadExample('complex')" style="background: #8b5cf6; border-color: #8b5cf6; color: white;">📄 Сложный WSDL</button>
+            <button id="generateBtn" class="btn primary" style="background: #10b981; border-color: #10b981; padding: 8px 20px;">⚡ Сгенерировать XML</button>
+        </div>
+    </div>
+</div>
+
+<!-- Панель вкладок -->
+<div class="tabs-container" id="tabs-container">
+    <!-- Рендерится через JS -->
+</div>
+
+<!-- Панель настроек текущей вкладки -->
+<div class="settings-bar">
+    <div class="settings-group">
+        <label class="checkbox-label" title="Добавляет теги <soapenv:Envelope>">
+            <input type="checkbox" id="opt-soap" checked> SOAP Envelope
+        </label>
+    </div>
+
+    <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 5px;"></div>
+
+    <div class="settings-group">
+        <span class="settings-label">Заполнять поля:</span>
+        <div class="radio-group">
+            <label class="radio-label" title="Игнорирует элементы с minOccurs='0'">
+                <input type="radio" name="opt-fields" value="required" checked> Только обязательные
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="opt-fields" value="all"> Все поля
+            </label>
         </div>
     </div>
 
-    <p style="color: #666; font-size: 13px; margin-top: -10px;">
-        Вставьте WSDL или XSD. Парсер найдет корневой элемент и соберет готовую XML-структуру с заполненными типами данных.
-    </p>
+    <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 5px;"></div>
 
+    <div class="settings-group" style="flex: 1;">
+        <span class="settings-label">Корневой элемент (Root):</span>
+        <select id="root-select" class="custom-select">
+            <option value="">-- Ожидание WSDL/XSD --</option>
+        </select>
+        <button id="parseBtn" class="btn secondary" style="padding: 4px 8px; font-size: 11px;" title="Обновить список">🔄</button>
+    </div>
+</div>
+
+<div class="workspace">
     <div id="results-panel"></div>
 
     <div class="generator-columns-container">
         <div class="generator-panel">
-            <label>Исходный XSD / WSDL:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="margin: 0;">Исходный XSD / WSDL:</label>
+                <button id="clearBtn" class="btn secondary" style="padding: 2px 8px; font-size: 11px;">🗑 Очистить вкладку</button>
+            </div>
             <div class="editor-wrapper">
                 <textarea id="schema-input"></textarea>
             </div>
@@ -92,8 +198,8 @@
 
         <div class="generator-panel">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label style="margin: 0;">Результат (Пример XML):</label>
-                <button id="copyBtn" class="secondary btn-small">📋 Копировать</button>
+                <label style="margin: 0;">Результат (Готовый XML):</label>
+                <button id="copyBtn" class="btn secondary" style="padding: 2px 8px; font-size: 11px;">📋 Копировать</button>
             </div>
             <div class="editor-wrapper">
                 <textarea id="xml-output"></textarea>
@@ -103,190 +209,540 @@
 </div>
 
 <script>
+    // --- ПРИМЕРЫ (ЗАШИТЫЕ В КОД) ---
+    const EXAMPLES = {
+        simple: `<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://test.com/simple" elementFormDefault="qualified">
+    <xs:element name="SimpleOrder">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="OrderId" type="xs:string"/>
+                <xs:element name="Amount" type="xs:decimal"/>
+                <xs:element name="Comment" type="xs:string" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>`,
+        complex: `<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://sap.com/xi/PO" targetNamespace="http://sap.com/xi/PO">
+    <wsdl:types>
+        <xsd:schema targetNamespace="http://sap.com/xi/PO" elementFormDefault="qualified">
+
+            <!-- Корневой 1: Асинхронный запрос на создание -->
+            <xsd:element name="OrderCreateRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="OrderNumber" type="xsd:string"/>
+                        <xsd:element name="CreationDate" type="xsd:dateTime"/>
+                        <xsd:element name="Items" minOccurs="1" maxOccurs="unbounded">
+                            <xsd:complexType>
+                                <xsd:sequence>
+                                    <xsd:element name="SKU" type="xsd:string"/>
+                                    <xsd:element name="Qty" type="xsd:int"/>
+                                </xsd:sequence>
+                            </xsd:complexType>
+                        </xsd:element>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <!-- Корневой 2: Синхронный запрос (Request) -->
+            <xsd:element name="CustomerQueryRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="CustomerID" type="xsd:string"/>
+                        <xsd:element name="IncludeHistory" type="xsd:boolean" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <!-- Корневой 3: Синхронный ответ (Response) -->
+            <xsd:element name="CustomerQueryResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="FullName" type="xsd:string"/>
+                        <xsd:element name="Status" type="xsd:string"/>
+                        <xsd:element name="Balance" type="xsd:decimal"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+        </xsd:schema>
+    </wsdl:types>
+</wsdl:definitions>`
+    };
+
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+    let editorInput, editorOutput;
+    let errorLineHandle = null;
+    let parsedXmlDoc = null;
+    let rootElementsList = [];
+
+    // --- СИСТЕМА ВКЛАДОК (STATE) ---
+    let tabs = [];
+    let activeTabId = null;
+
+    function generateId() { return Math.random().toString(36).substr(2, 9); }
+
+    function getStr(k, d) { return typeof window.t === 'function' ? window.t(k, d) : d; }
+
     $(function () {
-        const resultsPanel = $('#results-panel');
-        let errorLineHandle = null;
+        if(typeof initLocalization === 'function') initLocalization();
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
+        const cmTheme = isDark ? "dracula" : "default";
 
         // Инициализация редакторов
-        const editorInput = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
-            mode: "xml", lineNumbers: true, matchBrackets: true, lineWrapping: true
+        editorInput = CodeMirror.fromTextArea(document.getElementById('schema-input'), {
+            mode: "xml", lineNumbers: true, matchBrackets: true, lineWrapping: true, theme: cmTheme
         });
 
-        const editorOutput = CodeMirror.fromTextArea(document.getElementById('xml-output'), {
-            mode: "xml", lineNumbers: true, readOnly: false, lineWrapping: true, theme: "default"
+        editorOutput = CodeMirror.fromTextArea(document.getElementById('xml-output'), {
+            mode: "xml", lineNumbers: true, readOnly: false, lineWrapping: true, theme: cmTheme
         });
 
-        // Восстановление из кэша
-        if (localStorage.getItem('xsd_to_xml_input')) {
-            editorInput.setValue(localStorage.getItem('xsd_to_xml_input'));
-        }
+        window.addEventListener('themeChanged', function(e) {
+            const newCmTheme = e.detail.isDark ? 'dracula' : 'default';
+            editorInput.setOption('theme', newCmTheme);
+            editorOutput.setOption('theme', newCmTheme);
+        });
 
-        // Автосохранение и сброс ошибок при вводе
+        // Загрузка вкладок из LocalStorage
+        loadTabs();
+
+        // Синхронизация данных вкладки при вводе
+        let parseTimeout;
         editorInput.on('change', function() {
-            localStorage.setItem('xsd_to_xml_input', editorInput.getValue());
+            if (activeTabId) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab && tab.input !== editorInput.getValue()) {
+                    tab.input = editorInput.getValue();
+                    saveTabs();
+                }
+            }
+
             if (errorLineHandle) {
                 editorInput.removeLineClass(errorLineHandle, 'background', 'error-line-bg');
                 errorLineHandle = null;
             }
-            resultsPanel.hide();
+            $('#results-panel').hide();
+
+            // Дебаунс авто-парсинга корней
+            clearTimeout(parseTimeout);
+            parseTimeout = setTimeout(parseRootElements, 800);
         });
 
+        editorOutput.on('change', function() {
+            if (activeTabId) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab && tab.output !== editorOutput.getValue()) {
+                    tab.output = editorOutput.getValue();
+                    saveTabs();
+                }
+            }
+        });
+
+        // Слушатели настроек
+        $('#opt-soap, input[name="opt-fields"], #root-select').on('change', function() {
+            if (activeTabId) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab) {
+                    tab.settings.soap = $('#opt-soap').is(':checked');
+                    tab.settings.reqOnly = $('input[name="opt-fields"]:checked').val() === 'required';
+                    tab.settings.rootIndex = $('#root-select').val() || '';
+                    saveTabs();
+                }
+            }
+        });
+
+        // Кнопки интерфейса
+        $('#parseBtn').on('click', parseRootElements);
+
         $('#clearBtn').on('click', function() {
-            if(confirm('Очистить редакторы?')) {
+            if(confirm('Очистить текущую вкладку?')) {
                 editorInput.setValue('');
                 editorOutput.setValue('');
-                localStorage.removeItem('xsd_to_xml_input');
-                resultsPanel.hide();
+                $('#root-select').empty().append('<option value="">-- Ожидание WSDL/XSD --</option>');
+                parsedXmlDoc = null;
+                rootElementsList = [];
+                $('#results-panel').hide();
             }
         });
 
         $('#copyBtn').on('click', function() {
-            navigator.clipboard.writeText(editorOutput.getValue());
+            const val = editorOutput.getValue();
+            if(!val) return;
+            navigator.clipboard.writeText(val);
             const origText = $(this).text();
             $(this).text('✅ Скопировано');
             setTimeout(() => $(this).text(origText), 2000);
         });
 
-        // === ЛОГИКА ГЕНЕРАЦИИ ===
-        $('#generateBtn').on('click', function() {
-            resultsPanel.removeClass('success-panel error-panel').empty().hide();
-            editorOutput.setValue('');
+        $('#generateBtn').on('click', executeGeneration);
+    });
 
-            let xmlText = editorInput.getValue().trim();
-            if (!xmlText) return alert("Вставьте XSD или WSDL код!");
+    // === ТАБ-СИСТЕМА (ЛОГИКА) ===
 
-            // Авто-исправление "вордовских" кавычек
-            xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+    function loadTabs() {
+        const saved = localStorage.getItem('x2x_tabs');
+        if (saved) {
+            try { tabs = JSON.parse(saved); } catch(e) { tabs = []; }
+        }
 
-            // 1. Проверка синтаксиса встроенным парсером браузера
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, "application/xml");
-            const errorNode = xmlDoc.querySelector("parsererror");
+        if (tabs.length === 0) {
+            tabs.push({
+                id: generateId(), name: 'Схема 1', input: '', output: '',
+                settings: { soap: true, reqOnly: true, rootIndex: '' }
+            });
+        }
 
-            if (errorNode) {
-                const errorMsg = errorNode.textContent;
-                const match = errorMsg.match(/line number (\d+)/i) || errorMsg.match(/line (\d+)/i);
+        const savedActive = localStorage.getItem('x2x_active_tab');
+        activeTabId = tabs.find(t => t.id === savedActive) ? savedActive : tabs[0].id;
 
-                if (match) {
-                    const lineNum = parseInt(match[1], 10);
-                    errorLineHandle = editorInput.addLineClass(lineNum - 1, 'background', 'error-line-bg');
-                    editorInput.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
-                }
+        renderTabs();
+        switchTab(activeTabId, true);
+    }
 
-                resultsPanel.addClass('error-panel')
-                    .html(`<h3 style="margin-top:0;">❌ Ошибка синтаксиса:</h3><p style="white-space: pre-wrap;">${errorMsg}</p>`)
-                    .slideDown();
-                return;
-            }
+    function saveTabs() {
+        localStorage.setItem('x2x_tabs', JSON.stringify(tabs));
+        localStorage.setItem('x2x_active_tab', activeTabId);
+    }
 
-            // 2. Генерация XML из XSD
-            try {
-                const generatedXml = generateXmlFromDoc(xmlDoc);
-                editorOutput.setValue(generatedXml);
+    function renderTabs() {
+        const container = $('#tabs-container').empty();
+        tabs.forEach((tab, index) => {
+            const isActive = tab.id === activeTabId ? 'active' : '';
+            const tabHtml = $(`
+                <div class="tab ${isActive}" data-id="${tab.id}">
+                    📄 ${escapeHtml(tab.name)}
+                    <span class="tab-close" title="Закрыть">✖</span>
+                </div>
+            `);
 
-                // Чтобы XML красиво отформатировался
-                setTimeout(() => {
-                    editorOutput.execCommand("selectAll");
-                    editorOutput.execCommand("indentAuto");
-                    editorOutput.setCursor(0, 0);
-                }, 50);
+            tabHtml.on('click', function(e) {
+                if ($(e.target).hasClass('tab-close')) return;
+                switchTab(tab.id);
+            });
 
-                resultsPanel.addClass('success-panel').html('<h3 style="margin:0;">✅ XML успешно сгенерирован!</h3>').slideDown();
-            } catch (e) {
-                resultsPanel.addClass('error-panel')
-                    .html(`<h3 style="margin-top:0;">⚠️ Ошибка обработки:</h3><p>${e.message}</p>`)
-                    .slideDown();
-            }
+            tabHtml.find('.tab-close').on('click', function(e) {
+                e.stopPropagation();
+                closeTab(tab.id);
+            });
+
+            container.append(tabHtml);
         });
 
-        // --- РЕКУРСИВНЫЙ ДВИЖОК ПАРСИНГА XSD ---
-        function generateXmlFromDoc(doc) {
-            let schema = Array.from(doc.querySelectorAll('*')).find(n => n.localName === 'schema');
-            if (!schema) schema = doc.documentElement; // Фолбэк
+        const addBtn = $(`<div class="tab" title="Создать новую вкладку" style="font-weight:bold; font-size:18px;">+</div>`);
+        addBtn.on('click', addNewTab);
+        container.append(addBtn);
+    }
 
-            // Ищем корневые элементы (обычно это элементы прямо внутри <schema>)
-            let rootElements = Array.from(schema.children).filter(n => n.localName === 'element');
+    function switchTab(id, forceLoad = false) {
+        if (!forceLoad && id === activeTabId) return;
+        activeTabId = id;
+        const tab = tabs.find(t => t.id === id);
+        if (!tab) return;
 
-            if (rootElements.length === 0) {
-                // Если не нашли на верхнем уровне, берем вообще первый попавшийся элемент с именем
-                rootElements = Array.from(doc.querySelectorAll('*')).filter(n => n.localName === 'element' && n.getAttribute('name'));
-            }
+        $('#tabs-container .tab').removeClass('active');
+        $(`.tab[data-id="${id}"]`).addClass('active');
 
-            if (rootElements.length === 0) throw new Error("В документе не найдено ни одного тега <element name='...'>.");
+        // Загружаем данные в UI (без триггера события change для истории)
+        editorInput.setValue(tab.input || '');
+        editorOutput.setValue(tab.output || '');
 
-            // Берем первый корневой элемент
-            const rootEl = rootElements[0];
-            let result = '<?xml version="1.0" encoding="UTF-8"?>\n';
-
-            // Если это SOAP запрос, добавим конверт
-            if (doc.documentElement.localName === 'definitions') {
-                result += `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">\n  <soapenv:Header/>\n  <soapenv:Body>\n`;
-                result += buildNode(rootEl, doc, "    ");
-                result += `  </soapenv:Body>\n</soapenv:Envelope>`;
-            } else {
-                result += buildNode(rootEl, doc, "");
-            }
-
-            return result;
+        $('#opt-soap').prop('checked', tab.settings.soap);
+        if (tab.settings.reqOnly) {
+            $('input[name="opt-fields"][value="required"]').prop('checked', true);
+        } else {
+            $('input[name="opt-fields"][value="all"]').prop('checked', true);
         }
 
-        function buildNode(element, doc, indent) {
-            const name = element.getAttribute("name");
-            let type = element.getAttribute("type");
-            let result = "";
+        $('#results-panel').hide();
+        parseRootElements(); // Перестраиваем селект
 
-            // Ищем вложенный complexType
-            let complexType = Array.from(element.children).find(n => n.localName === 'complexType');
+        if (tab.settings.rootIndex !== '') {
+            $('#root-select').val(tab.settings.rootIndex);
+        }
 
-            if (complexType) {
-                result += `${indent}<${name}>\n`;
-                result += processComplexType(complexType, doc, indent + "  ");
-                result += `${indent}</${name}>\n`;
-            } else if (type) {
-                // Очищаем от пространства имен (например, xsd:string -> string)
-                const cleanType = type.includes(':') ? type.split(':')[1] : type;
-                const standardTypes = ['string', 'integer', 'int', 'boolean', 'float', 'double', 'date', 'dateTime', 'decimal', 'long', 'base64Binary'];
+        saveTabs();
+    }
 
-                if (standardTypes.includes(cleanType)) {
-                    // Подставляем пример данных
-                    let dummyData = `sample_${cleanType}`;
-                    if (cleanType === 'boolean') dummyData = 'true';
-                    if (['integer', 'int', 'long'].includes(cleanType)) dummyData = '123';
-                    if (['float', 'double', 'decimal'].includes(cleanType)) dummyData = '123.45';
-                    if (cleanType === 'date') dummyData = '2026-05-24';
-                    if (cleanType === 'dateTime') dummyData = '2026-05-24T12:00:00Z';
+    function addNewTab() {
+        const newId = generateId();
+        tabs.push({
+            id: newId, name: `Схема ${tabs.length + 1}`, input: '', output: '',
+            settings: { soap: true, reqOnly: true, rootIndex: '' }
+        });
+        renderTabs();
+        switchTab(newId);
+    }
 
-                    result += `${indent}<${name}>${dummyData}</${name}>\n`;
+    function closeTab(id) {
+        if (tabs.length === 1) {
+            // Если вкладка одна, просто очищаем её
+            $('#clearBtn').click();
+            return;
+        }
+        const index = tabs.findIndex(t => t.id === id);
+        tabs = tabs.filter(t => t.id !== id);
+
+        if (activeTabId === id) {
+            const nextTab = tabs[index] || tabs[index - 1];
+            activeTabId = nextTab.id;
+        }
+        renderTabs();
+        switchTab(activeTabId, true);
+    }
+
+    window.loadExample = function(type) {
+        const code = EXAMPLES[type];
+        if (code) {
+            editorInput.setValue(code);
+            $('#opt-soap').prop('checked', type === 'complex'); // Сложный WSDL оборачиваем в SOAP
+            parseRootElements();
+            if (rootElementsList.length > 0) {
+                $('#root-select').prop('selectedIndex', 0); // Выбираем первый попавшийся корень
+            }
+        }
+    };
+
+
+    // === ПАРСИНГ КОРНЕВЫХ ЭЛЕМЕНТОВ (ДЛЯ DROPDOWN) ===
+    function parseRootElements() {
+        let xmlText = editorInput.getValue().trim();
+        if (!xmlText) {
+            $('#root-select').empty().append('<option value="">-- Ожидание WSDL/XSD --</option>');
+            return;
+        }
+
+        xmlText = xmlText.replace(/[\u201C\u201D\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'");
+        const parser = new DOMParser();
+        parsedXmlDoc = parser.parseFromString(xmlText, "application/xml");
+
+        if (parsedXmlDoc.querySelector("parsererror")) {
+            $('#root-select').empty().append('<option value="">-- Ошибка синтаксиса XML --</option>');
+            return;
+        }
+
+        rootElementsList = [];
+        const schemas = Array.from(parsedXmlDoc.querySelectorAll('*')).filter(n => n.localName === 'schema');
+
+        if (schemas.length > 0) {
+            schemas.forEach(schema => {
+                const elements = Array.from(schema.children).filter(n => n.localName === 'element' && n.getAttribute('name'));
+                rootElementsList = rootElementsList.concat(elements);
+            });
+        } else {
+            rootElementsList = Array.from(parsedXmlDoc.querySelectorAll('*')).filter(n => n.localName === 'element' && n.getAttribute('name'));
+        }
+
+        const select = $('#root-select').empty();
+        if (rootElementsList.length === 0) {
+            select.append('<option value="">-- Элементы <element> не найдены --</option>');
+        } else {
+            rootElementsList.forEach((el, index) => {
+                const name = el.getAttribute('name');
+                select.append(`<option value="${index}">${name}</option>`);
+            });
+        }
+
+        // Пытаемся восстановить выбор из стейта таба
+        const tab = tabs.find(t => t.id === activeTabId);
+        if (tab && tab.settings.rootIndex !== '' && tab.settings.rootIndex < rootElementsList.length) {
+            select.val(tab.settings.rootIndex);
+        }
+    }
+
+
+    // === ЛОГИКА ГЕНЕРАЦИИ ===
+    function executeGeneration() {
+        const resultsPanel = $('#results-panel');
+        resultsPanel.removeClass('success-panel error-panel').empty().hide();
+        editorOutput.setValue('');
+
+        if (!parsedXmlDoc) parseRootElements();
+
+        let xmlText = editorInput.getValue().trim();
+        if (!xmlText) return alert("Вставьте XSD или WSDL код!");
+
+        const errorNode = parsedXmlDoc.querySelector("parsererror");
+        if (errorNode) {
+            const errorMsg = errorNode.textContent;
+            const match = errorMsg.match(/line number (\d+)/i) || errorMsg.match(/line (\d+)/i) || errorMsg.match(/строка (\d+)/i);
+
+            if (match) {
+                const lineNum = parseInt(match[1], 10);
+                errorLineHandle = editorInput.addLineClass(lineNum - 1, 'background', 'error-line-bg');
+                editorInput.scrollIntoView({line: lineNum - 1, ch: 0}, 60);
+            }
+
+            resultsPanel.addClass('error-panel')
+                .html(`<h3 style="margin-top:0;">❌ Ошибка синтаксиса:</h3><p style="white-space: pre-wrap;">${escapeHtml(errorMsg)}</p>`)
+                .slideDown();
+            return;
+        }
+
+        try {
+            const options = {
+                wrapSoap: $('#opt-soap').is(':checked'),
+                requiredOnly: $('input[name="opt-fields"]:checked').val() === 'required'
+            };
+
+            const selectedIndex = $('#root-select').val();
+            if (!selectedIndex || rootElementsList.length === 0) {
+                throw new Error("Не выбран корневой элемент для генерации. Проверьте список.");
+            }
+
+            const rootEl = rootElementsList[selectedIndex];
+            const generatedXml = generateXmlFromRoot(rootEl, parsedXmlDoc, options);
+
+            editorOutput.setValue(generatedXml);
+
+            // Автоформатирование
+            setTimeout(() => {
+                editorOutput.execCommand("selectAll");
+                editorOutput.execCommand("indentAuto");
+                editorOutput.setCursor(0, 0);
+            }, 50);
+
+            resultsPanel.addClass('success-panel').html(`<h3 style="margin:0;">✅ XML успешно сгенерирован!</h3>`).slideDown();
+
+            // Сохраняем результат в таб
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab) { tab.output = editorOutput.getValue(); saveTabs(); }
+
+        } catch (e) {
+            resultsPanel.addClass('error-panel')
+                .html(`<h3 style="margin-top:0;">⚠️ Ошибка обработки:</h3><p>${escapeHtml(e.message)}</p>`)
+                .slideDown();
+        }
+    }
+
+    // --- РЕКУРСИВНЫЙ ДВИЖОК ГЕНЕРАЦИИ ---
+    function generateXmlFromRoot(rootEl, doc, options) {
+        let result = '<?xml version="1.0" encoding="UTF-8"?>\n';
+
+        let namespacePrefix = "";
+        let tnsUri = "";
+
+        const schemaNode = rootEl.closest('schema');
+        if (schemaNode && schemaNode.getAttribute('targetNamespace')) {
+            tnsUri = schemaNode.getAttribute('targetNamespace');
+            namespacePrefix = 'api:';
+        }
+
+        if (options.wrapSoap) {
+            result += `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"`;
+            if (tnsUri) result += ` xmlns:api="${tnsUri}"`;
+            result += `>\n  <soapenv:Header/>\n  <soapenv:Body>\n`;
+            result += buildNode(rootEl, doc, "    ", options, true, namespacePrefix);
+            result += `  </soapenv:Body>\n</soapenv:Envelope>`;
+        } else {
+            result += buildNode(rootEl, doc, "", options, true, namespacePrefix);
+        }
+
+        return result;
+    }
+
+    // Генерация случайных фейковых данных
+    function getDummyData(type) {
+        const t = type.replace(/.*:/, '');
+        if (['string', 'normalizedString', 'token'].includes(t)) return 'str_' + Math.random().toString(36).substr(2, 5);
+        if (['int', 'integer', 'long', 'short', 'byte'].includes(t)) return Math.floor(Math.random() * 1000);
+        if (['decimal', 'float', 'double'].includes(t)) return (Math.random() * 100).toFixed(2);
+        if (t === 'boolean') return Math.random() > 0.5 ? 'true' : 'false';
+        if (t === 'date') return '2026-09-16';
+        if (t === 'dateTime') return '2026-09-16T12:00:00Z';
+        return '?';
+    }
+
+    function buildNode(element, doc, indent, options, isRoot = false, nsPrefix = "") {
+        // Проверка обязательности
+        if (!isRoot && options.requiredOnly) {
+            const minOccurs = element.getAttribute('minOccurs') || '1';
+            if (minOccurs === '0') return "";
+        }
+
+        const rawName = element.getAttribute("name");
+        if (!rawName) return "";
+        const name = (isRoot && nsPrefix) ? `${nsPrefix}${rawName}` : rawName;
+
+        let type = element.getAttribute("type");
+        let result = "";
+
+        let complexType = Array.from(element.children).find(n => n.localName === 'complexType');
+        let simpleType = Array.from(element.children).find(n => n.localName === 'simpleType');
+
+        if (complexType) {
+            const innerXml = processComplexType(complexType, doc, indent + "  ", options);
+            if (innerXml || isRoot) {
+                result += `${indent}<${name}>\n${innerXml}${indent}</${name}>\n`;
+            }
+        } else if (simpleType) {
+            let enumVal = '?';
+            const restriction = Array.from(simpleType.children).find(n => n.localName === 'restriction');
+            if (restriction) {
+                const enums = Array.from(restriction.children).filter(n => n.localName === 'enumeration');
+                if (enums.length > 0) {
+                    enumVal = enums[Math.floor(Math.random() * enums.length)].getAttribute('value');
                 } else {
-                    // Ищем кастомный тип где-то еще в документе
-                    const customTypes = Array.from(doc.querySelectorAll('*')).filter(n => n.localName === 'complexType');
-                    const customType = customTypes.find(n => n.getAttribute("name") === cleanType);
-
-                    if (customType) {
-                        result += `${indent}<${name}>\n`;
-                        result += processComplexType(customType, doc, indent + "  ");
-                        result += `${indent}</${name}>\n`;
-                    } else {
-                        result += `${indent}<${name}>?</${name}>\n`;
-                    }
+                    enumVal = getDummyData(restriction.getAttribute('base') || 'string');
                 }
-            } else {
-                result += `${indent}<${name}>?</${name}>\n`;
             }
-            return result;
-        }
+            result += `${indent}<${name}>${enumVal}</${name}>\n`;
 
-        function processComplexType(complexType, doc, indent) {
-            let result = "";
-            const wrapper = Array.from(complexType.children).find(n => n.localName === 'sequence' || n.localName === 'all' || n.localName === 'choice');
-            if (wrapper) {
-                Array.from(wrapper.children).filter(n => n.localName === 'element').forEach(child => {
-                    result += buildNode(child, doc, indent);
-                });
+        } else if (type) {
+            const cleanType = type.includes(':') ? type.split(':')[1] : type;
+            const standardTypes = ['string', 'normalizedString', 'token', 'integer', 'int', 'boolean', 'float', 'double', 'date', 'dateTime', 'decimal', 'long', 'short', 'byte', 'base64Binary'];
+
+            if (standardTypes.includes(cleanType)) {
+                result += `${indent}<${name}>${getDummyData(cleanType)}</${name}>\n`;
+            } else {
+                const customComplex = Array.from(doc.querySelectorAll('*')).filter(n => n.localName === 'complexType').find(n => n.getAttribute("name") === cleanType);
+                const customSimple = Array.from(doc.querySelectorAll('*')).filter(n => n.localName === 'simpleType').find(n => n.getAttribute("name") === cleanType);
+
+                if (customComplex) {
+                    const innerXml = processComplexType(customComplex, doc, indent + "  ", options);
+                    if (innerXml || isRoot) {
+                        result += `${indent}<${name}>\n${innerXml}${indent}</${name}>\n`;
+                    }
+                } else if (customSimple) {
+                    let enumVal = '?';
+                    const restriction = Array.from(customSimple.children).find(n => n.localName === 'restriction');
+                    if (restriction) {
+                        const enums = Array.from(restriction.children).filter(n => n.localName === 'enumeration');
+                        if (enums.length > 0) {
+                            enumVal = enums[Math.floor(Math.random() * enums.length)].getAttribute('value');
+                        } else {
+                            enumVal = getDummyData(restriction.getAttribute('base') || 'string');
+                        }
+                    }
+                    result += `${indent}<${name}>${enumVal}</${name}>\n`;
+                } else {
+                    result += `${indent}<${name}>?</${name}>\n`;
+                }
             }
-            return result;
+        } else {
+            result += `${indent}<${name}>?</${name}>\n`;
         }
-    });
+        return result;
+    }
+
+    function processComplexType(complexType, doc, indent, options) {
+        let result = "";
+        const wrapper = Array.from(complexType.children).find(n => n.localName === 'sequence' || n.localName === 'all' || n.localName === 'choice');
+        if (wrapper) {
+            Array.from(wrapper.children).filter(n => n.localName === 'element').forEach(child => {
+                result += buildNode(child, doc, indent, options, false);
+            });
+        }
+        return result;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 </script>
 </body>
 </html>

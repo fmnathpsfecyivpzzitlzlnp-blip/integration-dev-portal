@@ -132,7 +132,7 @@
         </select>
     </div>
     <div class="input-group" style="flex: 2;">
-        <label>JDBC URL (Connection String)</label>
+        <label data-i18n="dbrev_jdbc_url">JDBC URL (Connection String)</label>
         <input type="text" id="db-url" placeholder="jdbc:postgresql://host:port/dbname" value="jdbc:postgresql://dev-db.local:5432/crm_db">
     </div>
     <div class="input-group" style="flex: 0.5;">
@@ -167,9 +167,9 @@
     <!-- КОЛОНКА 2: Генератор -->
     <div class="col col-right">
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('json')" id="tab-json">JSON Schema</button>
-            <button class="tab-btn" onclick="switchTab('java')" id="tab-java">Java (JPA Entity)</button>
-            <button class="tab-btn" onclick="switchTab('openapi')" id="tab-openapi">OpenAPI 3.0</button>
+            <button class="tab-btn active" onclick="switchTab('json')" id="tab-json" data-i18n="dbrev_tab_json">JSON Schema</button>
+            <button class="tab-btn" onclick="switchTab('java')" id="tab-java" data-i18n="dbrev_tab_java">Java (JPA Entity)</button>
+            <button class="tab-btn" onclick="switchTab('openapi')" id="tab-openapi" data-i18n="dbrev_tab_openapi">OpenAPI 3.0</button>
         </div>
         <div id="editor-empty" class="empty-state">
             <span>👈</span>
@@ -185,19 +185,6 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     let editor;
     let currentMode = 'json';
     let currentTable = null;

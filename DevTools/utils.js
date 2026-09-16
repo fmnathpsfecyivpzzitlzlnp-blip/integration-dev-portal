@@ -8,22 +8,47 @@ document.addEventListener('DOMContentLoaded', function() {
 // === 1. ЛОКАЛИЗАЦИЯ (i18n) ===
 function initLocalization() {
     const lang = localStorage.getItem('app_lang') || 'ru';
-    applyLanguage(lang);
-}
 
-// Глобальная функция применения языка ко всем элементам с data-i18n
-window.applyLanguage = function(lang, customDict = null) {
-    let globalDict = customDict;
-
-    // Если словарь не передан напрямую, берем из синхронного кэша
-    if (!globalDict) {
-        const dictStr = localStorage.getItem('portal_dictionary');
-        if (dictStr) {
-            try { globalDict = JSON.parse(dictStr); } catch(e) { console.error("Cache parse error", e); }
-        }
+    // Быстрый рендер из локального кэша конкретного языка (чтобы интерфейс не моргал)
+    const cachedStr = localStorage.getItem('locale_cache_' + lang);
+    if (cachedStr) {
+        try {
+            window.currentDict = JSON.parse(cachedStr);
+            renderI18n(lang, window.currentDict);
+        } catch(e) { console.error("Cache parse error", e); }
     }
 
-    const dict = globalDict ? (globalDict[lang] || globalDict['ru']) : null;
+    // Асинхронно стягиваем свежую версию с сервера
+    fetchLocaleFromServer(lang);
+}
+
+function fetchLocaleFromServer(lang) {
+    fetch('/api/locale?lang=' + lang)
+        .then(res => res.json())
+        .then(data => {
+            if (data && !data.error) {
+                window.currentDict = data;
+                localStorage.setItem('locale_cache_' + lang, JSON.stringify(data));
+                renderI18n(lang, data);
+            }
+        })
+        .catch(err => console.warn('Ошибка загрузки локали, используем кэш.', err));
+}
+
+// Глобальная функция применения языка
+window.applyLanguage = function(lang, customDict = null) {
+    localStorage.setItem('app_lang', lang);
+
+    if (customDict) {
+        window.currentDict = customDict;
+        renderI18n(lang, customDict);
+    } else {
+        fetchLocaleFromServer(lang);
+    }
+};
+
+function renderI18n(lang, dict) {
+    if (!dict) return;
 
     // Автоматическая поддержка направления текста (RTL) для Арабского языка
     if (lang === 'ar') {
@@ -31,8 +56,6 @@ window.applyLanguage = function(lang, customDict = null) {
     } else {
         document.documentElement.setAttribute('dir', 'ltr');
     }
-
-    if (!dict) return;
 
     // Мгновенный перевод всех размеченных элементов
     const elements = document.querySelectorAll('[data-i18n]');
@@ -52,18 +75,24 @@ window.applyLanguage = function(lang, customDict = null) {
             }
         }
     });
-};
+}
 
 // Глобальная функция для перевода JS-строк (alert, confirm, динамические данные)
 window.t = function(key, defaultStr) {
-    const lang = localStorage.getItem('app_lang') || 'ru';
+    if (window.currentDict && window.currentDict[key]) {
+        return window.currentDict[key];
+    }
+
+    // Фолбэк на кэш, если window.currentDict еще не успел загрузиться
     try {
-        const dictStr = localStorage.getItem('portal_dictionary');
-        if (dictStr) {
-            const dict = JSON.parse(dictStr)[lang];
-            if (dict && dict[key]) return dict[key];
+        const lang = localStorage.getItem('app_lang') || 'ru';
+        const cachedStr = localStorage.getItem('locale_cache_' + lang);
+        if (cachedStr) {
+            const dict = JSON.parse(cachedStr);
+            if (dict[key]) return dict[key];
         }
     } catch(e) {}
+
     return defaultStr;
 };
 

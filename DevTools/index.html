@@ -364,6 +364,9 @@
                     <a href="swagger_generator.html" target="content"><span class="menu-icon">🌐</span><span data-i18n="menu_swagger_generator">Swagger / OpenAPI Конструктор</span></a>
                 </li>
                 <li data-module="converters">
+                    <a href="xsd_to_xml.html" target="content"><span class="menu-icon">📥</span><span data-i18n="menu_xsd_to_xml">XSD/WSDL ➔ XML (SOAP)</span></a>
+                </li>
+                <li data-module="converters">
                     <a href="xml_to_json.html" target="content"><span class="menu-icon">🔁</span><span data-i18n="menu_xml_to_json">XML ➔ JSON</span></a>
                 </li>
                 <li data-module="converters">
@@ -478,7 +481,7 @@
             </span>
             <span id="current-role-badge"></span>
         </div>
-        <button id="auth-btn" class="auth-btn" onclick="toggleAuth()">Войти в систему</button>
+        <button id="auth-btn" class="auth-btn" onclick="toggleAuth()"></button>
     </div>
 </div>
 
@@ -488,25 +491,26 @@
 <div id="login-modal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="$('#login-modal').fadeOut(150)">&times;</span>
-        <h2 class="modal-title">Вход в систему</h2>
+        <h2 class="modal-title" data-i18n="auth_login_title">Вход в систему</h2>
 
-        <div id="login-error">Неверный логин или пароль</div>
+        <div id="login-error" data-i18n="auth_err_invalid">Неверный логин или пароль</div>
 
         <div class="form-group">
-            <label>Логин / Username</label>
-            <input type="text" id="login-username" placeholder="Например: admin">
+            <label data-i18n="auth_lbl_login">Логин / Username</label>
+            <input type="text" id="login-username">
         </div>
         <div class="form-group">
-            <label>Пароль</label>
-            <input type="password" id="login-password" placeholder="Введите пароль" onkeyup="if(event.key==='Enter') executeLogin()">
+            <label data-i18n="auth_lbl_pass">Пароль</label>
+            <input type="password" id="login-password" onkeyup="if(event.key==='Enter') executeLogin()">
         </div>
 
-        <button class="btn-login" onclick="executeLogin()">Авторизоваться</button>
+        <button class="btn-login" onclick="executeLogin()" data-i18n="auth_btn_submit">Авторизоваться</button>
     </div>
 </div>
 
 <script>
     let currentUser = null;
+    const t = (key, def) => typeof window.t === 'function' ? window.t(key, def) : def;
 
     document.addEventListener("DOMContentLoaded", function() {
         initAuthSystem();
@@ -578,6 +582,12 @@
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
         if (isDark) document.body.classList.add('dark-theme');
+
+        // Локализация плейсхолдеров
+        if (typeof window.t === 'function') {
+            $('#login-username').attr('placeholder', window.t('auth_ph_login', 'Например: admin'));
+            $('#login-password').attr('placeholder', window.t('auth_ph_pass', 'Введите пароль'));
+        }
     });
 
     // === СИСТЕМА АВТОРИЗАЦИИ И ДОСТУПА ===
@@ -611,7 +621,7 @@
         const u = $('#login-username').val().trim();
         const p = $('#login-password').val().trim();
         if (!u || !p) {
-            $('#login-error').text('Введите логин и пароль').show();
+            $('#login-error').text(t('auth_err_empty', 'Введите логин и пароль')).show();
             return;
         }
 
@@ -631,7 +641,7 @@
                 frame.contentWindow.location.reload();
             },
             error: function() {
-                $('#login-error').text('Неверный логин или пароль').show();
+                $('#login-error').text(t('auth_err_invalid', 'Неверный логин или пароль')).show();
             }
         });
     }
@@ -657,12 +667,12 @@
                 badge.text('USER').removeClass('admin').show();
             }
 
-            $('#auth-btn').text(window.t ? window.t('btn_logout', 'Выйти из системы') : 'Выйти из системы').addClass('logout');
+            $('#auth-btn').text(t('btn_logout', 'Выйти из системы')).addClass('logout');
         } else {
             // Если гость
-            $('#current-username').text(window.t ? window.t('lbl_guest', 'Гость') : 'Гость');
+            $('#current-username').text(t('lbl_guest', 'Гость'));
             $('#current-role-badge').hide();
-            $('#auth-btn').text(window.t ? window.t('btn_login', 'Войти в систему') : 'Войти в систему').removeClass('logout');
+            $('#auth-btn').text(t('btn_login', 'Войти в систему')).removeClass('logout');
         }
 
         applyRoleAccess();

@@ -157,19 +157,6 @@
 <div id="toast"></div>
 
 <script>
-    // БЕЗОПАСНАЯ ФУНКЦИЯ ПЕРЕВОДА (без рекурсии window.t)
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
@@ -228,7 +215,8 @@
         if (window.parent && window.parent !== window) {
             window.parent.location.reload();
         } else {
-            showToast("Язык интерфейса обновлен!");
+            const msg = typeof window.t === 'function' ? window.t('lang_toast', 'Язык интерфейса обновлен!') : 'Язык интерфейса обновлен!';
+            showToast(msg);
         }
     }
 
@@ -283,11 +271,13 @@
         };
 
         if (!payload.clearAll && payload.sysName === "ALL" && !payload.olderThan) {
-            alert(t('err_clear_logs', "Выберите систему, укажите дату или отметьте 'Полностью очистить'."));
+            const msg = typeof window.t === 'function' ? window.t('err_clear_logs', "Выберите систему, укажите дату или отметьте 'Полностью очистить'.") : "Выберите систему, укажите дату или отметьте 'Полностью очистить'.";
+            alert(msg);
             return;
         }
 
-        if (!confirm(t('confirm_clear_logs', "Вы уверены, что хотите безвозвратно удалить логи?"))) return;
+        const confirmMsg = typeof window.t === 'function' ? window.t('confirm_clear_logs', "Вы уверены, что хотите безвозвратно удалить логи?") : "Вы уверены, что хотите безвозвратно удалить логи?";
+        if (!confirm(confirmMsg)) return;
 
         $.ajax({
             url: '/api/history/clear',
@@ -295,12 +285,14 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function(res) {
-                alert(res.message || "Очистка завершена.");
+                const successMsg = typeof window.t === 'function' ? window.t('msg_clear_success', "Очистка завершена.") : "Очистка завершена.";
+                alert(res.message || successMsg);
                 $('#clear_all_checkbox').prop('checked', false);
                 toggleClearAll();
             },
             error: function(xhr) {
-                alert("Ошибка сервера.");
+                const errorMsg = typeof window.t === 'function' ? window.t('err_server', "Ошибка сервера.") : "Ошибка сервера.";
+                alert(errorMsg);
             }
         });
     }

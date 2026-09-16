@@ -57,6 +57,7 @@
             background: var(--bg-card); padding: 12px 20px; border-radius: 8px;
             border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             margin-bottom: 15px; flex-shrink: 0;
+            transition: 0.3s;
         }
 
         .toolbar-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
@@ -100,12 +101,12 @@
         .view-container { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
 
         /* ВИД 1: ТАБЛИЦА ЗАДАЧ */
-        #view-table { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        #view-table { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: 0.3s; }
         .table-scroll { flex: 1; overflow: auto; }
 
         table.styled-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        table.styled-table thead { position: sticky; top: 0; z-index: 10; background: var(--table-header); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        table.styled-table th { padding: 10px 15px; text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; user-select: none; }
+        table.styled-table thead { position: sticky; top: 0; z-index: 10; background: var(--table-header); box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.3s; }
+        table.styled-table th { padding: 10px 15px; text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--border-color); white-space: nowrap; user-select: none; transition: 0.3s;}
 
         /* Сортировка */
         table.styled-table th.sortable { cursor: pointer; transition: background 0.2s; color: var(--text-main); font-weight: 700; }
@@ -114,33 +115,33 @@
 
         /* Строка фильтров столбцов */
         table.styled-table tr.filter-row th { padding: 6px 10px; background: var(--bg-main); border-bottom: 2px solid var(--border-color); }
-        .col-filter-input { width: 100%; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box; outline: none; }
+        .col-filter-input { width: 100%; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box; outline: none; transition: 0.3s;}
         .col-filter-input:focus { border-color: #3b82f6; }
 
-        table.styled-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: top; }
+        table.styled-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: top; transition: 0.3s;}
         table.styled-table tr:hover td { background: var(--table-hover); }
 
         .row-checkbox { width: 16px; height: 16px; cursor: pointer; }
 
         /* ВИД 2: КАРТОЧКА ЗАДАЧИ (ФОРМА) */
-        #view-form { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: none; }
+        #view-form { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: none; transition: 0.3s; }
 
-        .form-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+        .form-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; transition: 0.3s;}
         .form-header h3 { margin: 0; color: var(--text-main); font-size: 18px; }
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
         .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: var(--text-muted); }
+        .form-group label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: var(--text-muted); transition: 0.3s;}
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; background: var(--input-bg); color: var(--text-main); box-sizing: border-box; outline: none; transition: 0.2s; }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #3b82f6; }
         .form-group textarea { resize: vertical; min-height: 80px; font-family: 'Consolas', monospace; }
 
         /* Модальные окна */
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
-        .modal-content { background: var(--bg-card); border-radius:8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-main); padding: 25px; max-height: 90vh; overflow-y: auto; }
-        .modal-title { margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; }
+        .modal-content { background: var(--bg-card); border-radius:8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-main); padding: 25px; max-height: 90vh; overflow-y: auto; transition: 0.3s;}
+        .modal-title { margin-top: 0; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; transition: 0.3s;}
 
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: var(--border-color); color: var(--text-main); display: inline-block; margin-bottom: 4px; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: var(--border-color); color: var(--text-main); display: inline-block; margin-bottom: 4px; transition: 0.3s;}
         .badge.stage { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
         .badge.status { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
 
@@ -424,16 +425,49 @@
 <div id="toast"></div>
 
 <script>
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
+    // --- ВНУТРЕННИЙ НОРМАЛИЗАТОР СТАТУСОВ ---
+    function normalizeStageKey(raw) {
+        if (!raw) return 'STAGE_BACKLOG';
+        const low = raw.toLowerCase();
+        if (low.includes('этап 1') || low.includes('backlog')) return 'STAGE_BACKLOG';
+        if (low.includes('этап 2') || low.includes('analys')) return 'STAGE_ANALYSIS';
+        if (low.includes('этап 3') || low.includes('dev') || low.includes('разработк')) return 'STAGE_DEV';
+        if (low.includes('этап 4') || low.includes('test') || low.includes('тест')) return 'STAGE_TEST';
+        if (low.includes('этап 5') || low.includes('prod') || low.includes('внедрен')) return 'STAGE_PROD';
+        if (low.includes('спец') || low.includes('special')) return 'STAGE_SPECIAL';
+        return raw;
+    }
+
+    function normalizeStatusKey(raw) {
+        if (!raw) return 'STATUS_NEW';
+        const low = raw.toLowerCase().trim();
+        switch(low) {
+            case "новая": case "new": return "STATUS_NEW";
+            case "открыта": case "open": return "STATUS_OPEN";
+            case "взято в работу": case "in progress": return "STATUS_IN_PROGRESS";
+            case "оценка": case "estimation": return "STATUS_ESTIMATION";
+            case "в очереди": case "queued": return "STATUS_QUEUED";
+            case "анализ": case "analysis": return "STATUS_ANALYSIS";
+            case "проектирование / тз": case "design": return "STATUS_DESIGN";
+            case "согласование тз": case "agreement": return "STATUS_AGREEMENT";
+            case "формирование тз": return "STATUS_FORMING_TZ";
+            case "формирование бт": return "STATUS_FORMING_BT";
+            case "в разработке": case "разработка": case "development": return "STATUS_DEV";
+            case "code review": return "STATUS_CODE_REVIEW";
+            case "исправление замечаний": case "fixing": return "STATUS_FIXING";
+            case "dev тест пройден": case "dev test passed": return "STATUS_DEV_TEST_PASSED";
+            case "готово к установке (test)": case "готова к тестированию": case "ready for test": return "STATUS_READY_FOR_TEST";
+            case "установлено (test)": case "installed (test)": return "STATUS_INSTALLED_TEST";
+            case "тестирование": case "testing": return "STATUS_TESTING";
+            case "приемка (uat)": case "uat": return "STATUS_UAT";
+            case "готово к внедрению (prod)": case "готова к внедрению": case "ready for prod": return "STATUS_READY_FOR_PROD";
+            case "установка (prod)": case "installing (prod)": return "STATUS_INSTALLATION_PROD";
+            case "внедрение завершено": case "done": return "STATUS_PROD_DONE";
+            case "приостановлено (on hold)": case "on hold": case "остановлено": return "STATUS_ON_HOLD";
+            case "заблокировано (blocked)": case "blocked": return "STATUS_BLOCKED";
+            case "отменено": case "cancelled": return "STATUS_CANCELLED";
+            default: return raw;
+        }
     }
 
     let currentUser = null;
@@ -446,7 +480,8 @@
 
     $(function() {
         if(typeof initLocalization === 'function') initLocalization();
-        if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
+        const isDark = localStorage.getItem('global_dark_theme') === 'true';
+        if(typeof applyTheme === 'function') applyTheme(isDark);
 
         const storedUser = localStorage.getItem('esb_user');
         if (storedUser) {
@@ -462,10 +497,18 @@
             $.ajaxSetup({ headers: { 'X-User-Id': '1', 'X-User-Role': 'admin' } });
         }
 
+        if (typeof window.t === 'function') {
+            $('.col-filter-input').attr('placeholder', window.t('ph_filter', 'Фильтр...'));
+            $('#search-input').attr('placeholder', window.t('tt_search_ph', '🔍 Глобальный поиск по всем полям...'));
+            $('#t_num').attr('placeholder', window.t('tt_ph_num', 'JIRA-123'));
+            $('#t_url').attr('placeholder', window.t('tt_ph_url', 'https://jira.company.com/browse/TASK-123'));
+            $('#t_iface').attr('placeholder', window.t('tt_ph_iface', 'si_ao_MultiAccount...'));
+            $('#t_contact').attr('placeholder', window.t('tt_ph_contact', 'ФИО / Telegram'));
+            $('#alm-task-id').attr('placeholder', window.t('tt_ph_alm', 'TASK-1234'));
+        }
+
         initColFiltersUI();
         loadSettingsAndTasks();
-
-        $('.col-filter-input').attr('placeholder', t('ph_filter', 'Фильтр...'));
 
         $('.col-filter-input').on('keyup search', function() {
             colFilters[$(this).data('col')] = $(this).val().trim();
@@ -480,7 +523,6 @@
         setTimeout(() => toast.fadeOut(300), 2000);
     }
 
-    // === DATA LOADING ===
     function loadSettingsAndTasks() {
         $.get('/api/tasks/settings', function(data) {
             if (data && data.task_stages_dictionary) {
@@ -492,7 +534,8 @@
             loadSystems();
             loadTasks();
         }).fail(() => {
-            showToast(t('err_load_settings', "Ошибка загрузки настроек"), true);
+            const msg = typeof window.t === 'function' ? window.t('err_load_settings', "Ошибка загрузки настроек") : "Ошибка загрузки настроек";
+            showToast(msg, true);
             loadTasks();
         });
     }
@@ -502,8 +545,10 @@
             const sel = $('#sys-filter');
             sel.find('option:not(:first)').remove();
             if (Array.isArray(data)) {
-                // Имя системы тоже переводится через словарь, если оно там есть
-                data.forEach(s => sel.append(new Option(t(s.sid, s.sid), s.sid)));
+                data.forEach(s => {
+                    const transStr = typeof window.t === 'function' ? window.t(s.sid, s.sid) : s.sid;
+                    sel.append(new Option(transStr, s.sid));
+                });
             }
         });
     }
@@ -511,37 +556,49 @@
     function populateStagesFilter() {
         const sel = $('#stage-filter');
         sel.find('option:not(:first)').remove();
-        Object.keys(STAGES_DICT).forEach(stage => {
-            sel.append(new Option(t(stage, stage), stage));
+        Object.keys(STAGES_DICT).forEach(rawStage => {
+            const normKey = normalizeStageKey(rawStage);
+            const stageText = typeof window.t === 'function' ? window.t(normKey, rawStage) : rawStage;
+            sel.append(new Option(stageText, rawStage));
         });
     }
 
     function populateFormStages() {
         const sel = $('#t_stage').empty();
-        Object.keys(STAGES_DICT).forEach(stage => {
-            sel.append(new Option(t(stage, stage), stage));
+        Object.keys(STAGES_DICT).forEach(rawStage => {
+            const normKey = normalizeStageKey(rawStage);
+            const stageText = typeof window.t === 'function' ? window.t(normKey, rawStage) : rawStage;
+            sel.append(new Option(stageText, rawStage));
         });
         updateStatuses();
     }
 
     window.updateStatuses = function() {
-        const stage = $('#t_stage').val();
+        const rawStage = $('#t_stage').val();
         const statSel = $('#t_status').empty();
-        if (STAGES_DICT[stage]) {
-            STAGES_DICT[stage].forEach(st => {
-                statSel.append(new Option(t(st, st), st));
+        if (STAGES_DICT[rawStage]) {
+            STAGES_DICT[rawStage].forEach(rawStatus => {
+                const normStatus = normalizeStatusKey(rawStatus);
+                const statusText = typeof window.t === 'function' ? window.t(normStatus, rawStatus) : rawStatus;
+                statSel.append(new Option(statusText, rawStatus));
             });
         }
     }
 
-    // Динамическая генерация списков статусов для модалки массового изменения
     function populateBulkStagesFilter() {
         const sel = $('#bulk-status').empty();
-        sel.append(new Option(t('tt_bulk_no_change', '-- Не менять --'), ''));
-        Object.keys(STAGES_DICT).forEach(stage => {
-            const group = $('<optgroup>').attr('label', t(stage, stage));
-            STAGES_DICT[stage].forEach(st => {
-                group.append(new Option(t(st, st), st));
+        const noChangeTxt = typeof window.t === 'function' ? window.t('tt_bulk_no_change', '-- Не менять --') : '-- Не менять --';
+        sel.append(new Option(noChangeTxt, ''));
+
+        Object.keys(STAGES_DICT).forEach(rawStage => {
+            const normStageKey = normalizeStageKey(rawStage);
+            const stageLbl = typeof window.t === 'function' ? window.t(normStageKey, rawStage) : rawStage;
+            const group = $('<optgroup>').attr('label', stageLbl);
+
+            STAGES_DICT[rawStage].forEach(rawStatus => {
+                const normStatusKey = normalizeStatusKey(rawStatus);
+                const stLbl = typeof window.t === 'function' ? window.t(normStatusKey, rawStatus) : rawStatus;
+                group.append(new Option(stLbl, rawStatus));
             });
             sel.append(group);
         });
@@ -559,7 +616,8 @@
                 setTimeout(() => openFormForEdit(editId), 100);
             }
         }).fail(function() {
-            showToast(t('err_load_tasks', "Ошибка загрузки задач"), true);
+            const msg = typeof window.t === 'function' ? window.t('err_load_tasks', "Ошибка загрузки задач") : "Ошибка загрузки задач";
+            showToast(msg, true);
         });
     }
 
@@ -594,7 +652,7 @@
     }
 
     function updateSortIndicators() {
-        $('.sort-ind').text('↕').css('color', '#94a3b8');
+        $('.sort-ind').text('↕').css('color', 'var(--text-muted)');
         const arrow = sortDir === 'asc' ? '↑' : '↓';
         $(`#sort-ind-${sortCol}`).text(arrow).css('color', '#3b82f6');
     }
@@ -616,8 +674,15 @@
         let filtered = allTasks.filter(t => {
             if (sysFilter !== 'ALL' && t.sender_sys !== sysFilter && t.receiver_sys !== sysFilter) return false;
             if (stageFilter !== 'ALL' && t.stage !== stageFilter) return false;
+
+            // Получаем переведенные значения для глобального поиска и фильтрации
+            const nStage = normalizeStageKey(t.stage);
+            const nStatus = normalizeStatusKey(t.status);
+            const trStage = typeof window.t === 'function' ? window.t(nStage, t.stage) : t.stage;
+            const trStatus = typeof window.t === 'function' ? window.t(nStatus, t.status) : t.status;
+
             if (globalQuery) {
-                const giantStr = `${t.task_number} ${t.sender_sys} ${t.receiver_sys} ${t.interface_name} ${t.search_tags} ${t.user_notes} ${t.contact_person}`.toLowerCase();
+                const giantStr = `${t.task_number} ${t.sender_sys} ${t.receiver_sys} ${t.interface_name} ${t.search_tags} ${t.user_notes} ${t.contact_person} ${t.stage} ${t.status} ${trStage} ${trStatus}`.toLowerCase();
                 if (!giantStr.includes(globalQuery)) return false;
             }
 
@@ -630,7 +695,8 @@
                 if (!searchStr.includes(colFilters.sys.toLowerCase())) return false;
             }
             if (colFilters.status) {
-                const searchStr = `${t.stage} ${t.status}`.toLowerCase();
+                // Ищем по всем вариациям (сырым и переведенным)
+                const searchStr = `${t.stage} ${t.status} ${nStage} ${nStatus} ${trStage} ${trStatus}`.toLowerCase();
                 if (!searchStr.includes(colFilters.status.toLowerCase())) return false;
             }
             if (colFilters.dates) {
@@ -661,47 +727,58 @@
         });
 
         if (filtered.length === 0) {
-            tbody.html(`<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">${t('tt_no_data', 'Ничего не найдено')}</td></tr>`);
+            const noData = typeof window.t === 'function' ? window.t('tt_no_data', 'Ничего не найдено') : 'Ничего не найдено';
+            tbody.html(`<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">${noData}</td></tr>`);
             updateActionButtons();
             return;
         }
 
-        filtered.forEach(item => {
-            // Переводим названия систем через словарь
-            const senderTranslated = item.sender_sys ? t(item.sender_sys, item.sender_sys) : '';
-            const receiverTranslated = item.receiver_sys ? t(item.receiver_sys, item.receiver_sys) : '';
+        const lblNotSpec = typeof window.t === 'function' ? window.t('lbl_not_specified', 'Не указано') : 'Не указано';
+        const lblStart = typeof window.t === 'function' ? window.t('tt_lbl_start_short', 'Старт:') : 'Старт:';
+        const lblTest = typeof window.t === 'function' ? window.t('tt_lbl_test_short', 'Тест:') : 'Тест:';
+        const lblProd = typeof window.t === 'function' ? window.t('tt_lbl_prod_short', 'Прод:') : 'Прод:';
+        const lblSpecWiki = typeof window.t === 'function' ? window.t('lbl_spec_wiki', 'ТЗ / Wiki') : 'ТЗ / Wiki';
+        const lblUnassigned = typeof window.t === 'function' ? window.t('lbl_unassigned', 'Не назначен') : 'Не назначен';
+        const lblNew = typeof window.t === 'function' ? window.t('lbl_new', 'Новая') : 'Новая';
+        const lblQueued = typeof window.t === 'function' ? window.t('lbl_queued', 'В очереди') : 'В очереди';
+        const lblContact = typeof window.t === 'function' ? window.t('tt_lbl_contact', 'Контактное лицо') : 'Контактное лицо';
 
-            const sysText = (senderTranslated && receiverTranslated) ? `<b>${escapeHtml(senderTranslated)} ➔ ${escapeHtml(receiverTranslated)}</b>` : `<span style="color:#94a3b8">${t('lbl_not_specified', 'Не указано')}</span>`;
+        filtered.forEach(item => {
+            const senderTranslated = item.sender_sys && typeof window.t === 'function' ? window.t(item.sender_sys, item.sender_sys) : (item.sender_sys || '');
+            const receiverTranslated = item.receiver_sys && typeof window.t === 'function' ? window.t(item.receiver_sys, item.receiver_sys) : (item.receiver_sys || '');
+
+            const sysText = (senderTranslated && receiverTranslated) ? `<b>${escapeHtml(senderTranslated)} ➔ ${escapeHtml(receiverTranslated)}</b>` : `<span style="color:var(--text-muted)">${lblNotSpec}</span>`;
             const ifaceText = item.interface_name ? `<br><span style="color:#3b82f6; font-size: 15px; font-weight: 800; display: inline-block; margin-top: 4px;">${escapeHtml(item.interface_name)}</span>` : '';
 
             const dates = [];
-            if(item.start_dev_date) dates.push(`🛠 ${t('tt_lbl_start_short', 'Старт:')} <b>${formatDate(item.start_dev_date)}</b>`);
-            if(item.test_deployment_date) dates.push(`🧪 ${t('tt_lbl_test_short', 'Тест:')} <b>${formatDate(item.test_deployment_date)}</b>`);
-            if(item.deployment_date) dates.push(`🚀 ${t('tt_lbl_prod_short', 'Прод:')} <b style="color:#10b981">${formatDate(item.deployment_date)}</b>`);
-            const datesHtml = dates.length > 0 ? dates.join('<br>') : '<span style="color:#94a3b8">—</span>';
+            if(item.start_dev_date) dates.push(`🛠 ${lblStart} <b>${formatDate(item.start_dev_date)}</b>`);
+            if(item.test_deployment_date) dates.push(`🧪 ${lblTest} <b>${formatDate(item.test_deployment_date)}</b>`);
+            if(item.deployment_date) dates.push(`🚀 ${lblProd} <b style="color:#10b981">${formatDate(item.deployment_date)}</b>`);
+            const datesHtml = dates.length > 0 ? dates.join('<br>') : '<span style="color:var(--text-muted)">—</span>';
 
             const links = [];
             if(item.task_url) links.push(`<a href="${escapeHtml(item.task_url)}" target="_blank" style="color:#3b82f6; text-decoration:none;">🌐 Jira/ALM</a>`);
-            if(item.spec_url) links.push(`<a href="${escapeHtml(item.spec_url)}" target="_blank" style="color:#8b5cf6; text-decoration:none;">📄 ${t('lbl_spec_wiki', 'ТЗ / Wiki')}</a>`);
+            if(item.spec_url) links.push(`<a href="${escapeHtml(item.spec_url)}" target="_blank" style="color:#8b5cf6; text-decoration:none;">📄 ${lblSpecWiki}</a>`);
             const linksHtml = links.length > 0 ? `<div style="margin-bottom: 5px;">${links.join(' | ')}</div>` : '';
 
-            const contactDisplay = item.contact_person ? escapeHtml(item.contact_person) : t('lbl_unassigned', 'Не назначен');
+            const contactDisplay = item.contact_person ? escapeHtml(item.contact_person) : lblUnassigned;
 
-            // Переводим значения из БД (ключи - русские строки из БД, значения - из словаря)
-            const stageDisplay = item.stage ? t(item.stage, item.stage) : t('lbl_new', 'Новая');
-            const statusDisplay = item.status ? t(item.status, item.status) : t('lbl_queued', 'В очереди');
+            const normStage = normalizeStageKey(item.stage);
+            const normStatus = normalizeStatusKey(item.status);
+            const stageDisplay = item.stage ? (typeof window.t === 'function' ? window.t(normStage, item.stage) : item.stage) : lblNew;
+            const statusDisplay = item.status ? (typeof window.t === 'function' ? window.t(normStatus, item.status) : item.status) : lblQueued;
 
             tbody.append(`
                 <tr>
                     <td style="vertical-align: middle;"><input type="checkbox" class="row-checkbox task-cb" value="${item.id}" onchange="toggleSelection()"></td>
                     <td>
                         <b style="font-size: 14px; cursor: pointer; color: #3b82f6;" onclick="openFormForEdit(${item.id})">${escapeHtml(item.task_number)}</b>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;" title="${t('tt_lbl_contact', 'Контактное лицо')}">👤 ${contactDisplay}</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;" title="${lblContact}">👤 ${contactDisplay}</div>
                     </td>
                     <td>${sysText}${ifaceText}</td>
                     <td>
-                        <div class="badge stage">${escapeHtml(stageDisplay)}</div><br>
-                        <div class="badge status">${escapeHtml(statusDisplay)}</div>
+                        <div class="badge stage" title="${escapeHtml(item.stage || '')}">${escapeHtml(stageDisplay)}</div><br>
+                        <div class="badge status" title="${escapeHtml(item.status || '')}">${escapeHtml(statusDisplay)}</div>
                     </td>
                     <td style="font-size: 12px; line-height: 1.6;">${datesHtml}</td>
                     <td style="font-size: 12px;">
@@ -750,17 +827,21 @@
     window.deleteSelectedTasks = function() {
         const selected = $('.task-cb:checked').map(function() { return parseInt($(this).val(), 10); }).get();
         if (selected.length === 0) return;
-        if (!confirm(t('tt_conf_delete_multi', 'Вы уверены, что хотите удалить выбранные задачи?'))) return;
+
+        const confMsg = typeof window.t === 'function' ? window.t('tt_conf_delete_multi', 'Вы уверены, что хотите удалить выбранные задачи?') : 'Вы уверены, что хотите удалить выбранные задачи?';
+        if (!confirm(confMsg)) return;
 
         const promises = selected.map(id => {
             return $.ajax({ url: '/api/tasks', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({id: id}) });
         });
 
         Promise.all(promises).then(() => {
-            showToast(t('msg_deleted', '✅ Успешно удалено!'));
+            const okMsg = typeof window.t === 'function' ? window.t('msg_deleted', '✅ Успешно удалено!') : '✅ Успешно удалено!';
+            showToast(okMsg);
             loadTasks();
         }).catch(err => {
-            alert(t('err_delete', 'Ошибка удаления'));
+            const errMsg = typeof window.t === 'function' ? window.t('err_delete', 'Ошибка удаления') : 'Ошибка удаления';
+            alert(errMsg);
             loadTasks();
         });
     }
@@ -768,17 +849,28 @@
     window.cloneTask = function() {
         const selectedId = $('.task-cb:checked').val();
         if (!selectedId) return;
-        if(!confirm(t('tt_conf_clone', 'Создать копию задачи?'))) return;
+
+        const confClone = typeof window.t === 'function' ? window.t('tt_conf_clone', 'Создать копию задачи?') : 'Создать копию задачи?';
+        if(!confirm(confClone)) return;
 
         let task = allTasks.find(t => t.id == selectedId);
         if(!task) return;
         let newTask = {...task};
         delete newTask.id;
-        newTask.task_number = newTask.task_number + " " + t('lbl_copy', '(Копия)');
+
+        const lblCopy = typeof window.t === 'function' ? window.t('lbl_copy', '(Копия)') : '(Копия)';
+        newTask.task_number = newTask.task_number + " " + lblCopy;
 
         $.ajax({ url: '/api/tasks', type: 'POST', contentType: 'application/json', data: JSON.stringify(newTask) })
-            .done(() => { showToast(t('msg_cloned', '✅ Копия создана!')); loadTasks(); })
-            .fail((xhr) => alert(t('err_clone', 'Ошибка клонирования: ') + xhr.responseText));
+            .done(() => {
+                const msgCloned = typeof window.t === 'function' ? window.t('msg_cloned', '✅ Копия создана!') : '✅ Копия создана!';
+                showToast(msgCloned);
+                loadTasks();
+            })
+            .fail((xhr) => {
+                const errClone = typeof window.t === 'function' ? window.t('err_clone', 'Ошибка клонирования: ') : 'Ошибка клонирования: ';
+                alert(errClone + xhr.responseText);
+            });
     }
 
     window.openCopyModal = function(actionType) {
@@ -791,13 +883,19 @@
         $('#copy-source-id').val(srcId);
         $('#copy-action-type').val(actionType);
 
-        const sysText = (srcTask.sender_sys && srcTask.receiver_sys) ? `${t(srcTask.sender_sys, srcTask.sender_sys)} ➔ ${t(srcTask.receiver_sys, srcTask.receiver_sys)}` : '';
+        const srcS = srcTask.sender_sys ? (typeof window.t === 'function' ? window.t(srcTask.sender_sys, srcTask.sender_sys) : srcTask.sender_sys) : '';
+        const srcR = srcTask.receiver_sys ? (typeof window.t === 'function' ? window.t(srcTask.receiver_sys, srcTask.receiver_sys) : srcTask.receiver_sys) : '';
+
+        const sysText = (srcS && srcR) ? `${srcS} ➔ ${srcR}` : '';
         $('#copy-source-name').html(`${escapeHtml(srcTask.task_number)} <span style="font-size:11px; color:#3b82f6;">${sysText}</span>`);
 
-        $('#copy-modal-title').text(actionType === 'flows' ? t('tt_copy_title_flows', '🔄 Копирование потоков') : t('tt_copy_title_spec', '📄 Копирование ТЗ'));
+        const tFlows = typeof window.t === 'function' ? window.t('tt_copy_title_flows', '🔄 Копирование потоков') : '🔄 Копирование потоков';
+        const tSpec = typeof window.t === 'function' ? window.t('tt_copy_title_spec', '📄 Копирование ТЗ') : '📄 Копирование ТЗ';
+        $('#copy-modal-title').text(actionType === 'flows' ? tFlows : tSpec);
 
         const sel = $('#copy-target-id').empty();
-        sel.append(new Option(t('tt_copy_target_def', '-- Выберите задачу-получатель --'), ''));
+        const tDef = typeof window.t === 'function' ? window.t('tt_copy_target_def', '-- Выберите задачу-получатель --') : '-- Выберите задачу-получатель --';
+        sel.append(new Option(tDef, ''));
 
         allTasks.forEach(item => {
             if (item.id != srcId) {
@@ -817,7 +915,8 @@
         const actionType = $('#copy-action-type').val();
 
         if (!targetId) {
-            alert(t('tt_err_select_target', 'Пожалуйста, выберите задачу-цель из списка!'));
+            const errSel = typeof window.t === 'function' ? window.t('tt_err_select_target', 'Пожалуйста, выберите задачу-цель из списка!') : 'Пожалуйста, выберите задачу-цель из списка!';
+            alert(errSel);
             return;
         }
 
@@ -825,9 +924,13 @@
         localStorage.setItem('tt_skip_copy_confirm', skipConfirm);
 
         if (!skipConfirm) {
-            const actionName = actionType === 'flows' ? t('lbl_flows', 'ПОТОКИ') : t('lbl_spec', 'ТЗ');
+            const lblFlows = typeof window.t === 'function' ? window.t('lbl_flows', 'ПОТОКИ') : 'ПОТОКИ';
+            const lblSpec = typeof window.t === 'function' ? window.t('lbl_spec', 'ТЗ') : 'ТЗ';
+            const actionName = actionType === 'flows' ? lblFlows : lblSpec;
             const targetName = $('#copy-target-id option:selected').text();
-            if (!confirm(t('tt_conf_copy_data', 'Вы подтверждаете копирование данных в выбранную задачу?') + `\n\n${targetName}`)) {
+
+            const confCopy = typeof window.t === 'function' ? window.t('tt_conf_copy_data', 'Вы подтверждаете копирование данных в выбранную задачу?') : 'Вы подтверждаете копирование данных в выбранную задачу?';
+            if (!confirm(confCopy + `\n\n${targetName}`)) {
                 return;
             }
         }
@@ -836,10 +939,14 @@
 
         $.ajax({ url: url, type: 'POST' })
             .done(() => {
-                showToast(t('msg_copied', '✅ Успешно скопировано!'));
+                const msgCopied = typeof window.t === 'function' ? window.t('msg_copied', '✅ Успешно скопировано!') : '✅ Успешно скопировано!';
+                showToast(msgCopied);
                 $('#modal-copy').fadeOut(150);
             })
-            .fail((xhr) => alert(t('err_copy', 'Ошибка: ') + (xhr.responseJSON?.error || xhr.responseText)));
+            .fail((xhr) => {
+                const errCopy = typeof window.t === 'function' ? window.t('err_copy', 'Ошибка: ') : 'Ошибка: ';
+                alert(errCopy + (xhr.responseJSON?.error || xhr.responseText));
+            });
     }
 
     window.goToIntegrationFlows = function() {
@@ -858,7 +965,9 @@
         $('#t_num, #t_url, #t_sender, #t_receiver, #t_iface, #t_conn, #t_fmt_in, #t_fmt_out, #t_contact, #t_start_dev, #t_plan_dev, #t_test, #t_rel, #t_prod, #t_spec_url, #t_notes, #t_tags').val('');
 
         populateFormStages();
-        $('#form-title').text(t('tt_form_new', 'Создание новой задачи'));
+
+        const tNew = typeof window.t === 'function' ? window.t('tt_form_new', 'Создание новой задачи') : 'Создание новой задачи';
+        $('#form-title').text(tNew);
 
         $('#main-toolbar').hide();
         $('#view-table').hide();
@@ -893,7 +1002,8 @@
         $('#t_notes').val(task.user_notes);
         $('#t_tags').val(task.search_tags);
 
-        $('#form-title').text(t('tt_form_edit', 'Редактирование: ') + task.task_number);
+        const tEdit = typeof window.t === 'function' ? window.t('tt_form_edit', 'Редактирование: ') : 'Редактирование: ';
+        $('#form-title').text(tEdit + task.task_number);
 
         $('#main-toolbar').hide();
         $('#view-table').hide();
@@ -937,7 +1047,8 @@
         };
 
         if (!payload.task_number) {
-            alert(t('tt_err_empty_task', 'Название/Номер задачи обязательны!'));
+            const errEmpty = typeof window.t === 'function' ? window.t('tt_err_empty_task', 'Название/Номер задачи обязательны!') : 'Название/Номер задачи обязательны!';
+            alert(errEmpty);
             return;
         }
 
@@ -947,7 +1058,8 @@
             contentType: 'application/json',
             data: JSON.stringify(payload),
             success: function() {
-                showToast(t('msg_saved', '✅ Успешно сохранено!'));
+                const msgSaved = typeof window.t === 'function' ? window.t('msg_saved', '✅ Успешно сохранено!') : '✅ Успешно сохранено!';
+                showToast(msgSaved);
                 closeForm();
                 loadTasks();
             },
@@ -980,13 +1092,16 @@
         const prodDate = $('#bulk-prod').val();
 
         if (!newStatus && !startDev && !endDev && !testDate && !relDate && !prodDate) {
-            alert(t('tt_err_empty_bulk', "Вы не выбрали ни одного значения для изменения."));
+            const errBulk = typeof window.t === 'function' ? window.t('tt_err_empty_bulk', "Вы не выбрали ни одного значения для изменения.") : "Вы не выбрали ни одного значения для изменения.";
+            alert(errBulk);
             return;
         }
 
         const btn = $('#btn-apply-bulk');
         const origText = btn.text();
-        btn.prop('disabled', true).text(t('lbl_updating', '⏳ Обновление...'));
+        const lblUpdating = typeof window.t === 'function' ? window.t('lbl_updating', '⏳ Обновление...') : '⏳ Обновление...';
+
+        btn.prop('disabled', true).text(lblUpdating);
 
         for (let id of selectedIds) {
             let task = allTasks.find(t => t.id == id);
@@ -1019,7 +1134,10 @@
 
         $('#modal-bulk').fadeOut(150);
         btn.prop('disabled', false).text(origText);
-        showToast(t('msg_updated', '✅ Обновлено'));
+
+        const msgUpdated = typeof window.t === 'function' ? window.t('msg_updated', '✅ Обновлено') : '✅ Обновлено';
+        showToast(msgUpdated);
+
         loadTasks();
     }
 
@@ -1034,7 +1152,9 @@
 
         const btn = $('#btn-fetch-alm');
         const origText = btn.text();
-        btn.prop('disabled', true).text(t('lbl_loading', '⏳ Загрузка...'));
+        const lblLoading = typeof window.t === 'function' ? window.t('lbl_loading', '⏳ Загрузка...') : '⏳ Загрузка...';
+
+        btn.prop('disabled', true).text(lblLoading);
 
         $.get(`/api/alm/fetch?task_id=${encodeURIComponent(taskId)}`)
             .done(function(data) {
@@ -1048,7 +1168,9 @@
                 $('#t_notes').val(oldNotes ? oldNotes + '\n\n' + appendText : appendText);
 
                 $('#modal-alm').fadeOut(150);
-                showToast(t('msg_alm_loaded', "✅ Данные ALM загружены"));
+
+                const msgAlmOk = typeof window.t === 'function' ? window.t('msg_alm_loaded', "✅ Данные ALM загружены") : "✅ Данные ALM загружены";
+                showToast(msgAlmOk);
             })
             .fail(function(xhr) {
                 let msg = xhr.responseText;

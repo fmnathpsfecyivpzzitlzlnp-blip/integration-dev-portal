@@ -141,10 +141,13 @@
 <body>
 <div class="generator-page-container">
     <div class="header-controls">
-        <h2 style="margin: 0; border: none;" data-i18n="sch_gen_title">Генератор JSON Schema</h2>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <button onclick="window.location.href='index.html'" class="btn secondary" data-i18n="btn_home">🏠 Домой</button>
+            <h2 style="margin: 0; border: none;" data-i18n="sch_gen_title">Генератор JSON Schema</h2>
+        </div>
         <div style="display: flex; gap: 10px;">
             <button id="clearBtn" class="btn secondary" data-i18n="sch_gen_btn_clear">🧹 Очистить</button>
-            <button id="generateBtn" class="btn primary" data-i18n="sch_gen_btn_gen">🚀 Сгенерировать схему</button>
+            <button id="generateBtn" class="btn primary" style="background: #10b981; border-color: #10b981;" data-i18n="sch_gen_btn_gen">🚀 Сгенерировать схему</button>
         </div>
     </div>
 
@@ -163,19 +166,6 @@
 </div>
 
 <script>
-    // Универсальная функция перевода
-    function t(key, defaultStr) {
-        try {
-            const lang = localStorage.getItem('app_lang') || 'ru';
-            const dictStr = localStorage.getItem('portal_dictionary');
-            if (dictStr) {
-                const dict = JSON.parse(dictStr)[lang];
-                if (dict && dict[key]) return dict[key];
-            }
-        } catch(e) {}
-        return defaultStr;
-    }
-
     $(function () {
         if(typeof initLocalization === 'function') initLocalization();
         const isDark = localStorage.getItem('global_dark_theme') === 'true';
@@ -208,9 +198,16 @@
             errorPanel.hide();
         });
 
+        // Локализация плейсхолдеров
+        if (typeof window.t === 'function') {
+            inputField.attr('placeholder', window.t('sch_gen_ph_in', 'Вставьте сюда ваш JSON...'));
+            outputField.attr('placeholder', window.t('sch_gen_ph_out', 'Здесь появится схема...'));
+        }
+
         // Кнопка очистки
         $('#clearBtn').on('click', function() {
-            if (confirm(t('sch_gen_conf_clear', 'Очистить поле ввода?'))) {
+            const msg = typeof window.t === 'function' ? window.t('sch_gen_conf_clear', 'Очистить поле ввода?') : 'Очистить поле ввода?';
+            if (confirm(msg)) {
                 inputField.val('');
                 outputField.val('');
                 localStorage.removeItem('saved_schema_json');
@@ -222,17 +219,22 @@
         $('#generateBtn').on('click', function() {
             errorPanel.hide();
             const jsonText = inputField.val();
-            if (!jsonText.trim()) return alert(t('sch_gen_err_empty', "Пожалуйста, вставьте JSON."));
+            if (!jsonText.trim()) {
+                const msg = typeof window.t === 'function' ? window.t('sch_gen_err_empty', "Пожалуйста, вставьте JSON.") : "Пожалуйста, вставьте JSON.";
+                return alert(msg);
+            }
 
             try {
                 JSON.parse(jsonText);
             } catch (e) {
-                return alert(t('sch_gen_err_invalid', "Ошибка: невалидный JSON."));
+                const msg = typeof window.t === 'function' ? window.t('sch_gen_err_invalid', "Ошибка: невалидный JSON.") : "Ошибка: невалидный JSON.";
+                return alert(msg);
             }
 
             const btn = $(this);
             const originalText = btn.text();
-            btn.text(t('sch_gen_msg_loading', 'Генерация...')).prop('disabled', true);
+            const waitMsg = typeof window.t === 'function' ? window.t('sch_gen_msg_loading', 'Генерация...') : 'Генерация...';
+            btn.text(waitMsg).prop('disabled', true);
 
             $.ajax({
                 url: '/api/generate-schema',
@@ -243,7 +245,8 @@
                     outputField.val(JSON.stringify(schema, null, 4));
                 },
                 error: xhr => {
-                    errorPanel.text(t('sch_gen_err_api', 'Ошибка: ') + (xhr.responseJSON?.message || xhr.responseText)).show();
+                    const errMsg = typeof window.t === 'function' ? window.t('sch_gen_err_api', 'Ошибка: ') : 'Ошибка: ';
+                    errorPanel.text(errMsg + (xhr.responseJSON?.message || xhr.responseText)).show();
                 },
                 complete: () => {
                     btn.text(originalText).prop('disabled', false);

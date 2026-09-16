@@ -80,11 +80,8 @@
 <script type="text/babel" data-type="module">
     const { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback } = React;
 
-    // Локальная обертка для перевода внутри React
-    const t = (key, defaultStr) => {
-        if (window.t) return window.t(key, defaultStr);
-        return defaultStr;
-    };
+    // Глобальный локализатор
+    const getStr = (k, d) => typeof window.t === 'function' ? window.t(k, d) : d;
 
     const XSD_TYPES = [
         'xsd:string', 'xsd:integer', 'xsd:decimal', 'xsd:boolean',
@@ -110,7 +107,7 @@
     };
 
     const SchemaProvider = ({ children }) => {
-        const [tabs, setTabs] = useState([createEmptyTab(t('xc2_schema', 'Схема') + ' 1')]);
+        const [tabs, setTabs] = useState([createEmptyTab(getStr('xc2_schema', 'Схема') + ' 1')]);
         const [activeTabId, setActiveTabId] = useState(tabs[0].id);
         const [treeSearchTerm, setTreeSearchTerm] = useState('');
 
@@ -172,7 +169,7 @@
 
         const actions = useMemo(() => ({
             addTab: () => {
-                const newTab = createEmptyTab(t('xc2_schema', 'Схема') + ` ${tabs.length + 1}`);
+                const newTab = createEmptyTab(getStr('xc2_schema', 'Схема') + ` ${tabs.length + 1}`);
                 setTabs(prev => [...prev, newTab]);
                 setActiveTabId(newTab.id);
             },
@@ -267,11 +264,11 @@
         parse(xmlString) {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-            if (xmlDoc.querySelector("parsererror")) throw new Error(t('xc2_err_invalid_xml', "Невалидный XML/XSD файл"));
+            if (xmlDoc.querySelector("parsererror")) throw new Error(getStr('xc2_err_invalid_xml', "Невалидный XML/XSD файл"));
 
             this.nodes = {};
             const rootElements = Array.from(xmlDoc.documentElement.children).filter(c => c.tagName.replace(/.*:/, '') === 'element');
-            if (rootElements.length === 0) throw new Error(t('xc2_err_no_root', "В схеме не найден корневой элемент <element>"));
+            if (rootElements.length === 0) throw new Error(getStr('xc2_err_no_root', "В схеме не найден корневой элемент <element>"));
 
             const rootId = 'node_root_main';
             this.nodes[rootId] = { id: rootId, parentId: null, name: 'RootSchema', nodeType: 'schema', isExpanded: true };
@@ -505,7 +502,7 @@
         const { activeTab, updateNode, removeNode, addNode, getChildren } = useSchemaStore();
         const node = activeTab.selectedNodeId ? activeTab.nodes[activeTab.selectedNodeId] : null;
 
-        if (!node) return <div className="text-slate-500 text-center mt-10">{t('xc2_sel_node', 'Выберите узел для редактирования')}</div>;
+        if (!node) return <div className="text-slate-500 text-center mt-10">{getStr('xc2_sel_node', 'Выберите узел для редактирования')}</div>;
 
         const handleAddChild = () => addNode(node.id, 'element', 'newElement', 'xsd:string');
         const handleMakeComplex = () => {
@@ -518,18 +515,18 @@
             <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-700 pb-2">
                     <h3 className="text-lg font-bold text-slate-200 flex items-center">
-                        {Icons[node.nodeType] ? Icons[node.nodeType]() : ''} {t('xc2_props', 'Свойства:')} {node.nodeType}
+                        {Icons[node.nodeType] ? Icons[node.nodeType]() : ''} {getStr('xc2_props', 'Свойства:')} {node.nodeType}
                     </h3>
                     {node.parentId && (
                         <button onClick={() => removeNode(node.id)} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1 rounded text-sm transition">
-                            {t('xc2_btn_del', 'Удалить')}
+                            {getStr('xc2_btn_del', 'Удалить')}
                         </button>
                     )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-slate-400 mb-1">{t('xc2_lbl_name', 'Имя элемента')}</label>
+                        <label className="block text-xs text-slate-400 mb-1">{getStr('xc2_lbl_name', 'Имя элемента')}</label>
                         <input
                             type="text" value={node.name} disabled={!node.parentId}
                             onChange={(e) => updateNode(node.id, { name: e.target.value }, false)}
@@ -540,7 +537,7 @@
 
                     {node.nodeType === 'element' && !getChildren(node.id).length && (
                         <div>
-                            <label className="block text-xs text-slate-400 mb-1">{t('xc2_lbl_type', 'Тип данных (XSD)')}</label>
+                            <label className="block text-xs text-slate-400 mb-1">{getStr('xc2_lbl_type', 'Тип данных (XSD)')}</label>
                             <select
                                 value={node.dataType || 'xsd:string'}
                                 onChange={(e) => updateNode(node.id, { dataType: e.target.value }, true)}
@@ -569,7 +566,7 @@
                                     className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white"
                                 >
                                     <option value="1">1</option>
-                                    <option value="unbounded">unbounded ({t('xc2_opt_array', 'массив')})</option>
+                                    <option value="unbounded">unbounded ({getStr('xc2_opt_array', 'массив')})</option>
                                 </select>
                             </div>
                         </>
@@ -579,12 +576,12 @@
                 <div className="flex gap-2 pt-4 border-t border-slate-700">
                     {(node.nodeType === 'sequence' || node.nodeType === 'schema' || node.nodeType === 'complex') && (
                         <button onClick={handleAddChild} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm transition font-medium">
-                            {t('xc2_btn_add_field', '+ Добавить поле')}
+                            {getStr('xc2_btn_add_field', '+ Добавить поле')}
                         </button>
                     )}
                     {node.nodeType === 'element' && !getChildren(node.id).length && (
                         <button onClick={handleMakeComplex} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-2 rounded text-sm transition font-medium">
-                            {t('xc2_btn_make_struct', 'Сделать структурой')}
+                            {getStr('xc2_btn_make_struct', 'Сделать структурой')}
                         </button>
                     )}
                 </div>
@@ -627,18 +624,18 @@
         const copyToClipboard = () => {
             if (monacoInst.current) {
                 navigator.clipboard.writeText(monacoInst.current.getValue());
-                alert(t('xc2_msg_copied', "XSD Схема скопирована!"));
+                alert(getStr('xc2_msg_copied', "XSD Схема скопирована!"));
             }
         };
 
         return (
             <div className="flex flex-col h-full bg-[#1e1e1e]">
                 <div className="bg-[#252526] p-2 flex justify-between items-center border-b border-[#333]">
-                    <span className="text-slate-300 text-sm font-semibold ml-2">{t('xc2_gen_xsd', 'Сгенерированный XSD')}</span>
+                    <span className="text-slate-300 text-sm font-semibold ml-2">{getStr('xc2_gen_xsd', 'Сгенерированный XSD')}</span>
                     <div className="flex gap-2">
-                        <button onClick={() => monacoInst.current.getAction('actions.find').run()} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">🔍 {t('xc2_btn_search', 'Поиск')}</button>
-                        <button onClick={() => monacoInst.current.getAction('editor.action.formatDocument').run()} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">🪄 {t('xc2_btn_format', 'Формат')}</button>
-                        <button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs transition">📋 {t('xc2_btn_copy', 'Копировать')}</button>
+                        <button onClick={() => monacoInst.current.getAction('actions.find').run()} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">🔍 {getStr('xc2_btn_search', 'Поиск')}</button>
+                        <button onClick={() => monacoInst.current.getAction('editor.action.formatDocument').run()} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">🪄 {getStr('xc2_btn_format', 'Формат')}</button>
+                        <button onClick={copyToClipboard} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs transition">📋 {getStr('xc2_btn_copy', 'Копировать')}</button>
                     </div>
                 </div>
                 <div ref={editorRef} className="flex-1" />
@@ -656,18 +653,18 @@
                 const inferer = new JsonInferer();
                 importSchema(inferer.build(obj));
                 onClose();
-            } catch (e) { alert(t('xc2_err_json_parse', "Ошибка парсинга JSON: ") + e.message); }
+            } catch (e) { alert(getStr('xc2_err_json_parse', "Ошибка парсинга JSON: ") + e.message); }
         };
 
         if (!isOpen) return null;
         return (
             <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center">
                 <div className="bg-slate-800 p-6 rounded-lg w-[800px] border border-slate-700 shadow-2xl">
-                    <h2 className="text-xl font-bold mb-2 text-white">{t('xc2_import_json_title', 'Умный импорт из JSON Payload')}</h2>
+                    <h2 className="text-xl font-bold mb-2 text-white">{getStr('xc2_import_json_title', 'Умный импорт из JSON Payload')}</h2>
                     <textarea value={jsonText} onChange={e => setJsonText(e.target.value)} className="w-full h-[300px] bg-slate-900 text-green-400 font-mono text-sm p-4 rounded border border-slate-700 focus:border-blue-500 outline-none" />
                     <div className="flex justify-end gap-3 mt-4">
-                        <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white transition">{t('xc2_btn_cancel', 'Отмена')}</button>
-                        <button onClick={handleImport} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded text-white font-semibold transition">{t('xc2_btn_gen_xsd', 'Сгенерировать XSD')}</button>
+                        <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white transition">{getStr('xc2_btn_cancel', 'Отмена')}</button>
+                        <button onClick={handleImport} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded text-white font-semibold transition">{getStr('xc2_btn_gen_xsd', 'Сгенерировать XSD')}</button>
                     </div>
                 </div>
             </div>
@@ -693,8 +690,8 @@
                 try {
                     const parser = new XsdParser();
                     importSchema(parser.parse(event.target.result));
-                    alert(t('xc2_msg_imp_ok', "XSD успешно импортирован!"));
-                } catch (err) { alert(t('xc2_err_imp', "Ошибка импорта: ") + err.message); }
+                    alert(getStr('xc2_msg_imp_ok', "XSD успешно импортирован!"));
+                } catch (err) { alert(getStr('xc2_err_imp', "Ошибка импорта: ") + err.message); }
                 finally { e.target.value = ''; }
             };
             reader.readAsText(file);
@@ -706,20 +703,20 @@
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-xl">X</div>
                         <div>
-                            <h1 className="text-lg font-bold leading-tight">{t('xc2_title', 'XSD Builder IDE')}</h1>
-                            <p className="text-xs text-slate-400">{t('xc2_subtitle', 'Tabs • D&D • History (Ctrl+Z) • Local')}</p>
+                            <h1 className="text-lg font-bold leading-tight">{getStr('xc2_title', 'XSD Builder IDE')}</h1>
+                            <p className="text-xs text-slate-400">{getStr('xc2_subtitle', 'Tabs • D&D • History (Ctrl+Z) • Local')}</p>
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={undo} disabled={activeTab.past.length === 0} className="bg-slate-700 disabled:opacity-30 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition font-medium" title={t('xc2_btn_undo_hint', 'Отменить (Ctrl+Z)')}>↩ {t('xc2_btn_undo', 'Undo')}</button>
-                        <button onClick={redo} disabled={activeTab.future.length === 0} className="bg-slate-700 disabled:opacity-30 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition font-medium mr-4" title={t('xc2_btn_redo_hint', 'Вернуть (Ctrl+Y)')}>↪ {t('xc2_btn_redo', 'Redo')}</button>
+                        <button onClick={undo} disabled={activeTab.past.length === 0} className="bg-slate-700 disabled:opacity-30 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition font-medium" title={getStr('xc2_btn_undo_hint', 'Отменить (Ctrl+Z)')}>↩ {getStr('xc2_btn_undo', 'Undo')}</button>
+                        <button onClick={redo} disabled={activeTab.future.length === 0} className="bg-slate-700 disabled:opacity-30 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition font-medium mr-4" title={getStr('xc2_btn_redo_hint', 'Вернуть (Ctrl+Y)')}>↪ {getStr('xc2_btn_redo', 'Redo')}</button>
 
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xsd, .xml" className="hidden" />
                         <button onClick={() => fileInputRef.current.click()} className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-1.5 rounded shadow-lg transition font-medium flex items-center gap-2">
-                            <span>📥</span> {t('xc2_btn_import_xsd', 'Импорт XSD')}
+                            <span>📥</span> {getStr('xc2_btn_import_xsd', 'Импорт XSD')}
                         </button>
                         <button onClick={() => setModalOpen(true)} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded shadow-lg transition font-medium flex items-center gap-2">
-                            <span>🤖</span> {t('xc2_btn_import_json', 'Импорт JSON')}
+                            <span>🤖</span> {getStr('xc2_btn_import_json', 'Импорт JSON')}
                         </button>
                     </div>
                 </header>
@@ -732,7 +729,7 @@
                             <span className="tab-close" onClick={(e) => closeTab(e, tab.id)}>✖</span>
                         </div>
                     ))}
-                    <div className="tab hover:bg-slate-800" onClick={addTab} title={t('xc2_hint_new_schema', 'Создать новую схему')}>
+                    <div className="tab hover:bg-slate-800" onClick={addTab} title={getStr('xc2_hint_new_schema', 'Создать новую схему')}>
                         <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span>
                     </div>
                 </div>
@@ -740,7 +737,7 @@
                 <div className="split-pane">
                     <aside className="sidebar">
                         <div className="bg-slate-800 p-3 border-b border-slate-700">
-                            <input type="text" placeholder={t('xc2_ph_search', '🔍 Поиск по дереву...')} value={treeSearchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-md py-1.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                            <input type="text" placeholder={getStr('xc2_ph_search', '🔍 Поиск по дереву...')} value={treeSearchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-md py-1.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
                         </div>
                         <div className="tree-container">
                             {rootNodes.map(n => <TreeNode key={n.id} id={n.id} />)}

@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>ALM Дашборд (Синхронизация)</title>
+    <title data-i18n="d2_page_title">ALM Дашборд (Синхронизация)</title>
     <script src="libs/jquery-3.6.0.min.js"></script>
+    <script src="utils.js"></script>
     <style>
         /* ==========================================================================
            БАЗОВЫЕ СТИЛИ И ТЕМНАЯ ТЕМА
@@ -28,25 +29,27 @@
             --primary-hover: #2563eb;
         }
 
-        html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg-main); font-family: 'Segoe UI', Arial, sans-serif; color: var(--text-main); }
+        html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg-main); font-family: 'Segoe UI', Arial, sans-serif; color: var(--text-main); transition: background 0.3s, color 0.3s; }
         .main-wrapper { display: flex; flex-direction: column; height: 100%; padding: 15px 20px; box-sizing: border-box; }
 
         /* ==========================================================================
            ПАНЕЛИ И КНОПКИ
            ========================================================================== */
-        .panel { background: var(--bg-card); padding: 15px 20px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; flex-shrink: 0; }
+        .panel { background: var(--bg-card); padding: 15px 20px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; flex-shrink: 0; transition: background 0.3s; }
         .header-panel { display: flex; justify-content: space-between; align-items: center; }
-        .btn { background: var(--primary); color: #fff; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; margin-left: 5px; font-weight: 600; }
+        .btn { background: var(--primary); color: #fff; border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 13px; margin-left: 5px; font-weight: 600; transition: 0.2s;}
         .btn:hover { background: var(--primary-hover); }
         .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
         .btn-outline:hover { background: var(--primary); color: #fff; }
+        .btn.warning { background: #f59e0b; color: white; border-color: #f59e0b;}
+        .btn.warning:hover { background: #d97706; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         /* ==========================================================================
            СВОДНАЯ ПАНЕЛЬ (SUMMARY)
            ========================================================================== */
         .summary-panel { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px; flex-shrink: 0; }
-        .summary-box { flex: 1; min-width: 200px; background: var(--bg-card); padding: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 3px solid var(--primary); }
+        .summary-box { flex: 1; min-width: 200px; background: var(--bg-card); padding: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 3px solid var(--primary); transition: background 0.3s; }
         .summary-box h4 { margin: 0 0 10px 0; font-size: 14px; color: var(--text-muted); }
         .summary-item { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; border-bottom: 1px dashed var(--border-color); }
 
@@ -56,7 +59,8 @@
         #config-panel { display: none; }
         .config-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .col-drag-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; max-height: 250px; overflow-y: auto; }
-        .col-drag-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; cursor: grab; font-size: 12px; }
+        .col-drag-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 4px; cursor: grab; font-size: 12px; transition: 0.2s;}
+        .col-drag-item:hover { border-color: var(--primary); }
         .col-drag-item.dragging { opacity: 0.4; background: #e0e7ff; }
         .col-drag-item.over { border: 2px dashed var(--primary); }
         .drag-handle { cursor: grab; color: var(--text-muted); font-weight: bold; }
@@ -65,24 +69,27 @@
         /* ==========================================================================
            ГЛАВНАЯ ТАБЛИЦА С ФИЛЬТРАМИ
            ========================================================================== */
-        .table-container { flex: 1; background: var(--bg-card); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: auto; }
+        .table-container { flex: 1; background: var(--bg-card); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: auto; transition: background 0.3s; border: 1px solid var(--border-color); }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th, td { border: 1px solid var(--border-color); padding: 8px; vertical-align: top; }
-        th { background: var(--bg-main); position: sticky; top: 0; z-index: 10; min-width: 150px; box-shadow: 0 1px 0 var(--border-color); }
-        tr:hover td { background: rgba(0, 0, 0, 0.02); }
+        th { background: var(--bg-main); position: sticky; top: 0; z-index: 10; min-width: 150px; box-shadow: 0 1px 0 var(--border-color); transition: background 0.3s; }
+        tr:hover td { background: var(--bg-main); }
 
         .col-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: var(--primary); margin-bottom: 5px; cursor: pointer; }
-        .col-filter { width: 100%; box-sizing: border-box; padding: 4px; margin-bottom: 5px; border: 1px solid #ccc; font-size: 11px; border-radius: 2px; }
-        .dropdown-btn { width: 100%; padding: 4px; font-size: 11px; cursor: pointer; border: 1px solid #ccc; background: var(--bg-card); color: var(--text-main); margin-bottom: 5px; border-radius: 2px; }
+        .col-filter { width: 100%; box-sizing: border-box; padding: 4px; margin-bottom: 5px; border: 1px solid var(--border-color); font-size: 11px; border-radius: 2px; background: var(--bg-card); color: var(--text-main); outline: none; transition: 0.3s; }
+        .col-filter:focus { border-color: var(--primary); }
+        .dropdown-btn { width: 100%; padding: 4px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); margin-bottom: 5px; border-radius: 2px; outline: none; transition: 0.3s; }
 
-        .dropdown-content { display: none; position: absolute; background: var(--bg-card); width: max-content; min-width: 200px; max-width: 400px; max-height: 250px; overflow-y: auto; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 9999; border: 1px solid #ccc; border-radius: 4px; padding: 5px; top: 100%; left: 0; }
-        .dropdown-content label { display: flex; align-items: flex-start; gap: 5px; padding: 5px; cursor: pointer; font-size: 11px; white-space: normal; border-bottom: 1px solid var(--border-color); margin: 0; color: var(--text-main); }
+        .dropdown-content { display: none; position: absolute; background: var(--bg-card); width: max-content; min-width: 200px; max-width: 400px; max-height: 250px; overflow-y: auto; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 9999; border: 1px solid var(--border-color); border-radius: 4px; padding: 5px; top: 100%; left: 0; }
+        .dropdown-content label { display: flex; align-items: flex-start; gap: 5px; padding: 5px; cursor: pointer; font-size: 11px; white-space: normal; border-bottom: 1px solid var(--border-color); margin: 0; color: var(--text-main); transition: background 0.2s;}
         .dropdown-content label:hover { background: var(--bg-main); }
 
-        .hide-btn { font-size: 10px; width: 100%; padding: 3px; cursor: pointer; border: 1px solid #e0a8a8; background: #fff; color: #c82333; margin-top: 5px; border-radius: 2px; }
+        .hide-btn { font-size: 10px; width: 100%; padding: 3px; cursor: pointer; border: 1px solid #e0a8a8; background: var(--bg-card); color: #c82333; margin-top: 5px; border-radius: 2px; transition: 0.2s; }
+        .hide-btn:hover { background: #c82333; color: white; border-color: #c82333;}
 
-        input[type="text"].config-search { padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 3px; font-size: 12px; }
-        #toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 24px; background: #10b981; color: #fff; border-radius: 4px; font-weight: bold; display: none; z-index: 9999; }
+        input[type="text"].config-search { padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 3px; font-size: 12px; background: var(--bg-card); color: var(--text-main); outline: none; }
+        input[type="text"].config-search:focus { border-color: var(--primary); }
+        #toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 24px; background: #10b981; color: #fff; border-radius: 4px; font-weight: bold; display: none; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
     </style>
 </head>
 <body>
@@ -91,28 +98,28 @@
     <!-- ТУЛБАР -->
     <div class="panel header-panel">
         <div>
-            <h2 style="margin:0; font-size: 18px; color: var(--text-main);">Сводный ALM Дашборд</h2>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Загрузка данных из HTML-файлов и синхронизация с БД</div>
+            <h2 style="margin:0; font-size: 18px; color: var(--text-main);" data-i18n="d2_title">Сводный ALM Дашборд</h2>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" data-i18n="d2_subtitle">Загрузка данных из HTML-файлов и синхронизация с БД</div>
         </div>
         <div>
-            <select id="preset-select" onchange="loadPreset(this.value)" style="padding: 5px; border-radius: 3px; font-size: 12px;">
-                <option value="default">Пресет: Автосохранение</option>
+            <select id="preset-select" onchange="loadPreset(this.value)" style="padding: 5px; border-radius: 3px; font-size: 12px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); outline: none;">
+                <option value="default" data-i18n="d2_preset_auto">Пресет: Автосохранение</option>
             </select>
-            <button class="btn btn-outline" onclick="saveCurrentAsPreset()">💾 Сохранить вид</button>
-            <button class="btn btn-outline" onclick="toggleConfigPanel()">⚙️ Настройка столбцов</button>
-            <button class="btn warning" id="btn-sync" onclick="syncWithDB()">🚀 Отправить в БД</button>
-            <button class="btn" onclick="fetchAlmData()">🔄 Загрузить из HTML</button>
+            <button class="btn btn-outline" onclick="saveCurrentAsPreset()" data-i18n="d2_btn_save_preset">💾 Сохранить вид</button>
+            <button class="btn btn-outline" onclick="toggleConfigPanel()" data-i18n="d2_btn_config_cols">⚙️ Настройка столбцов</button>
+            <button class="btn warning" id="btn-sync" onclick="syncWithDB()" data-i18n="d2_btn_sync">🚀 Отправить в БД</button>
+            <button class="btn" onclick="fetchAlmData()" data-i18n="d2_btn_load_html">🔄 Загрузить из HTML</button>
         </div>
     </div>
 
     <!-- ПАНЕЛЬ КОНФИГУРАЦИИ СТОЛБЦОВ -->
     <div class="panel" id="config-panel">
         <div class="config-header">
-            <strong>Отображаемые столбцы (Drag & Drop):</strong>
+            <strong data-i18n="d2_config_title">Отображаемые столбцы (Drag & Drop):</strong>
             <div style="display: flex; gap: 5px;">
-                <input type="text" class="config-search" id="col-search-input" placeholder="Поиск столбца..." onkeyup="filterConfigColumns()">
-                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="sortColumnsAlpha()">А-Я</button>
-                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="resetColumnsOrder()">Сброс порядка</button>
+                <input type="text" class="config-search" id="col-search-input" data-i18n="d2_search_col_ph" placeholder="Поиск столбца..." onkeyup="filterConfigColumns()">
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="sortColumnsAlpha()" data-i18n="d2_btn_az">А-Я</button>
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="resetColumnsOrder()" data-i18n="d2_btn_reset_order">Сброс порядка</button>
             </div>
         </div>
         <ul class="col-drag-list" id="column-list"></ul>
@@ -126,7 +133,7 @@
         <table id="dashboard-table">
             <thead id="table-head"></thead>
             <tbody id="table-body">
-            <tr><td style="text-align:center; padding:30px; color:var(--text-muted);">Ожидание сканирования файлов...</td></tr>
+            <tr><td style="text-align:center; padding:30px; color:var(--text-muted);" data-i18n="d2_waiting_scan">Ожидание сканирования файлов...</td></tr>
             </tbody>
         </table>
     </div>
@@ -145,6 +152,7 @@
     let state = { textFilters: {}, checkFilters: {}, sortCol: null, sortAsc: true };
 
     $(function() {
+        if(typeof initLocalization === 'function') initLocalization();
         if(typeof applyTheme === 'function') applyTheme(localStorage.getItem('global_dark_theme') === 'true');
         refreshPresetDropdown();
         fetchAlmData();
@@ -234,7 +242,7 @@
     // 1. ЗАГРУЗКА ИЗ ALM
     // ==========================================================================
     function fetchAlmData() {
-        $('#table-body').html(`<tr><td style="text-align:center; padding:30px;">🔄 Сканирование HTML файлов...</td></tr>`);
+        $('#table-body').html(`<tr><td style="text-align:center; padding:30px; color:var(--text-muted);">${t('d2_scanning', '🔄 Сканирование HTML файлов...')}</td></tr>`);
 
         $.get('/api/alm/scan-html', function(res) {
             if (res.error) {
@@ -247,7 +255,7 @@
             allHeaders = res.headers || [];
 
             if (scannedTasks.length === 0) {
-                $('#table-body').html(`<tr><td style="text-align:center;">Задачи не найдены.</td></tr>`);
+                $('#table-body').html(`<tr><td style="text-align:center; color:var(--text-muted);">${t('d2_no_tasks_found', 'Задачи не найдены.')}</td></tr>`);
                 return;
             }
 
@@ -264,7 +272,7 @@
             renderColumnConfig();
             renderTableStructure();
         }).fail(() => {
-            showToast('Ошибка обращения к API сканирования.', true);
+            showToast(t('d2_err_api_scan', 'Ошибка обращения к API сканирования.'), true);
         });
     }
 
@@ -272,10 +280,10 @@
     // 2. ОТПРАВКА В БД (СИНХРОНИЗАЦИЯ)
     // ==========================================================================
     async function syncWithDB() {
-        if (scannedTasks.length === 0) return showToast("Нет задач для синхронизации!", true);
+        if (scannedTasks.length === 0) return showToast(t('d2_err_no_tasks', "Нет задач для синхронизации!"), true);
 
         const btn = $('#btn-sync');
-        btn.prop('disabled', true).text('⏳ Синхронизация...');
+        btn.prop('disabled', true).text(t('d2_btn_syncing', '⏳ Синхронизация...'));
 
         try {
             const response = await $.ajax({
@@ -284,11 +292,11 @@
                 contentType: 'application/json',
                 data: JSON.stringify({ tasks: scannedTasks })
             });
-            showToast(`✅ Успешно! Обновлено существующих задач: ${response.updated}`);
+            showToast(`${t('d2_msg_sync_ok', '✅ Успешно! Обновлено существующих задач: ')}${response.updated}`);
         } catch (err) {
-            showToast("Ошибка при синхронизации: " + (err.responseJSON ? err.responseJSON.error : "Сбой сети"), true);
+            showToast(t('d2_err_sync', "Ошибка при синхронизации: ") + (err.responseJSON ? err.responseJSON.error : t('d2_err_network', "Сбой сети")), true);
         } finally {
-            btn.prop('disabled', false).text('🚀 Отправить в БД');
+            btn.prop('disabled', false).text(t('d2_btn_sync', '🚀 Отправить в БД'));
         }
     }
 
@@ -307,12 +315,12 @@
                     <div class="col-header sortable" data-col="${i}">
                         <span>${escapeHtml(col.title)}</span> <span>${sortIcon}</span>
                     </div>
-                    <input type="text" class="col-filter" data-col="${i}" placeholder="Поиск..." value="${state.textFilters[i] || ''}">
+                    <input type="text" class="col-filter" data-col="${i}" placeholder="${t('d2_ph_search', 'Поиск...')}" value="${state.textFilters[i] || ''}">
                     <div style="position: relative;">
-                        <button class="dropdown-btn" data-col="${i}">Значения ▼</button>
+                        <button class="dropdown-btn" data-col="${i}">${t('d2_btn_values', 'Значения ▼')}</button>
                         <div class="dropdown-content" id="dd-content-${i}"></div>
                     </div>
-                    <button class="hide-btn" data-col="${i}">Скрыть столбец</button>
+                    <button class="hide-btn" data-col="${i}">${t('d2_btn_hide_col', 'Скрыть столбец')}</button>
                 </th>
             `);
         });
@@ -387,7 +395,7 @@
 
         let visibleCount = 0;
         let statusCounts = {};
-        let statusColIdx = currentColumns.findIndex(c => c.title.toLowerCase().includes('статус'));
+        let statusColIdx = currentColumns.findIndex(c => c.title.toLowerCase().includes('статус') || c.title.toLowerCase().includes('status'));
 
         // Применяем фильтры к строкам
         tbodyTrs.each(function() {
@@ -417,10 +425,10 @@
         });
 
         // Обновление сводной панели (Summary)
-        let summaryHtml = `<div class="summary-box"><h4>Всего задач</h4><div class="summary-item"><span>Отображается:</span> <strong>${visibleCount}</strong></div></div>`;
+        let summaryHtml = `<div class="summary-box"><h4>${t('d2_stat_total', 'Всего задач')}</h4><div class="summary-item"><span>${t('d2_stat_visible', 'Отображается:')}</span> <strong>${visibleCount}</strong></div></div>`;
         if (Object.keys(statusCounts).length > 0) {
-            let stats = Object.entries(statusCounts).map(([k,v]) => `<div class="summary-item"><span>${escapeHtml(k) || 'Пусто'}:</span> <strong>${v}</strong></div>`).join('');
-            summaryHtml += `<div class="summary-box"><h4>Разбивка по статусам</h4>${stats}</div>`;
+            let stats = Object.entries(statusCounts).map(([k,v]) => `<div class="summary-item"><span>${escapeHtml(k) || t('d2_stat_empty', 'Пусто')}:</span> <strong>${v}</strong></div>`).join('');
+            summaryHtml += `<div class="summary-box"><h4>${t('d2_stat_status', 'Разбивка по статусам')}</h4>${stats}</div>`;
         }
         $('#summary-panel').html(summaryHtml);
     }
@@ -434,7 +442,7 @@
             list.append(`
                 <li draggable="true" data-idx="${idx}" class="col-drag-item config-li-item" title="${escapeHtml(col.title)}">
                     <span class="drag-handle">☰</span>
-                    <input type="checkbox" id="cb_${idx}" ${col.visible ? 'checked' : ''} onchange="toggleConfigVisibility(${idx})">
+                    <input type="checkbox" id="cb_${idx}" ${col.visible ? 'checked' : ''} onchange="toggleConfigVisibility(${idx})" style="cursor:pointer; margin:0;">
                     <label for="cb_${idx}" class="col-name-label">${escapeHtml(col.title)}</label>
                 </li>
             `);
@@ -477,6 +485,7 @@
 
     function attachDragEvents() {
         const items = document.querySelectorAll('.col-drag-item');
+        let dragSrcEl = null;
         items.forEach(item => {
             item.addEventListener('dragstart', function(e) {
                 dragSrcEl = this;
@@ -522,20 +531,20 @@
     }
 
     window.saveCurrentAsPreset = function() {
-        const name = prompt("Введите имя для этого пресета (порядка и видимости столбцов):", "Моя выборка 1");
+        const name = prompt(t('d2_prompt_preset', "Введите имя для этого пресета (порядка и видимости столбцов):"), t('d2_def_preset_name', "Моя выборка 1"));
         if (name && name.trim()) {
             presets[name.trim()] = JSON.parse(JSON.stringify(currentColumns));
             localStorage.setItem('alm_dump_presets', JSON.stringify(presets));
             refreshPresetDropdown(name.trim());
-            showToast("Пресет успешно сохранен!");
+            showToast(t('d2_msg_preset_saved', "Пресет успешно сохранен!"));
         }
     }
 
     function refreshPresetDropdown(selected = 'Автосохранение') {
         const sel = $('#preset-select').empty();
-        sel.append('<option value="default">Пресет: Автосохранение</option>');
+        sel.append(`<option value="default">${t('d2_preset_auto', 'Пресет: Автосохранение')}</option>`);
         Object.keys(presets).forEach(k => {
-            if (k !== 'Автосохранение') sel.append(`<option value="${k}">Пресет: ${escapeHtml(k)}</option>`);
+            if (k !== 'Автосохранение') sel.append(`<option value="${k}">${t('d2_preset_prefix', 'Пресет: ')}${escapeHtml(k)}</option>`);
         });
         if(presets[selected]) sel.val(selected);
     }
